@@ -26,3 +26,47 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual Environments (anywhere in the tree)
+venv/
+env/
+.venv/
+.env/
+ENV/
+env.bak/
+venv.bak/
+*/venv/
+*/env/
+*/.venv/
+**/venv/
+**/env/
+**/.venv/
+*/lib/
+*/bin/
+*/include/
+*/share/
+**/lib/python*/
+**/Lib/site-packages/
+pyvenv.cfg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Project specific
+mvp1-report-analysis/venv/
+mvp2-web-scraping/venv/
+backend/*/venv/
