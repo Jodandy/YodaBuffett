@@ -14,9 +14,14 @@ Extensible platform for institutional-grade financial research. AI-assisted anal
 Building extensible platform for any financial analysis, not just specific features.
 
 ## Current Development Focus
-🔬 **MVP 1: AI-Powered Report Analysis** - Building proof-of-concept for LLM-based financial document analysis
+✅ **MVP 1: AI-Powered Report Analysis** - COMPLETE! 
+- Successfully extracts & analyzes SEC filings + international reports
+- Cost: ~$0.004 per document | Processing: 3-5 seconds
+- Learnings: [mvp1-report-analysis/MVP1_LEARNINGS.md](./mvp1-report-analysis/MVP1_LEARNINGS.md)
 
-See: [Development Roadmap](./docs/roadmap/README.md) | [Current MVP Details](./docs/roadmap/mvp1-report-analysis.md)
+🔬 **MVP 2: Web Scraping & Real-time Data** - Starting next
+- Earnings transcripts, live prices, news sentiment
+- See: [Development Roadmap](./docs/roadmap/README.md)
 
 ## Documentation Structure
 
@@ -31,6 +36,7 @@ See: [Development Roadmap](./docs/roadmap/README.md) | [Current MVP Details](./d
 | **Known limitations** | [docs/architecture/limitations.md](./docs/architecture/limitations.md) |
 | **Adding features** | [docs/development/extensibility.md](./docs/development/extensibility.md) |
 | **Running the system** | [docs/operations/human-operator-guide.md](./docs/operations/human-operator-guide.md) |
+| **Financial terms** | [glossary.md](./glossary.md) |
 | **Service-specific work** | `backend/[service]/CLAUDE.md` |
 
 ## Quick Commands

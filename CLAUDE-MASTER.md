@@ -67,6 +67,7 @@ YodaBuffett/
 │   │   └── monetization-strategy.md # Pricing, market strategy
 │   └── user-experience/
 │       └── personalization-architecture.md # UX, personalization
+├── glossary.md                       # Financial terms and definitions
 ├── backend/
 │   ├── api-gateway/
 │   │   └── CLAUDE.md               # Service-specific context
@@ -114,6 +115,7 @@ YodaBuffett/
 **Need to run/manage system?** → `docs/operations/human-operator-guide.md`  
 **Business planning?** → `docs/business/monetization-strategy.md`  
 **UX/personalization?** → `docs/user-experience/personalization-architecture.md`  
+**Need financial term definitions?** → `glossary.md`  
 **Service-specific work?** → `backend/[service]/CLAUDE.md`  
 **Local development setup?** → `docs/deployment/getting-started.md`
 

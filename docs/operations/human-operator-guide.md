@@ -381,3 +381,16 @@ gzip data/backups/*.sql
 - **System Administrator**: [Your contact info]
 - **Database Admin**: [Contact info]
 - **Security Team**: [Contact info]
+
+## External Service Credentials
+
+### Email Accounts
+
+#### Investor Relations Email
+- **Email**: yodabuffett.ir@gmail.com
+- **Password**: !BuffayTime3214
+- **Purpose**: Subscribe to company IR newsletters and receive automated financial reports
+- **Setup Notes**:
+  - Enable "Less secure app access" or use App Password
+  - Check inbox regularly for report notifications
+  - Configure email parsing pipeline to extract PDFs

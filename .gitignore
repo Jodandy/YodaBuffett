@@ -70,3 +70,7 @@ pyvenv.cfg
 mvp1-report-analysis/venv/
 mvp2-web-scraping/venv/
 backend/*/venv/
+
+# Documents (to be stored properly later)
+*.pdf
+*.PDF
