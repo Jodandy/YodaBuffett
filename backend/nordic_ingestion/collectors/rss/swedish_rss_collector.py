@@ -66,6 +66,16 @@ class SwedishRSSCollector:
             'earnings': [
                 'resultat', 'earnings', 'vinst', 'förlust', 'profit', 'loss',
                 'omsättning', 'revenue', 'intäkter'
+            ],
+            'corporate_action': [
+                'förvärv', 'acquisition', 'acquire', 'merger', 'fusion',
+                'avyttring', 'divestment', 'utdelning', 'dividend',
+                'återköp', 'buyback', 'emission', 'offering',
+                'invests', 'investerar', 'köper', 'buys'
+            ],
+            'governance': [
+                'röster', 'votes', 'voting', 'shares', 'aktier',
+                'styrelse', 'board', 'vd', 'ceo', 'agm', 'årsstämma'
             ]
         }
     
@@ -307,14 +317,14 @@ class SwedishRSSCollector:
         return items
     
     def _is_financial_relevant(self, title: str, description: str) -> bool:
-        """Check if RSS item is financially relevant"""
+        """Check if RSS item is investment-relevant"""
         
         text = f"{title} {description}".lower()
         
-        # Check for financial keywords
+        # Check for investment-relevant keywords (financials, M&A, governance)
         for category_keywords in self.financial_keywords.values():
             for keyword in category_keywords:
-                if keyword in text:
+                if keyword.lower() in text:
                     return True
         
         # Additional relevance indicators
@@ -334,7 +344,7 @@ class SwedishRSSCollector:
         # Check each category
         for doc_type, keywords in self.financial_keywords.items():
             for keyword in keywords:
-                if keyword in text:
+                if keyword.lower() in text:
                     if doc_type == 'quarterly_report':
                         # Determine which quarter
                         if any(q in text for q in ['q1', 'första kvartalet']):
@@ -343,10 +353,18 @@ class SwedishRSSCollector:
                             return 'Q2'
                         elif any(q in text for q in ['q3', 'tredje kvartalet']):
                             return 'Q3'
+                        elif any(q in text for q in ['q4', 'fjärde kvartalet']):
+                            return 'Q4'
                         else:
                             return 'Q2'  # Default quarterly to Q2
                     elif doc_type == 'annual_report':
                         return 'annual'
+                    elif doc_type == 'corporate_action':
+                        return 'corporate_action'  # M&A, investments, divestitures
+                    elif doc_type == 'governance':
+                        return 'governance'  # Board changes, voting, AGM
+                    elif doc_type == 'earnings':
+                        return 'earnings'  # Earnings-specific news
                     elif doc_type == 'press_release':
                         return 'press_release'
         

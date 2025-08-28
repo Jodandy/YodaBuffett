@@ -6,7 +6,8 @@ from datetime import datetime
 from uuid import uuid4
 
 # Sample Swedish companies with real RSS feeds and IR pages
-SWEDISH_COMPANIES = [
+# Listed roughly by market cap (largest first)
+SAMPLE_COMPANIES = [
     {
         "id": str(uuid4()),
         "name": "Volvo Group",
@@ -191,6 +192,166 @@ SWEDISH_COMPANIES = [
                 "status": "active"
             }
         ]
+    },
+    
+    {
+        "id": str(uuid4()),
+        "name": "AstraZeneca",
+        "ticker": "AZN",
+        "exchange": "OMXS30",
+        "country": "SE",
+        "market_cap_category": "Mega",  # Largest Swedish company by market cap
+        "sector": "Healthcare",
+        "ir_email": "ir@astrazeneca.com",
+        "ir_website": "https://www.astrazeneca.com/investor-relations/",
+        "website": "https://www.astrazeneca.com",
+        "reporting_language": "en",
+        "data_sources": [
+            {
+                "source_type": "email_subscription",
+                "priority": 1,  # Email is primary for AstraZeneca
+                "config": {
+                    "signup_url": "https://www.astrazeneca.com/investor-relations/",
+                    "notes": "No RSS feed available - email subscription required"
+                },
+                "status": "pending"
+            },
+            {
+                "source_type": "web_scraping",
+                "priority": 2,
+                "config": {
+                    "url": "https://www.astrazeneca.com/media-centre/press-releases.html",
+                    "selectors": {
+                        "articles": ".resource-list-item",
+                        "title": ".headline",
+                        "date": ".date",
+                        "link": "a.href"
+                    },
+                    "notes": "Fallback - scrape press releases page"
+                },
+                "status": "pending"
+            },
+            {
+                "source_type": "ir_calendar",
+                "priority": 3,
+                "config": {
+                    "url": "https://www.astrazeneca.com/investor-relations/events/",
+                    "selectors": {
+                        "events": ".event-item",
+                        "date": ".event-date",
+                        "title": ".event-title",
+                        "type": ".event-type"
+                    }
+                },
+                "status": "pending"
+            }
+        ]
+    },
+    
+    {
+        "id": str(uuid4()),
+        "name": "Investor AB",
+        "ticker": "INVE-B",
+        "exchange": "OMXS30",
+        "country": "SE",
+        "market_cap_category": "Mega",  # Second largest, investment company
+        "sector": "Financials",
+        "ir_email": "ir@investorab.com",
+        "ir_website": "https://www.investorab.com/investors/",
+        "website": "https://www.investorab.com",
+        "reporting_language": "en",
+        "data_sources": [
+            {
+                "source_type": "rss_feed",
+                "priority": 1,
+                "config": {
+                    "urls": [
+                        "https://www.investorab.com/press-and-media/rss/"
+                    ]
+                },
+                "status": "active"
+            }
+        ]
+    },
+    
+    {
+        "id": str(uuid4()),
+        "name": "Nordea Bank Abp",
+        "ticker": "NDA-SE",
+        "exchange": "OMXS30",
+        "country": "SE",
+        "market_cap_category": "Mega",  # Large Nordic bank
+        "sector": "Financials",
+        "ir_email": "investor.relations@nordea.com",
+        "ir_website": "https://www.nordea.com/en/investors/",
+        "website": "https://www.nordea.com",
+        "reporting_language": "en",
+        "data_sources": [
+            {
+                "source_type": "rss_feed",
+                "priority": 1,
+                "config": {
+                    "urls": [
+                        "https://www.nordea.com/en/news-and-media/news-and-press-releases/rss"
+                    ]
+                },
+                "status": "active"
+            }
+        ]
+    },
+    
+    {
+        "id": str(uuid4()),
+        "name": "ABB Ltd",
+        "ticker": "ABB",
+        "exchange": "OMXS30",
+        "country": "SE",
+        "market_cap_category": "Mega",  # Swedish-Swiss engineering company
+        "sector": "Industrials",
+        "ir_email": "investor.relations@abb.com",
+        "ir_website": "https://global.abb/group/en/investors/",
+        "website": "https://global.abb/group/en",
+        "reporting_language": "en",
+        "data_sources": [
+            {
+                "source_type": "web_scraping",
+                "priority": 1,  # Primary method for ABB
+                "config": {
+                    "url": "https://global.abb/group/en/media/press-releases",
+                    "selectors": {
+                        "articles": ".press-release-item",
+                        "title": ".title",
+                        "date": ".date",
+                        "link": "a.href"
+                    },
+                    "notes": "No RSS or email alerts - must scrape"
+                },
+                "status": "pending"
+            },
+            {
+                "source_type": "ir_calendar",
+                "priority": 2,
+                "config": {
+                    "url": "https://global.abb/group/en/investors/investor-calendar",
+                    "selectors": {
+                        "events": ".calendar-event",
+                        "date": ".event-date",
+                        "title": ".event-title",
+                        "type": ".event-type"
+                    }
+                },
+                "status": "pending"
+            },
+            {
+                "source_type": "manual_monitoring",
+                "priority": 3,
+                "config": {
+                    "check_frequency": "weekly",
+                    "notes": "ABB has no automated options - check manually or via Bloomberg/Reuters"
+                },
+                "status": "active"
+            }
+        ]
     }
 ]
 
@@ -231,7 +392,7 @@ async def load_sample_companies_to_database():
         companies_added = 0
         sources_added = 0
         
-        for company_data in SWEDISH_COMPANIES:
+        for company_data in SAMPLE_COMPANIES:
             # Create company
             company = NordicCompany(
                 id=company_data["id"],

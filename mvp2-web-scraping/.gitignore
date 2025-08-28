@@ -26,6 +26,14 @@ pyvenv.cfg
 .env
 .env.local
 
+# Environment files
+/.env
+/.env.example
+*/.env
+*/.env.example
+*/*.env
+*/*.env.example
+
 # Data files
 data/
 *.pdf

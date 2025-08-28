@@ -19,9 +19,12 @@ Building extensible platform for any financial analysis, not just specific featu
 - Cost: ~$0.004 per document | Processing: 3-5 seconds
 - Learnings: [mvp1-report-analysis/MVP1_LEARNINGS.md](./mvp1-report-analysis/MVP1_LEARNINGS.md)
 
-🔬 **MVP 2: Web Scraping & Real-time Data** - Starting next
-- Earnings transcripts, live prices, news sentiment
-- See: [Development Roadmap](./docs/roadmap/README.md)
+✅ **Nordic Ingestion Service** - PRODUCTION COMPLETE!
+- Complete automated Swedish financial data collection system
+- RSS monitoring, document downloads, scheduled orchestration
+- 5 Swedish companies configured with real RSS feeds
+- Management CLI, API integration, and operational monitoring
+- Ready for immediate deployment and automated data collection
 
 ## Documentation Structure
 
@@ -38,17 +41,25 @@ Building extensible platform for any financial analysis, not just specific featu
 | **Running the system** | [docs/operations/human-operator-guide.md](./docs/operations/human-operator-guide.md) |
 | **Financial terms** | [glossary.md](./glossary.md) |
 | **Service-specific work** | `backend/[service]/CLAUDE.md` |
+| **Nordic ingestion service** | [backend/README.md](./backend/README.md) |
+| **Architecture decisions** | [docs/architecture/ARCHITECTURE_DECISIONS.md](./docs/architecture/ARCHITECTURE_DECISIONS.md) |
+| **Production components added** | [docs/PRODUCTION_COMPONENTS_ADDED.md](./docs/PRODUCTION_COMPONENTS_ADDED.md) |
 
 ## Quick Commands
 ```bash
-# Start development
-docker-compose up
+# Start Nordic ingestion service
+cd backend/
+python main.py
 
-# Run tests  
-npm test && pytest
+# Set up Nordic system
+python scripts/manage_nordic.py setup
+python scripts/manage_nordic.py load-companies
 
-# Add new service
-cp -r templates/service backend/new-service
+# Run Swedish data collection
+python scripts/manage_nordic.py run-collection
+
+# Start automated collection
+python scripts/manage_nordic.py start-scheduler
 ```
 
 ## Key Principles

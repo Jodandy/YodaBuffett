@@ -123,9 +123,17 @@ class DocumentDownloader:
             
             await db.commit()
             
-            # Record metrics
+            # Record metrics - extract company name from metadata
+            company_name = "Unknown"
+            if document.metadata_ and 'mfn_source' in document.metadata_:
+                import re
+                mfn_url = document.metadata_['mfn_source']
+                company_match = re.search(r'/a/([^?]+)', mfn_url)
+                if company_match:
+                    company_name = company_match.group(1).title()  # sandvik -> Sandvik
+            
             record_document_processed(
-                "Volvo",  # For now, since we know it's Volvo
+                company_name,
                 document.document_type, 
                 "downloaded"
             )
@@ -258,53 +266,111 @@ class DocumentDownloader:
         Create highly scalable directory structure for company data storage
         
         Structure: data/companies/{country}/{first_letter}/{company}/{year}/{document_type}/
-        Example: data/companies/SE/V/volvo/2025/Q2/
+        Example: data/companies/SE/S/sandvik/2025/quarterly_report/
         """
         from datetime import datetime
         
-        # Extract year from document (report period or ingestion date)
+        # Extract year from document title or use current year
         year = "2025"  # Default for now
-        if document.report_period:
+        if document.report_period and document.report_period != "Unknown":
             # Try to extract year from report period (e.g., "Q2_2025")
             if "_" in document.report_period and document.report_period.split("_")[-1].isdigit():
                 year = document.report_period.split("_")[-1]
+        elif document.title:
+            # Extract year from title if available
+            import re
+            year_match = re.search(r'20(2[0-9])', document.title)
+            if year_match:
+                year = year_match.group(0)
         
-        # Get country from document (we'll need to fetch company info)
-        country = document.country if hasattr(document, 'country') else "SE"
+        # Get country (default to Sweden)
+        country = "SE"
         
-        # Company folder (clean, filesystem-safe)
-        company_folder = "volvo"  # For now, since we know it's Volvo
+        # Determine company name from the MFN source URL in metadata
+        company_folder = "unknown"
+        if document.metadata_ and 'mfn_source' in document.metadata_:
+            mfn_url = document.metadata_['mfn_source']
+            # Extract company from MFN URL: "https://mfn.se/all/a/sandvik?limit=5" -> "sandvik"
+            import re
+            company_match = re.search(r'/a/([^?]+)', mfn_url)
+            if company_match:
+                company_folder = company_match.group(1)
+        
+        # Clean company name for filesystem
+        import re
+        company_folder = re.sub(r'[^\w\-]', '', company_folder).lower()
         
         # First letter for alphabetical bucketing (handles thousands of companies)
-        first_letter = company_folder[0].upper()
+        first_letter = company_folder[0].upper() if company_folder else "U"
         
         # Document type folder
         doc_type = document.document_type or "unknown"
         
-        # Build path: data/companies/SE/V/volvo/2025/Q2/
+        # Build path: data/companies/SE/S/sandvik/2025/quarterly_report/
         return self.storage_path / "companies" / country / first_letter / company_folder / year / doc_type
     
     def _generate_filename(self, document, pdf_url: str) -> str:
         """
         Generate clean, standardized filename
         
-        Format: {report_period}-{document_type}-report.pdf
+        Format: {report_period}-{document_type}.pdf
         Example: q2-2025-quarterly-report.pdf
         """
         # Document type (clean)
         doc_type = document.document_type or "unknown"
-        if doc_type == "Q2":
-            doc_type = "quarterly"
+        if doc_type == "quarterly_report":
+            doc_type = "quarterly-report"
         elif doc_type == "press_release":
             doc_type = "press-release"
+        elif doc_type == "annual_report":
+            doc_type = "annual-report"
         
-        # Report period (clean)
+        # Extract report period from title if not available
         period = document.report_period or "unknown"
+        if period == "Unknown" and document.title:
+            # Try to extract quarter/year from Swedish and English titles
+            title_lower = document.title.lower()
+            
+            # Swedish: "delårsrapport andra kvartalet 2025" -> "q2-2025"
+            if "andra kvartalet 2025" in title_lower:
+                period = "q2-2025"
+            elif "första kvartalet 2025" in title_lower:
+                period = "q1-2025"
+            elif "tredje kvartalet 2025" in title_lower:
+                period = "q3-2025"
+            elif "fjärde kvartalet 2025" in title_lower:
+                period = "q4-2025"
+            # English: "second quarter 2025" -> "q2-2025"
+            elif "second quarter 2025" in title_lower:
+                period = "q2-2025"
+            elif "first quarter 2025" in title_lower:
+                period = "q1-2025"
+            elif "third quarter 2025" in title_lower:
+                period = "q3-2025"
+            elif "fourth quarter 2025" in title_lower:
+                period = "q4-2025"
+            # Year only
+            elif "2025" in title_lower:
+                period = "2025"
+            elif "2024" in title_lower:
+                period = "2024"
+        
+        # Clean up period format
         if "_" in period:
             period = period.replace("_", "-")  # Q2_2025 -> Q2-2025
-        
+            
         # Generate clean filename
-        filename = f"{period}-{doc_type}-report.pdf"
+        if period != "unknown":
+            filename = f"{period}-{doc_type}.pdf"
+        else:
+            # Fallback: use first few words of title
+            title_words = document.title[:30].replace(" ", "-") if document.title else "document"
+            filename = f"{title_words}-{doc_type}.pdf"
+        
+        # Clean up filename
+        import re
+        filename = re.sub(r'[^\w\-\.]', '', filename)  # Remove special chars
+        filename = re.sub(r'-+', '-', filename)        # Collapse multiple dashes
         
         return filename.lower()
     

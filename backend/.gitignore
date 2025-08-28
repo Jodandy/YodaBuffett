@@ -1,2 +1,10 @@
 backend/.env
 mvp1-report-analysis/.env
+
+# Environment files
+/.env
+/.env.example
+*/.env
+*/.env.example
+*/*.env
+*/*.env.example
