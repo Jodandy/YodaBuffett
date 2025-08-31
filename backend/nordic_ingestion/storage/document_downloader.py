@@ -311,10 +311,10 @@ class DocumentDownloader:
     
     def _generate_filename(self, document, pdf_url: str) -> str:
         """
-        Generate clean, standardized filename
+        Generate clean, standardized filename with publish date
         
-        Format: {report_period}-{document_type}.pdf
-        Example: q2-2025-quarterly-report.pdf
+        Format: {publish_date}-{report_period}-{document_type}.pdf
+        Example: 2025-07-16-q2-quarterly-report.pdf
         """
         # Document type (clean)
         doc_type = document.document_type or "unknown"
@@ -324,10 +324,14 @@ class DocumentDownloader:
             doc_type = "press-release"
         elif doc_type == "annual_report":
             doc_type = "annual-report"
+        elif doc_type == "corporate_action":
+            doc_type = "corporate-action"
+        elif doc_type == "governance":
+            doc_type = "governance-update"
         
         # Extract report period from title if not available
-        period = document.report_period or "unknown"
-        if period == "Unknown" and document.title:
+        period = (document.report_period or "unknown").lower()
+        if period == "unknown" and document.title:
             # Try to extract quarter/year from Swedish and English titles
             title_lower = document.title.lower()
             
@@ -358,14 +362,39 @@ class DocumentDownloader:
         # Clean up period format
         if "_" in period:
             period = period.replace("_", "-")  # Q2_2025 -> Q2-2025
+        
+        # Get publish date
+        date_prefix = ""
+        if document.publish_date:
+            date_prefix = document.publish_date.strftime("%Y-%m-%d-")
+        elif document.metadata_ and 'publication_date' in document.metadata_:
+            # Fallback to metadata if publish_date not set
+            try:
+                from datetime import datetime
+                pub_date = datetime.fromisoformat(document.metadata_['publication_date'].replace('Z', '+00:00'))
+                date_prefix = pub_date.strftime("%Y-%m-%d-")
+            except:
+                pass
             
-        # Generate clean filename
+        # Generate clean filename with date prefix
         if period != "unknown":
-            filename = f"{period}-{doc_type}.pdf"
+            filename = f"{date_prefix}{period}-{doc_type}.pdf"
         else:
-            # Fallback: use first few words of title
-            title_words = document.title[:30].replace(" ", "-") if document.title else "document"
-            filename = f"{title_words}-{doc_type}.pdf"
+            # When we have a date but no period, include title snippet
+            if date_prefix and document.title:
+                # Extract meaningful words from title (skip common words)
+                title_lower = document.title.lower()
+                skip_words = {'sandvik', 'the', 'of', 'and', 'a', 'an', 'in', 'on', 'at', 'to', 'for'}
+                words = [w for w in title_lower.split() if w not in skip_words and len(w) > 2]
+                title_snippet = "-".join(words[:3])  # First 3 meaningful words
+                if title_snippet:
+                    filename = f"{date_prefix}{title_snippet}-{doc_type}.pdf"
+                else:
+                    filename = f"{date_prefix}{doc_type}.pdf"
+            else:
+                # No date available - use title words
+                title_words = document.title[:30].replace(" ", "-") if document.title else "document"
+                filename = f"{date_prefix}{title_words}-{doc_type}.pdf"
         
         # Clean up filename
         import re

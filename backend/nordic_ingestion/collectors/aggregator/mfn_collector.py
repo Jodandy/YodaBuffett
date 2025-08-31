@@ -5,10 +5,13 @@ Single source for all Swedish company financial news and reports
 import asyncio
 import aiohttp
 from bs4 import BeautifulSoup
-from typing import List, Dict, Any
-from datetime import datetime
+from typing import List, Dict, Any, Optional
+from datetime import datetime, date
 import re
 from dataclasses import dataclass
+from nordic_ingestion.common.company_mappings import get_company_name
+from nordic_ingestion.storage.slug_manager import SlugManager
+from shared.database import AsyncSessionLocal
 
 @dataclass
 class MFNNewsItem:
@@ -36,8 +39,10 @@ class MFNCollector:
     def __init__(self, rate_limit_delay: float = 2.0):
         self.base_url = "https://mfn.se/all/a"
         self.rate_limit_delay = rate_limit_delay  # Seconds between requests
+        self.enable_slug_resolution = True  # Auto-retry with slug variations
         # Company name mapping: database_name -> mfn_url_slug
         self.company_url_mapping = {
+            "2cureX AB": "2curex",
             "Volvo Group": "volvo",
             "AstraZeneca": "astrazeneca", 
             "Atlas Copco AB": "atlas-copco",
@@ -102,42 +107,201 @@ class MFNCollector:
         session: aiohttp.ClientSession, 
         company: str,
         limit: int = 50,
-        full_backfill: bool = False
+        full_backfill: bool = True,
+        chunk_size: int = 50,
+        save_callback = None,
+        _recursion_depth: int = 0
     ) -> List[MFNNewsItem]:
         """
-        Collect news for a specific company with pagination support
+        Collect news for a specific company with chunked processing support
         
         Args:
             session: HTTP session
             company: Company slug (e.g., 'volvo', 'astrazeneca')
-            limit: Number of items to fetch (default: 50 for daily updates)
+            limit: Number of items to fetch (default: 50 for daily updates, 0 = no limit)
             full_backfill: If True, fetch 1000+ items for historical data
+            chunk_size: Process items in chunks of this size (default: 50)
+            save_callback: Optional function to call for saving chunks (items) -> None
             
         Returns:
             List of news items for the company
         """
         if full_backfill:
-            limit = 150  # ~5 years of data (30 events/year × 5 years)
+            url_limit = 240  # ~5 years of data (30 events/year × 5 years)
+        elif limit == 0:
+            url_limit = 1000  # Large number to get all items when limit=0
+        else:
+            url_limit = limit
             
-        url = f"{self.base_url}/{company}?limit={limit}"
+        url = f"{self.base_url}/{company}?limit={url_limit}"
         
         try:
             async with session.get(url) as response:
                 if response.status != 200:
+                    # If 404 and slug resolution enabled, try to find correct slug
+                    # But limit recursion to prevent infinite loops
+                    if response.status == 404 and self.enable_slug_resolution and _recursion_depth < 2:
+                        print(f"🔄 404 for {company}, attempting slug resolution...")
+                        resolved_slug = await self._resolve_company_slug(session, company)
+                        if resolved_slug and resolved_slug != company:
+                            print(f"🎯 Retrying with resolved slug: {resolved_slug}")
+                            return await self.collect_company_news(session, resolved_slug, limit, full_backfill, chunk_size, save_callback, _recursion_depth + 1)
+                        else:
+                            print(f"🚫 No valid slug variation found for {company}")
                     return []
                     
                 html = await response.text()
-                return self._parse_mfn_page(company, html, url)
+                result = self._parse_mfn_page(company, html, url, limit, chunk_size, save_callback)
+                
+                # If we got no results and slug resolution is enabled, try variations
+                # But limit recursion to prevent infinite loops
+                if (not result or len(result) == 0) and self.enable_slug_resolution and _recursion_depth < 2:
+                    print(f"🔄 No results for {company}, attempting slug resolution...")
+                    resolved_slug = await self._resolve_company_slug(session, company)
+                    if resolved_slug and resolved_slug != company:
+                        print(f"🎯 Retrying with resolved slug: {resolved_slug}")
+                        return await self.collect_company_news(session, resolved_slug, limit, full_backfill, chunk_size, save_callback, _recursion_depth + 1)
+                    else:
+                        print(f"🚫 No valid slug variation found for {company}")
+                
+                return result
                 
         except Exception as e:
             print(f"Failed to collect {company}: {e}")
             return []
+    
+    async def _resolve_company_slug(self, session: aiohttp.ClientSession, original_slug: str) -> Optional[str]:
+        """
+        Resolve company slug by testing common variations
+        
+        Examples:
+        - "absolent-air-care" → tries "absolent-air-care-group"
+        - "yubico" → tries "yubico-ab"
+        """
+        
+        # Cache for resolved slugs
+        if not hasattr(self, '_slug_cache'):
+            self._slug_cache = {}
+        
+        if original_slug in self._slug_cache:
+            return self._slug_cache[original_slug]
+        
+        # ENHANCEMENT: Check database for stored slug first
+        try:
+            async with AsyncSessionLocal() as db:
+                # Try to find stored slug by company name derived from slug
+                company_name = get_company_name(original_slug)
+                stored_slug = await SlugManager.get_slug_for_company_name(db, company_name)
+                if stored_slug and stored_slug != original_slug:
+                    print(f"📋 Using stored slug: {original_slug} → {stored_slug}")
+                    self._slug_cache[original_slug] = stored_slug
+                    return stored_slug
+        except Exception as e:
+            print(f"⚠️ Error checking stored slug: {e}")
+            # Continue with normal resolution
+        
+        print(f"🔍 Resolving slug variations for: {original_slug}")
+        
+        # FIRST: Remove stock class suffixes (-a, -b) as they're not part of company name
+        base_slug = original_slug
+        if original_slug.endswith('-a') or original_slug.endswith('-b'):
+            base_slug = original_slug[:-2]
+            print(f"   📊 Removed stock class suffix: {original_slug} → {base_slug}")
+        
+        # TARGETED approach: Based on your observation that it's "usually either -group or -holding"
+        primary_suffixes = ["-group", "-holding"]  # Most common
+        secondary_suffixes = ["-ab", "-publ"]      # Less common but still seen
+        
+        variations = []
+        
+        # Strategy 1: If slug already has a suffix, try removing it and adding primary ones
+        suffix_found = False
+        all_suffixes = primary_suffixes + secondary_suffixes + ["-international", "-systems", "-tech"]
+        
+        for suffix in all_suffixes:
+            if base_slug.endswith(suffix):
+                company_base = base_slug[:-len(suffix)]
+                # Try with primary suffixes first
+                for primary_suffix in primary_suffixes:
+                    if primary_suffix != suffix:  # Don't try the same suffix
+                        variations.append(company_base + primary_suffix)
+                # Then try without any suffix
+                variations.append(company_base)
+                suffix_found = True
+                break
+        
+        # Strategy 2: If no existing suffix, try adding the most common ones first
+        if not suffix_found:
+            # FIRST: Try the simple hyphenated version (for cases like "Atlas Copco" → "atlas-copco")
+            if base_slug != original_slug:  # Only if we changed something (removed -a, -b)
+                variations.append(base_slug)
+            
+            # Then try primary suffixes (most likely to work)
+            for suffix in primary_suffixes:
+                variations.append(base_slug + suffix)
+            # Finally try secondary suffixes
+            for suffix in secondary_suffixes:
+                variations.append(base_slug + suffix)
+        
+        # Limit to 4 attempts max (fast resolution)
+        variations = variations[:4]
+        print(f"   📝 Testing variations: {variations}")
+        
+        # Test each variation
+        for i, variation in enumerate(variations):
+            try:
+                test_url = f"{self.base_url}/{variation}"
+                async with session.get(test_url, timeout=10) as response:
+                    if response.status == 200:
+                        html = await response.text()
+                        
+                        # Quick validation - look for Swedish financial terms
+                        if any(term in html.lower() for term in ['kvartalsrapport', 'årsrapport', 'aktie', 'rapport', 'short-item']):
+                            print(f"   ✅ Found working variation: {variation}")
+                            self._slug_cache[original_slug] = variation
+                            
+                            # ENHANCEMENT: Store successful slug in database for future use
+                            try:
+                                async with AsyncSessionLocal() as db:
+                                    company_name = get_company_name(original_slug)
+                                    # Find the company to store slug
+                                    from sqlalchemy import select, func
+                                    from nordic_ingestion.models import NordicCompany
+                                    result = await db.execute(
+                                        select(NordicCompany).where(
+                                            func.lower(NordicCompany.name) == func.lower(company_name)
+                                        ).order_by(NordicCompany.created_at).limit(1)
+                                    )
+                                    company = result.scalar_one_or_none()
+                                    if company:
+                                        await SlugManager.store_successful_slug(db, company.id, variation)
+                            except Exception as e:
+                                print(f"   ⚠️ Could not store slug in database: {e}")
+                            
+                            return variation
+                        else:
+                            print(f"   ⚠️  {variation} returned 200 but no financial content")
+                    else:
+                        print(f"   ❌ {variation} returned {response.status}")
+                
+                # Rate limit between attempts
+                await asyncio.sleep(0.5)
+                
+            except Exception as e:
+                print(f"   ❌ Error testing {variation}: {e}")
+                continue
+        
+        print(f"   🚫 No working variations found for {original_slug}")
+        return None
             
     def _parse_mfn_page(
         self, 
         company: str, 
         html: str, 
-        source_url: str
+        source_url: str,
+        limit: int = 50,
+        chunk_size: int = 50,
+        save_callback = None
     ) -> List[MFNNewsItem]:
         """
         Parse MFN.se page for financial news items and calendar events
@@ -156,15 +320,80 @@ class MFNCollector:
         # First, extract calendar information from the entire page
         page_calendar_info = self._extract_calendar_info(soup, company)
         
-        # Find all news articles - MFN uses article tags or similar containers
-        articles = soup.find_all(['article', 'div'], class_=re.compile(r'(article|news|item|post)', re.I))
+        # Find MFN-specific document containers
+        # MFN uses <div class="short-item compressible"> for each document
+        mfn_items = soup.find_all('div', class_='short-item compressible')
+        print(f"🔍 Found {len(mfn_items)} MFN short-item containers")
         
-        # If no structured articles found, look for any content with PDF links
+        # ⭐ CRITICAL FIX: Filter MFN items to only include the target company
+        # This prevents collecting documents from other companies when MFN shows a generic feed
+        company_mfn_items = []
+        if mfn_items:
+            print(f"🔍 Filtering containers for company: {company}")
+            for item in mfn_items:
+                # Look for author attribute in the item
+                author_link = item.find('a', {'author': True})
+                if author_link:
+                    item_author = author_link.get('author')
+                    if item_author == company:
+                        company_mfn_items.append(item)
+                        print(f"   ✅ Found document from {item_author}")
+                    else:
+                        print(f"   🔄 Skipping document from {item_author} (not target company)")
+                else:
+                    # If no author found, include item (fallback for older format)
+                    company_mfn_items.append(item)
+            
+            print(f"🔍 After filtering: {len(company_mfn_items)} containers belong to {company}")
+            mfn_items = company_mfn_items
+        
+        # Also try generic article/news patterns as fallback
+        generic_articles = soup.find_all(['article', 'div'], class_=re.compile(r'(article|news|item|post)', re.I))
+        print(f"🔍 Found {len(generic_articles)} articles with standard selectors")
+        
+        # Combine both approaches
+        articles = mfn_items + generic_articles
+        print(f"🔍 Total containers to process: {len(articles)}")
+        
+        # Also check for table rows as final fallback
         if not articles:
-            articles = [soup]  # Use entire page as fallback
+            table_rows = soup.find_all('tr')
+            if table_rows and len(table_rows) > 1:  # Skip header row
+                print(f"📋 Fallback: Found {len(table_rows)} table rows, checking for links...")
+                rows_with_links = 0
+                for tr in table_rows[1:]:  # Skip first row (usually header)
+                    if tr.find('a', href=True):  # Has links
+                        articles.append(tr)
+                        rows_with_links += 1
+                print(f"📋 Added {rows_with_links} table rows with links as articles")
         
-        for article in articles[:50]:  # Limit to prevent too many items
+        # Final fallback - use entire page
+        if not articles:
+            print(f"⚠️  No structured containers found, using entire page as fallback")
+            articles = [soup]
+        
+        print(f"📄 Processing {len(articles)} total articles for document extraction")
+        
+        articles_processed = 0
+        items_created = 0
+        current_chunk = []
+        all_items = []
+        
+        # Process articles with chunking support
+        for article in articles:  # Process all articles found
+            articles_processed += 1
+            
+            # Check if we've reached the limit (0 means no limit)
+            if limit > 0 and items_created >= limit:
+                print(f"   📊 Reached limit of {limit} items, stopping collection")
+                break
+                
             try:
+                # DEBUG: Show article type (only for first few)
+                if hasattr(article, 'name') and articles_processed <= 5:
+                    article_type = f"{article.name}" + (f".{article.get('class')}" if article.get('class') else "")
+                    print(f"🔍 Processing article {articles_processed}: {article_type}")
+                
                 # Extract PDF links from this article - FIXED to only get actual PDFs
                 pdf_links = []
                 for link in article.find_all('a', href=True):
@@ -178,22 +407,81 @@ class MFNCollector:
                 
                 # Also check for PDF patterns in the article HTML - but ONLY actual PDFs
                 article_html = str(article)
-                pdf_pattern = r'https://mb\.cision\.com/[^"\'>\s]+\.pdf'  # Must end with .pdf
-                cision_pdfs = re.findall(pdf_pattern, article_html)
-                pdf_links.extend(cision_pdfs)
                 
-                # Filter out any non-PDF files that might have slipped through
+                # Common PDF hosting patterns - INCLUDING STORAGE.MFN.SE
+                pdf_patterns = [
+                    r'https://storage\.mfn\.se/[^"\'>\s]+\.pdf',  # MFN Storage PDFs ⭐ NEW!
+                    r'https://mb\.cision\.com/[^"\'>\s]+\.pdf',  # Cision PDFs
+                    r'https://[^"\'>\s]*\.pdf',  # Any HTTPS PDF
+                    r'http://[^"\'>\s]*\.pdf',   # Any HTTP PDF  
+                    r'/[^"\'>\s]*\.pdf',         # Relative PDF paths
+                ]
+                
+                for pattern in pdf_patterns:
+                    found_pdfs = re.findall(pattern, article_html)
+                    pdf_links.extend(found_pdfs)
+                
+                # Also look for common document hosting domains even without .pdf extension
+                document_patterns = [
+                    r'https://storage\.mfn\.se/[^"\'>\s]+',  # MFN Storage documents ⭐ NEW!
+                    r'https://mb\.cision\.com/[^"\'>\s]+',  # Cision documents
+                    r'https://ml-eu\.globenewswire\.com/Resource/Download/[^"\'>\s]+',  # GlobeNewswire documents
+                    r'https://[^"\'>\s]*rapport[^"\'>\s]*',  # Swedish "rapport" documents
+                    r'https://[^"\'>\s]*financial[^"\'>\s]*',  # Financial documents
+                    r'https://[^"\'>\s]*investor[^"\'>\s]*',  # Investor documents
+                ]
+                
+                potential_docs = []
+                for pattern in document_patterns:
+                    found_docs = re.findall(pattern, article_html, re.IGNORECASE)
+                    potential_docs.extend(found_docs)
+                
+                # DEBUG: Show potential document links (only for first few)
+                if potential_docs and article != soup and articles_processed <= 5:
+                    print(f"🔍 Potential document links: {potential_docs[:2]}...")  # Show first 2
+                
+                # Filter and normalize PDF links - INCLUDE document hosting links
                 actual_pdf_links = []
                 for link in pdf_links:
-                    # Double-check: must end with .pdf and not be an image
+                    # Accept .pdf files and known document hosting domains
                     if (link.endswith('.pdf') and 
                         not any(img_ext in link.lower() for img_ext in ['.png', '.jpg', '.jpeg', '.gif', '.svg'])):
+                        
+                        # Fix protocol-relative URLs (starting with //)
+                        if link.startswith('//'):
+                            link = 'https:' + link
+                        elif link.startswith('/'):
+                            link = 'https://mfn.se' + link
+                        
                         actual_pdf_links.append(link)
                 
-                pdf_links = actual_pdf_links
+                # ALSO INCLUDE potential document links from hosting services
+                for link in potential_docs:
+                    # Skip image files
+                    if any(img_ext in link.lower() for img_ext in ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp']):
+                        continue
+                        
+                    # Known document hosting services that serve PDFs without .pdf extension
+                    if any(host in link.lower() for host in ['storage.mfn.se', 'mb.cision.com', 'cision.com', 'ir.hexagon.com', 'investors.', 'investor.', 'globenewswire.com']):
+                        # Fix protocol-relative URLs
+                        if link.startswith('//'):
+                            link = 'https:' + link
+                        elif link.startswith('/'):
+                            link = 'https://mfn.se' + link
+                        
+                        actual_pdf_links.append(link)
                 
-                # Remove duplicates
-                pdf_links = list(set(pdf_links))
+                pdf_links = list(set(actual_pdf_links))  # Remove duplicates
+                
+                # DEBUG: Show what we found in this article (only for first few)
+                if article != soup and articles_processed <= 5:  # Don't spam for fallback case
+                    all_links = [link.get('href') for link in article.find_all('a', href=True)]
+                    if all_links:
+                        print(f"🔍 Article links found: {all_links[:3]}...")  # Show first 3
+                    if pdf_links:
+                        print(f"📄 PDF links extracted: {pdf_links}")
+                    else:
+                        print(f"⚠️  No PDF links in article with {len(all_links)} total links")
                 
                 if pdf_links:
                     # Try to extract title - ENHANCED for MFN.se structure
@@ -228,21 +516,70 @@ class MFNCollector:
                                 title = source.strip()[:200]
                                 break
                     
-                    # Try to extract date
-                    date_published = datetime.now()
-                    date_elem = article.find(['time', '.date', '.published'])
-                    if date_elem:
-                        date_text = date_elem.get('datetime') or date_elem.get_text(strip=True)
+                    # Try to extract date - ENHANCED for MFN.se structure
+                    date_published = None
+                    
+                    # First, try MFN.se specific date format
+                    date_span = article.find('span', class_='compressed-date')
+                    if date_span:
+                        date_text = date_span.get_text(strip=True)
                         try:
-                            # Try to parse common date formats
-                            for fmt in ['%Y-%m-%d', '%Y-%m-%dT%H:%M:%S', '%d/%m/%Y', '%m/%d/%Y']:
+                            date_published = datetime.strptime(date_text, '%Y-%m-%d')
+                        except:
+                            pass
+                    
+                    # Check if this article is a table row or within one
+                    if not date_published and article.name == 'tr':
+                        # Article IS a table row, get first td
+                        first_td = article.find('td')
+                        if first_td:
+                            date_text = first_td.get_text(strip=True)
+                            # Try Swedish date format first (common on MFN)
+                            for fmt in ['%Y-%m-%d', '%d %b %Y', '%d %B %Y', '%Y-%m-%dT%H:%M:%S', '%d.%m.%Y']:
                                 try:
-                                    date_published = datetime.strptime(date_text[:19], fmt)
+                                    # Handle Swedish month names
+                                    date_text_en = date_text.replace('jan', 'Jan').replace('feb', 'Feb').replace('mar', 'Mar').replace('apr', 'Apr').replace('maj', 'May').replace('jun', 'Jun').replace('jul', 'Jul').replace('aug', 'Aug').replace('sep', 'Sep').replace('okt', 'Oct').replace('nov', 'Nov').replace('dec', 'Dec')
+                                    date_published = datetime.strptime(date_text_en[:10], fmt)
                                     break
                                 except:
                                     continue
-                        except:
-                            pass
+                    elif not date_published:
+                        # Check if article is within a table row
+                        parent_tr = article.find_parent('tr') if hasattr(article, 'find_parent') else None
+                        if parent_tr:
+                            # Look for the first td in the row (first column = date)
+                            first_td = parent_tr.find('td')
+                            if first_td:
+                                date_text = first_td.get_text(strip=True)
+                                # Try Swedish date format first (common on MFN)
+                                for fmt in ['%Y-%m-%d', '%d %b %Y', '%d %B %Y', '%Y-%m-%dT%H:%M:%S', '%d.%m.%Y']:
+                                    try:
+                                        # Handle Swedish month names
+                                        date_text_en = date_text.replace('jan', 'Jan').replace('feb', 'Feb').replace('mar', 'Mar').replace('apr', 'Apr').replace('maj', 'May').replace('jun', 'Jun').replace('jul', 'Jul').replace('aug', 'Aug').replace('sep', 'Sep').replace('okt', 'Oct').replace('nov', 'Nov').replace('dec', 'Dec')
+                                        date_published = datetime.strptime(date_text_en[:10], fmt)
+                                        break
+                                    except:
+                                        continue
+                    
+                    # Fallback to standard date finding
+                    if not date_published:
+                        date_elem = article.find(['time', '.date', '.published'])
+                        if date_elem:
+                            date_text = date_elem.get('datetime') or date_elem.get_text(strip=True)
+                            try:
+                                # Try to parse common date formats
+                                for fmt in ['%Y-%m-%d', '%Y-%m-%dT%H:%M:%S', '%d/%m/%Y', '%m/%d/%Y']:
+                                    try:
+                                        date_published = datetime.strptime(date_text[:19], fmt)
+                                        break
+                                    except:
+                                        continue
+                            except:
+                                pass
+                    
+                    # Final fallback - use current date if nothing found
+                    if not date_published:
+                        date_published = datetime.now()
                     
                     # Extract content preview
                     content = ""
@@ -273,21 +610,33 @@ class MFNCollector:
                         document_type=doc_type,
                         calendar_info=combined_calendar_info if combined_calendar_info else None
                     )
-                    items.append(item)
+                    current_chunk.append(item)
+                    items_created += 1
+                    
+                    # Check if we need to save a chunk
+                    if len(current_chunk) >= chunk_size:
+                        if save_callback:
+                            print(f"   💾 Saving chunk of {len(current_chunk)} items...")
+                            save_callback(current_chunk)
+                        all_items.extend(current_chunk)
+                        print(f"   📊 Progress: {items_created} items processed")
+                        current_chunk = []
                     
             except Exception as e:
-                print(f"⚠️  Error parsing article for {company}: {e}")
+                print(f"⚠️  Error parsing article {articles_processed} for {company}: {e}")
                 continue
                 
         # If no structured parsing worked, use fallback method - FIXED to only get PDFs
         if not items:
-            # Only look for actual PDF files from Cision
-            pdf_pattern = r'https://mb\.cision\.com/[^"\'>\s]+\.pdf'
-            pdf_urls = re.findall(pdf_pattern, html)
+            # Look for PDFs from all known hosting services
+            pdf_pattern_storage = r'https://storage\.mfn\.se/[^"\'>\s]+\.pdf'  # ⭐ NEW!
+            pdf_pattern_cision = r'https://mb\.cision\.com/[^"\'>\s]+\.pdf'
+            pdf_pattern_any = r'https?://[^"\'>\s]+\.pdf'
             
-            # Also look for any other .pdf links
-            pdf_pattern2 = r'https?://[^"\'>\s]+\.pdf'
-            pdf_urls.extend(re.findall(pdf_pattern2, html))
+            pdf_urls = []
+            pdf_urls.extend(re.findall(pdf_pattern_storage, html))  # ⭐ NEW!
+            pdf_urls.extend(re.findall(pdf_pattern_cision, html))
+            pdf_urls.extend(re.findall(pdf_pattern_any, html))
             
             # Filter out image files that might have .pdf in the URL path but aren't actually PDFs
             actual_pdf_urls = []
@@ -311,225 +660,197 @@ class MFNCollector:
                     document_type="mixed",
                     calendar_info=page_calendar_info if page_calendar_info else None
                 )
-                items.append(item)
+                current_chunk.append(item)
+                items_created += 1
         
-        return items
+        # Save any remaining items in the final chunk
+        if current_chunk:
+            if save_callback:
+                print(f"   💾 Saving final chunk of {len(current_chunk)} items...")
+                save_callback(current_chunk)
+            all_items.extend(current_chunk)
+        
+        # If all_items is empty (no chunking used), return items as before
+        final_items = all_items if all_items else items
+        
+        # DEBUG: Final summary
+        print(f"📊 {company} extraction summary:")
+        print(f"   📄 Articles processed: {articles_processed}")
+        print(f"   🏗️  Items created: {items_created}")
+        print(f"   📋 Total items returned: {len(final_items)}")
+        
+        return final_items
         
     def _map_to_database_name(self, mfn_slug: str) -> str:
-        """Map MFN company slug to database company name"""
-        # Reverse mapping from company_url_mapping
-        slug_to_name = {
-            "volvo": "Volvo Group",
-            "astrazeneca": "AstraZeneca", 
-            "atlas-copco": "Atlas Copco AB",
-            "ericsson": "Telefonaktiebolaget LM Ericsson",
-            "handm": "H&M Hennes & Mauritz AB",
-            "sandvik": "Sandvik AB",
-            "nordea": "Nordea Bank Abp",
-            "investor": "Investor AB",
-            "abb": "ABB Ltd",
-            "hexagon": "Hexagon AB"
-        }
-        
-        return slug_to_name.get(mfn_slug.lower(), mfn_slug.title())
+        """Map MFN company slug to database company name using centralized mapping"""
+        return get_company_name(mfn_slug)
         
     def _extract_calendar_info(self, soup: BeautifulSoup, company: str) -> Dict[str, Any]:
         """
-        Extract financial calendar information from MFN page
+        Extract financial calendar information from MFN page calendar table
         
         Args:
             soup: BeautifulSoup object of the page
             company: Company name
             
         Returns:
-            Dictionary with calendar information
+            Dictionary with structured calendar information
         """
         calendar_info = {}
         
         try:
-            # Look for common calendar indicators
-            calendar_keywords = [
-                'earnings', 'report', 'quarterly', 'annual', 'interim',
-                'webcast', 'conference', 'call', 'presentation',
-                'agm', 'annual general meeting', 'dividend'
-            ]
+            # Find the official MFN calendar table
+            calendar_table = soup.find('table', class_='table-calender')
             
-            # Search for dates and times in various formats
-            date_patterns = [
-                r'\b(\d{1,2}[-/]\d{1,2}[-/]\d{4})\b',  # DD/MM/YYYY or DD-MM-YYYY
-                r'\b(\d{4}[-/]\d{1,2}[-/]\d{1,2})\b',  # YYYY/MM/DD or YYYY-MM-DD
-                r'\b(\d{1,2}\s+(?:januari|februari|mars|april|maj|juni|juli|augusti|september|oktober|november|december)\s+\d{4})\b',  # Swedish months
-                r'\b(\d{1,2}\s+(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{4})\b',  # English months
-            ]
+            if not calendar_table:
+                print(f"⚠️  No calendar table found for {company}")
+                return calendar_info
             
-            # Search for time patterns (excluding dividend amounts)
-            time_patterns = [
-                r'\b(\d{1,2}:\d{2})\b',  # HH:MM format only
-            ]
+            # Extract calendar events from table rows
+            calendar_events = []
+            earnings_events = []
+            dividend_events = []
             
-            page_text = soup.get_text()
+            tbody = calendar_table.find('tbody')
+            if not tbody:
+                print(f"⚠️  No tbody found in calendar table for {company}")
+                return calendar_info
             
-            # Extract upcoming dates
-            upcoming_dates = []
-            for pattern in date_patterns:
-                matches = re.findall(pattern, page_text, re.IGNORECASE)
-                upcoming_dates.extend(matches)
+            rows = tbody.find_all('tr')
+            print(f"📅 Found {len(rows)} calendar rows for {company}")
             
-            # Extract times (filter out dividend amounts)
-            times = []
-            for pattern in time_patterns:
-                matches = re.findall(pattern, page_text)
-                # Filter out anything that looks like a dividend amount (has currency context nearby)
-                filtered_times = []
-                for match in matches:
-                    # Look for currency context around this match
-                    match_pos = page_text.find(match)
-                    if match_pos >= 0:
-                        context = page_text[max(0, match_pos-50):match_pos+50].lower()
-                        # Skip if currency keywords are nearby
-                        if not any(currency in context for currency in ['sek', 'eur', 'usd', 'kr', 'kronor', 'utdelning', 'dividend']):
-                            filtered_times.append(match)
-                times.extend(filtered_times)
-            
-            # Look for earnings-related information
-            earnings_info = {}
-            if any(keyword in page_text.lower() for keyword in ['earnings', 'quarterly', 'rapport', 'delårsrapport']):
-                # Try to find Q1, Q2, Q3, Q4 mentions
-                quarter_pattern = r'(Q[1-4]|[1-4]Q|kvartal\s*[1-4])'
-                quarters = re.findall(quarter_pattern, page_text, re.IGNORECASE)
-                if quarters:
-                    earnings_info['quarters_mentioned'] = list(set(quarters))
-                
-                # Look for year mentions
-                year_pattern = r'\b(20\d{2})\b'
-                years = re.findall(year_pattern, page_text)
-                if years:
-                    earnings_info['years_mentioned'] = list(set(years))
-            
-            # Look for webcast/conference call info
-            webcast_info = {}
-            if any(keyword in page_text.lower() for keyword in ['webcast', 'conference', 'call', 'presentation']):
-                # Look for webcast URLs
-                webcast_urls = re.findall(r'https?://[^\s<>"`]+(?:webcast|stream|call)', page_text, re.IGNORECASE)
-                if webcast_urls:
-                    webcast_info['urls'] = webcast_urls
-                
-                # Look for registration info
-                if any(word in page_text.lower() for word in ['register', 'registration', 'registrera']):
-                    webcast_info['registration_required'] = True
-            
-            # Look for dividend information with enhanced parsing
-            dividend_info = {}
-            if any(keyword in page_text.lower() for keyword in ['dividend', 'utdelning', 'utdeln']):
-                
-                # Enhanced dividend amount parsing - only look for dividend-specific contexts
-                dividend_patterns = [
-                    r'(?:utdelning|dividend)[^\d]*(\d+[.,]\d+)\s*(SEK|EUR|USD|kr|kronor)\s*(?:per|/)\s*(?:aktie|share|stock)',  # "utdelning 2.50 SEK per aktie"
-                    r'(?:utdelning|dividend)[^\d]*(\d+[.,]\d+)\s*(SEK|EUR|USD|kr|kronor)',  # "utdelning 2.50 SEK"
-                    r'(\d+[.,]\d+)\s*(SEK|EUR|USD|kr|kronor)\s*(?:per|/)\s*(?:aktie|share|stock)',  # "2.50 SEK per aktie"
-                ]
-                
-                parsed_dividends = []
-                for pattern in dividend_patterns:
-                    matches = re.findall(pattern, page_text, re.IGNORECASE)
-                    for amount, currency in matches:
-                        # Normalize currency
-                        currency_normalized = currency.upper()
-                        if currency_normalized in ['KR', 'KRONOR']:
-                            currency_normalized = 'SEK'
-                        
-                        # Normalize amount (Swedish uses comma as decimal separator)
-                        amount_normalized = amount.replace(',', '.')
-                        amount_float = float(amount_normalized)
-                        
-                        parsed_dividends.append({
-                            'amount': amount_float,
-                            'currency': currency_normalized,
-                            'raw_text': f"{amount} {currency}"
-                        })
-                
-                if parsed_dividends:
-                    dividend_info['parsed_amounts'] = parsed_dividends
-                    # Keep original for backwards compatibility
-                    dividend_info['amounts_mentioned'] = [d['raw_text'] for d in parsed_dividends]
-                
-                # Look for dividend type indicators
-                dividend_type = 'regular'  # default
-                if any(word in page_text.lower() for word in ['extra', 'särskild', 'special']):
-                    dividend_type = 'special'
-                elif any(word in page_text.lower() for word in ['interim', 'delårs']):
-                    dividend_type = 'interim'
-                dividend_info['dividend_type'] = dividend_type
-                
-                # Look for Swedish X-dag dates
-                x_dag_info = {}
-                
-                # Ex-dividend date patterns
-                ex_patterns = [
-                    r'ex[-\s]?(?:dag|dividend)[\s:]*(\d{1,2}[-/]\d{1,2}[-/]\d{4})',
-                    r'ex[-\s]?(?:dag|dividend)[\s:]*(\d{1,2}\s+\w+\s+\d{4})',
-                ]
-                
-                for pattern in ex_patterns:
-                    matches = re.findall(pattern, page_text, re.IGNORECASE)
-                    if matches:
-                        x_dag_info['ex_dividend_dates'] = matches
-                        break
-                
-                # Record date (Avstämningsdag) patterns
-                record_patterns = [
-                    r'avstämningsdag[\s:]*(\d{1,2}[-/]\d{1,2}[-/]\d{4})',
-                    r'avstämningsdag[\s:]*(\d{1,2}\s+\w+\s+\d{4})',
-                    r'record\s+date[\s:]*(\d{1,2}[-/]\d{1,2}[-/]\d{4})',
-                ]
-                
-                for pattern in record_patterns:
-                    matches = re.findall(pattern, page_text, re.IGNORECASE)
-                    if matches:
-                        x_dag_info['record_dates'] = matches
-                        break
-                
-                # Payment date (Utbetalningsdag) patterns  
-                payment_patterns = [
-                    r'utbetalning(?:sdag)?[\s:]*(\d{1,2}[-/]\d{1,2}[-/]\d{4})',
-                    r'utbetalning(?:sdag)?[\s:]*(\d{1,2}\s+\w+\s+\d{4})',
-                    r'payment\s+date[\s:]*(\d{1,2}[-/]\d{1,2}[-/]\d{4})',
-                ]
-                
-                for pattern in payment_patterns:
-                    matches = re.findall(pattern, page_text, re.IGNORECASE)
-                    if matches:
-                        x_dag_info['payment_dates'] = matches
-                        break
-                
-                if x_dag_info:
-                    dividend_info['x_dag_dates'] = x_dag_info
+            for row in rows:
+                cells = row.find_all('td')
+                if len(cells) >= 3:  # Date, Time, Event columns
+                    date_cell = cells[0].get_text(strip=True)
+                    time_cell = cells[1].get_text(strip=True)  # Usually empty
+                    event_cell = cells[2].get_text(strip=True)
                     
-                # General dividend mention flag
-                if any(word in page_text.lower() for word in ['ex-dividend', 'avstämningsdag']):
-                    dividend_info['ex_dividend_mentioned'] = True
+                    if not date_cell or not event_cell:
+                        continue
+                    
+                    # Parse the date
+                    parsed_date = self._parse_mfn_calendar_date(date_cell)
+                    if not parsed_date:
+                        continue
+                    
+                    event_lower = event_cell.lower()
+                    
+                    # Classify the event type
+                    if any(keyword in event_lower for keyword in ['kvartalsrapport', 'quarterly', 'delårsrapport', 'interim']):
+                        # Extract quarter and year from event
+                        quarter_match = re.search(r'(q[1-4]|[1-4]q|\d{4}-q[1-4])', event_lower)
+                        year_match = re.search(r'(20\d{2})', event_cell)
+                        
+                        earnings_events.append({
+                            'date': parsed_date,
+                            'event': event_cell,
+                            'type': 'quarterly_report',
+                            'quarter': quarter_match.group(1) if quarter_match else None,
+                            'year': year_match.group(1) if year_match else None,
+                            'time': time_cell if time_cell else None
+                        })
+                        
+                    elif any(keyword in event_lower for keyword in ['bokslutskommuniké', 'annual', 'årsbokslut', 'year-end']):
+                        year_match = re.search(r'(20\d{2})', event_cell)
+                        
+                        earnings_events.append({
+                            'date': parsed_date,
+                            'event': event_cell,
+                            'type': 'annual_report',
+                            'year': year_match.group(1) if year_match else None,
+                            'time': time_cell if time_cell else None
+                        })
+                        
+                    elif any(keyword in event_lower for keyword in ['x-dag', 'utdelning', 'dividend']):
+                        # Parse dividend info: "X-dag ordinarie utdelning HEXA B 4.54 SEK"
+                        amount_match = re.search(r'(\d+[.,]\d+)\s*(sek|eur|usd)', event_lower)
+                        ticker_match = re.search(r'\b([A-Z]{3,6})\s*([AB]?)\b', event_cell)
+                        
+                        dividend_events.append({
+                            'date': parsed_date,
+                            'event': event_cell,
+                            'type': 'ex_dividend',
+                            'amount': amount_match.group(1).replace(',', '.') if amount_match else None,
+                            'currency': amount_match.group(2).upper() if amount_match else None,
+                            'ticker': ticker_match.group(1) if ticker_match else None,
+                            'share_class': ticker_match.group(2) if ticker_match and ticker_match.group(2) else None,
+                            'time': time_cell if time_cell else None
+                        })
+                        
+                    elif any(keyword in event_lower for keyword in ['årsstämma', 'agm', 'annual general meeting']):
+                        calendar_events.append({
+                            'date': parsed_date,
+                            'event': event_cell,
+                            'type': 'agm',
+                            'time': time_cell if time_cell else None
+                        })
+                        
+                    else:
+                        # Other events (presentations, etc.)
+                        calendar_events.append({
+                            'date': parsed_date,
+                            'event': event_cell,
+                            'type': 'other',
+                            'time': time_cell if time_cell else None
+                        })
             
-            # Compile calendar info
-            if upcoming_dates:
-                calendar_info['upcoming_dates'] = list(set(upcoming_dates))
-            if times:
-                calendar_info['times_mentioned'] = list(set(times))
-            if earnings_info:
-                calendar_info['earnings'] = earnings_info
-            if webcast_info:
-                calendar_info['webcast'] = webcast_info
-            if dividend_info:
-                calendar_info['dividend'] = dividend_info
-            
+            # Structure the extracted data
+            if earnings_events:
+                calendar_info['earnings'] = {
+                    'events': earnings_events,
+                    'count': len(earnings_events)
+                }
+                
+            if dividend_events:
+                calendar_info['dividend'] = {
+                    'events': dividend_events,
+                    'count': len(dividend_events),
+                    # For compatibility with existing code
+                    'parsed_amounts': [
+                        {
+                            'amount': float(evt['amount']),
+                            'currency': evt['currency'],
+                            'raw_text': f"{evt['amount']} {evt['currency']}"
+                        } for evt in dividend_events if evt['amount'] and evt['currency']
+                    ],
+                    'x_dag_dates': {
+                        'ex_dividend_dates': [evt['date'].strftime('%Y-%m-%d') for evt in dividend_events]
+                    }
+                }
+                
+            if calendar_events:
+                calendar_info['other_events'] = {
+                    'events': calendar_events,
+                    'count': len(calendar_events)
+                }
+                
             # Add extraction metadata
             calendar_info['extracted_at'] = datetime.now().isoformat()
-            calendar_info['source'] = 'mfn_page_scan'
+            calendar_info['source'] = 'mfn_calendar_table'
+            calendar_info['total_events'] = len(earnings_events) + len(dividend_events) + len(calendar_events)
+            
+            print(f"✅ Extracted {calendar_info['total_events']} events from calendar table for {company}")
             
         except Exception as e:
-            print(f"⚠️  Error extracting calendar info for {company}: {e}")
+            print(f"❌ Error extracting calendar info for {company}: {e}")
+            import traceback
+            traceback.print_exc()
             calendar_info['error'] = str(e)
         
         return calendar_info
+    
+    def _parse_mfn_calendar_date(self, date_string: str) -> Optional[date]:
+        """Parse MFN calendar date format (YYYY-MM-DD)"""
+        try:
+            date_string = date_string.strip()
+            # MFN typically uses YYYY-MM-DD format
+            if re.match(r'^\d{4}-\d{2}-\d{2}$', date_string):
+                year, month, day = map(int, date_string.split('-'))
+                return date(year, month, day)
+        except Exception as e:
+            print(f"⚠️  Could not parse MFN date '{date_string}': {e}")
+        return None
     
     def _extract_article_calendar_info(self, article: BeautifulSoup, title: str, content: str) -> Dict[str, Any]:
         """

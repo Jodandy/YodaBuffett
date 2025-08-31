@@ -1,10 +1,10 @@
 """
 Nordic Document Models
 """
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
 from decimal import Decimal
-from sqlalchemy import String, Text, Integer, DateTime, JSON, ForeignKey, DECIMAL
+from sqlalchemy import String, Text, Integer, DateTime, Date, JSON, ForeignKey, DECIMAL
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
@@ -21,6 +21,7 @@ class NordicDocument(Base):
     document_type: Mapped[str] = mapped_column(String(50), nullable=False)  # 'Q1', 'Q2', 'Q3', 'annual', 'press_release'
     report_period: Mapped[str] = mapped_column(String(50), nullable=False)  # 'Q1_2024', 'FY_2024', '2024-01-15'
     title: Mapped[str] = mapped_column(Text, nullable=False)
+    publish_date: Mapped[Optional[date]] = mapped_column(Date)  # Date from MFN table first column
     source_url: Mapped[Optional[str]] = mapped_column(Text)
     storage_path: Mapped[Optional[str]] = mapped_column(Text)  # S3 path or local path
     file_hash: Mapped[Optional[str]] = mapped_column(String(64))  # SHA256 for deduplication

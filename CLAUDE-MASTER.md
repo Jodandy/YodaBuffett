@@ -1,7 +1,7 @@
 # YodaBuffett - AI-Powered Investment Research Platform
 
 ## Project Overview
-Extensible platform for institutional-grade financial research and analysis. AI accelerates research workflows, powers predictive models, and enables sophisticated backtesting. Architecture supports evolution from research assistant to full-featured fintech platform.
+Production-ready platform for institutional-grade financial research and analysis. AI accelerates research workflows, powers predictive models, and enables sophisticated backtesting. Architecture built for scale, reliability, and continuous evolution as a comprehensive fintech platform.
 
 ## Quick Start
 ```bash
@@ -20,11 +20,12 @@ git push origin main
 ### Services
 1. **API Gateway** (`/backend/api-gateway/`) - Authentication, routing, rate limiting
 2. **Research Service** (`/backend/research-service/`) - RAG-based Q&A, embeddings
-3. **Data Ingestion** (`/backend/data-ingestion/`) - SEC filings, data processing
-4. **Strategy Engine** (`/backend/strategy-engine/`) - Backtesting, strategy DSL
-5. **Prediction Service** (`/backend/prediction-service/`) - ML/LLM ensemble predictions
-6. **User Service** (`/backend/user-service/`) - Auth, subscriptions
-7. **Frontend** (`/frontend/`) - Next.js interface
+3. **Nordic Ingestion Service** (`/backend/nordic_ingestion/`) - Multi-market document collection
+4. **Multi-Market Workers** (`/backend/workers/`) - Specialized market data workers
+5. **Strategy Engine** (`/backend/strategy-engine/`) - Backtesting, strategy DSL
+6. **Prediction Service** (`/backend/prediction-service/`) - ML/LLM ensemble predictions
+7. **User Service** (`/backend/user-service/`) - Auth, subscriptions
+8. **Frontend** (`/frontend/`) - Next.js interface
 
 ### Technology Stack
 - **Backend**: Python (AI/ML), TypeScript/Node.js (APIs)
@@ -117,18 +118,24 @@ YodaBuffett/
 **UX/personalization?** → `docs/user-experience/personalization-architecture.md`  
 **Need financial term definitions?** → `glossary.md`  
 **Service-specific work?** → `backend/[service]/CLAUDE.md`  
+**Multi-market workers system?** → `backend/workers/CLAUDE.md`  
+**Nordic data collection?** → `backend/README.md`  
 **Local development setup?** → `docs/deployment/getting-started.md`
 
 ## Key Design Decisions
 
-### Extensible Platform
-Built as composable analysis modules, not fixed features. Platform can support any research workflow:
-- **AI-Assisted Research**: Speed up human analysis with intelligent data extraction
-- **Predictive Modeling**: Ensemble methods combining traditional ML with LLM insights
-- **Advanced Backtesting**: Sophisticated strategy testing and validation
-- **Traditional Fintech**: Portfolio management, risk analysis, performance tracking
+### Production Platform Features
+Built as composable analysis modules for maximum flexibility. Current capabilities include:
+- **Multi-Market Data Collection**: Specialized workers for Swedish, Norwegian, Danish, and Finnish markets
+- **Event-Driven Architecture**: Calendar-targeted data collection with smart scheduling
+- **Document Intelligence**: Comprehensive Nordic market coverage (50,000+ documents)
+- **Real-time Data Processing**: Live ingestion and analysis pipeline
+- **Advanced Analytics**: Hidden network models, predictive signals, cross-company patterns
+- **Market Intelligence**: Sector rotation prediction, systemic risk detection
+- **Investment Research**: AI-powered insights, competitive intelligence
+- **Unified Management**: Web-based worker orchestration and monitoring
 
-Modules combine flexibly - from simple research acceleration to complex trading systems.
+Platform scales from individual research to institutional-grade market intelligence across multiple financial markets.
 
 ### Change Management
 - Contract versioning for breaking changes

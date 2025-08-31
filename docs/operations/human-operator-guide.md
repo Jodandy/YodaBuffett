@@ -208,6 +208,214 @@ python scripts/generate-embeddings.py
 ./scripts/generate-docs.sh
 ```
 
+### Nordic Ingestion Scripts
+
+#### Historical Document Ingestion
+**Purpose**: Systematically collect financial documents from ALL Swedish companies
+
+```bash
+# Run complete historical ingestion (ALL Swedish companies)
+cd backend
+python3 historical_ingestion_batch.py
+
+# What it does:
+# - Loads ALL Swedish companies from nordic_companies database table
+# - Collects up to 480 historical documents per company
+# - 5-minute timeout per company (safety measure)
+# - 5-second pause between companies (respectful to MFN.se)
+# - Comprehensive success/failure tracking with detailed reasons
+```
+
+**Features**:
+- **Resume capability**: Can continue from interrupted runs
+- **Smart mapping**: Converts company names to MFN URL slugs automatically  
+- **Failure categorization**: Tracks specific failure reasons (timeout, not found, storage error, etc.)
+- **Progress persistence**: Saves results after each company
+- **Graceful handling**: Moves to next company when MFN doesn't have data
+
+**Expected Output**:
+- **Scale**: 50,000+ documents from hundreds of Swedish companies
+- **Coverage**: 4-5 years of historical data per company
+- **Files**: `historical_ingestion_YYYYMMDD_HHMMSS.json` + `.log`
+
+#### PDF Document Downloads
+**Purpose**: Download catalogued PDF documents with intelligent prioritization
+
+```bash
+# Download HIGH-PRIORITY annual and quarterly reports only (DEFAULT)
+python3 pdf_download_batch.py --year 2025 --delay 10
+
+# Download all document types (press releases, governance, etc.)
+python3 pdf_download_batch.py --year 2025 --all-types --delay 10
+
+# Focus on specific company reports
+python3 pdf_download_batch.py --year 2025 --company "Volvo" --delay 10
+
+# Download reports from all years (comprehensive)
+python3 pdf_download_batch.py --delay 10
+
+# Super slow mode (1 PDF per minute, ultra-respectful)
+python3 pdf_download_batch.py --year 2025 --delay 60
+```
+
+**Features**:
+- **Smart Prioritization**: Defaults to annual/quarterly reports only (most valuable documents)
+- **Resume Capability**: Can continue from interrupted downloads
+- **File Organization**: `data/companies/SE/{first_letter}/{company}/{year}/{type}/filename.pdf`
+- **PDF Validation**: Checks file integrity and PDF magic bytes
+- **Deduplication**: Skips existing files automatically
+- **Progress Tracking**: Saves results after each download
+- **Respectful Rate Limiting**: 10-second delays between downloads (configurable)
+
+**Expected Output**:
+- **Reports Only**: ~3,463 high-priority documents (annual/quarterly reports)
+- **All Types**: ~14,473 total documents (includes press releases, governance, etc.)
+- **Storage**: Organized by `data/companies/SE/A/Company_Name/2025/quarterly_report/`
+- **Files**: `pdf_download_YYYYMMDD_HHMMSS.json` + `.log`
+
+#### Smart Company Retry System
+**Purpose**: Retry failed companies with intelligent slug detection
+
+```bash
+# Retry companies that had 0 documents with smart suffix testing
+python3 retry_failed_companies.py
+
+# Will test variants like:
+# - volvo-group (original)
+# - volvo-group-holding
+# - volvo-group-ab
+# - etc.
+```
+
+**Features**:
+- **Case-Insensitive Matching**: Handles "2Curex" vs "2cureX" automatically
+- **Suffix Pattern Testing**: Tries -holding, -group, -ab, -corp variations
+- **Chunked Processing**: Processes in batches to prevent crashes
+- **Database Integration**: Actually saves documents to database
+- **Smart Recovery**: Distinguishes between URL issues vs processing errors
+
+### Daily Event Worker (Production Automation)
+
+#### Docker-Based Automated Daily Collection
+**Purpose**: Event-driven daily Swedish financial data collection running on Docker schedule
+
+```bash
+# Check Docker scheduler status
+docker ps | grep yodabuffett-daily-scheduler
+
+# View Docker scheduler logs
+docker logs yodabuffett-daily-scheduler --tail 50
+
+# View worker execution results (inside container)
+docker exec yodabuffett-daily-scheduler ls -la /app/data/daily_worker_*.json
+
+# Test immediately (dry-run)
+docker exec yodabuffett-daily-scheduler python -m workers.daily_event_worker --dry-run
+
+# Test for specific date
+docker exec yodabuffett-daily-scheduler python -m workers.daily_event_worker --date 2025-09-01 --dry-run
+
+# Run immediately for today
+docker exec yodabuffett-daily-scheduler python -m workers.daily_event_worker
+```
+
+**What it does:**
+- **Runs automatically at 6:00 AM daily** using Docker container with built-in scheduler
+- **Event-driven targeting**: Only processes companies with upcoming financial events (earnings, reports, AGMs)
+- **Intelligent scheduling**: Scrapes day-of or day-after events for optimal document availability
+- **Batch-optimized**: Uses database query optimizations (10-100x faster than individual queries)
+- **Smart company resolution**: Automatic slug resolution with centralized mappings
+- **Progress tracking**: Saves detailed results to JSON files after each execution
+- **Portable deployment**: Same behavior on any Docker-capable server
+
+**Expected Performance:**
+- **Daily targets**: 0-50 companies (instead of 1600+) based on calendar events
+- **Processing time**: 2-3 seconds per company with batch optimizations
+- **Success rate**: 85%+ (event-driven timing improves document availability)
+- **Resource usage**: 256MB memory limit, 0.25 CPU cores
+
+**Docker Service Management:**
+```bash
+# Start the daily scheduler
+docker-compose up daily-event-scheduler -d
+
+# Stop the daily scheduler
+docker-compose stop daily-event-scheduler
+
+# Restart the daily scheduler
+docker-compose restart daily-event-scheduler
+
+# View health check
+curl http://localhost:8085/health
+
+# Check container resources
+docker stats yodabuffett-daily-scheduler
+
+# Update scheduler configuration
+# Edit docker-compose.yml environment variables
+# Then: docker-compose up daily-event-scheduler -d --force-recreate
+```
+
+**Files Generated:**
+- **Results**: `/app/data/daily_worker_YYYYMMDD_HHMMSS.json` (inside container)
+- **Logs**: Available via `docker logs yodabuffett-daily-scheduler`
+- **Health**: Available at `http://localhost:8085/health`
+
+**Migration from macOS LaunchAgent:**
+If you previously used the macOS LaunchAgent setup, disable it:
+```bash
+# Stop old macOS scheduler
+launchctl unload ~/Library/LaunchAgents/com.yodabuffett.daily-scheduler.plist
+
+# Remove old plist file (optional)
+rm ~/Library/LaunchAgents/com.yodabuffett.daily-scheduler.plist
+
+# Now use Docker approach exclusively
+```
+
+#### Analyze Ingestion Results
+**Purpose**: Quick analysis of batch ingestion results
+
+```bash
+# Quick overview of latest ingestion
+python3 analyze_ingestion_results.py
+
+# Detailed failure analysis
+python3 analyze_ingestion_results.py --failures
+
+# Analyze PDF download results
+python3 analyze_download_results.py
+```
+
+**Output**:
+- Success/failure counts and rates
+- Documents collected per company (top performers)
+- Failure reasons grouped and categorized
+- Processing time analysis
+- Resume recommendations
+- Download progress and file organization stats
+
+#### Single Company Testing
+**Purpose**: Test/debug individual companies
+
+```bash
+# Test single company (limit 5 documents)  
+python3 test_mfn_collector.py
+
+# Test with clean output (saves to file)
+python3 test_output.py
+```
+
+#### Debug Tools
+
+```bash
+# Save MFN HTML page for manual inspection
+python3 save_mfn_html_simple.py
+
+# Debug storage issues specifically
+python3 debug_storage.py
+```
+
 ### Monitoring & Debugging
 ```bash
 # Check system health
@@ -234,11 +442,28 @@ YodaBuffett/
 │   ├── uploads/           # User-uploaded files
 │   ├── processed/         # Processed documents
 │   ├── cache/            # File cache
-│   └── backups/          # Database backups
+│   ├── backups/          # Database backups
+│   └── companies/        # Downloaded PDF documents (organized)
+│       └── SE/           # Swedish companies
+│           ├── A/        # Companies starting with A
+│           │   ├── ABB_Ltd/
+│           │   │   └── 2025/
+│           │   │       ├── annual_report/
+│           │   │       ├── quarterly_report/
+│           │   │       ├── press_release/
+│           │   │       └── governance/
+│           │   └── AstraZeneca/
+│           ├── B/        # Companies starting with B
+│           └── H/        # Companies starting with H
 ├── logs/
 │   ├── app.log           # Application logs
 │   ├── error.log         # Error logs
 │   └── access.log        # API access logs
+├── backend/
+│   ├── historical_ingestion_*.json    # Ingestion results
+│   ├── pdf_download_*.json            # Download results
+│   ├── retry_results_*.json           # Retry results
+│   └── *.log                         # Batch process logs
 └── scripts/              # Helper scripts
 ```
 
@@ -255,12 +480,22 @@ YodaBuffett/
 - [ ] Review error logs: `tail -f logs/error.log`
 - [ ] Monitor API costs: OpenAI/Anthropic dashboards
 - [ ] Check disk space: `df -h`
+- [ ] Check Nordic ingestion progress: `python3 analyze_ingestion_results.py`
+- [ ] Monitor PDF download progress: `python3 analyze_download_results.py`
+- [ ] Review document collection rates from latest batch run
+- [ ] Check `data/companies/` folder size and organization
 
 ### Weekly Tasks
 - [ ] Backup database: `pg_dump > weekly_backup.sql`
 - [ ] Clear old cache files: `find data/cache -mtime +7 -delete`
 - [ ] Review system performance logs
 - [ ] Update API usage tracking
+- [ ] Run fresh historical ingestion for new/updated companies
+- [ ] **Run focused PDF downloads**: `python3 pdf_download_batch.py --delay 10` (reports only)
+- [ ] Retry failed companies: `python3 retry_failed_companies.py` (10-20 companies)
+- [ ] Analyze ingestion failure patterns and optimize slugs/mappings
+- [ ] Archive old ingestion result files: `gzip historical_ingestion_*.json pdf_download_*.json`
+- [ ] Verify PDF file integrity: spot check downloaded PDFs can be opened
 
 ### Monthly Tasks
 - [ ] Review and rotate API keys (production)
@@ -319,6 +554,85 @@ find logs -mtime +7 -delete
 
 # Compress old backups
 gzip data/backups/*.sql
+
+# Compress old ingestion results
+gzip historical_ingestion_*.json historical_ingestion_*.log
+```
+
+### Nordic Ingestion Issues
+
+#### High Failure Rates
+```bash
+# Analyze failure patterns
+python3 analyze_ingestion_results.py --failures
+
+# SOLUTION: Use smart retry system
+python3 retry_failed_companies.py
+
+# This will automatically:
+# 1. Test case-insensitive company name matching
+# 2. Try suffix variants (-holding, -group, -ab, -corp)
+# 3. Distinguish URL issues from processing errors
+# 4. Save successful collections to database
+
+# For manual debugging of specific company:
+python3 test_mfn_collector.py  # Edit to target specific company
+```
+
+#### PDF Download Issues
+```bash
+# Check download progress
+python3 analyze_download_results.py
+
+# Resume interrupted downloads
+python3 pdf_download_batch.py --year 2025 --delay 10
+
+# Common solutions:
+# 1. Check disk space: df -h
+# 2. Verify file permissions in data/companies/
+# 3. Test single company: --company "Company Name"
+# 4. Slow down if rate limited: --delay 60
+
+# Verify downloaded PDFs
+find data/companies -name "*.pdf" -size 0 -delete  # Remove empty files
+find data/companies -name "*.pdf" | head -10 | xargs file  # Check file types
+```
+
+#### Slow Processing/Timeouts
+```bash
+# Check for stuck companies
+tail -f historical_ingestion_*.log | grep "Processing:"
+
+# Increase timeout if needed (edit historical_ingestion_batch.py):
+# self.company_timeout = 600  # 10 minutes
+
+# Resume from timeouts
+python3 historical_ingestion_batch.py  # Choose resume option
+```
+
+#### Database Storage Errors  
+```bash
+# Check database connectivity
+python3 debug_storage.py
+
+# Check nordic_companies table
+psql postgresql://yoda:buffett123@localhost:5432/yodabuffett
+\d nordic_companies
+
+# Restart ingestion with fresh database connection
+```
+
+#### MFN.se Structure Changes
+```bash
+# Save current HTML structure
+python3 save_mfn_html_simple.py
+
+# Compare with expected structure in mfn_collector.py
+# Look for changes in:
+# - <div class="short-item compressible"> (document containers)
+# - <span class="compressed-date"> (date extraction)  
+# - <span class="compressed-title"> (title extraction)
+# - <a class="attachment-icon"> (PDF links)
 ```
 
 ## Security Checklist

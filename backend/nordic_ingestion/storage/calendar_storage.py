@@ -2,7 +2,7 @@
 Calendar Event Storage for Nordic Ingestion
 Handles split storage: document metadata + dedicated calendar events
 """
-from datetime import datetime, date
+from datetime import datetime, date, time
 from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
@@ -60,14 +60,17 @@ class CalendarEventStorage:
                     
                     events_added_in_this_transaction = 0
                     
+                    # BATCH OPTIMIZATION: Check all events for duplicates at once
+                    print(f"🚀 Batch checking {len(events)} calendar events for duplicates...")
+                    existing_events = await self._batch_check_existing_events(db, company.id, events)
+                    print(f"📊 Found {len(existing_events)} existing events")
+                    
                     for event in events:
                         try:
-                            # Check for duplicates
-                            existing = await self._check_existing_event(
-                                db, company.id, event["event_type"], event["event_date"]
-                            )
-                            
-                            if existing:
+                            # OPTIMIZED: Use pre-loaded batch results instead of individual queries
+                            event_key = (event["event_type"], event["event_date"], event.get("title"))
+                            if event_key in existing_events:
+                                print(f"  🔄 Skipping duplicate event: {event.get('title', 'Untitled')}")
                                 continue  # Skip duplicates
                             
                             # Create calendar event
@@ -132,29 +135,204 @@ class CalendarEventStorage:
         events = []
         
         try:
-            # Extract dividend events
-            if 'dividend' in calendar_info:
-                dividend_info = calendar_info['dividend']
-                events.extend(await self._create_dividend_events(
-                    dividend_info, company_id, source_url, item_title
+            # Check if this is the new MFN calendar table format
+            if calendar_info.get('source') == 'mfn_calendar_table':
+                # Handle new structured calendar table data directly
+                events.extend(await self._create_events_from_calendar_table(
+                    calendar_info, company_id, source_url, item_title
                 ))
-            
-            # Extract earnings events
-            if 'earnings' in calendar_info:
-                earnings_info = calendar_info['earnings']
-                events.extend(await self._create_earnings_events(
-                    earnings_info, company_id, source_url, item_title
-                ))
-            
-            # Extract webcast events
-            if 'webcast' in calendar_info:
-                webcast_info = calendar_info['webcast']
-                events.extend(await self._create_webcast_events(
-                    webcast_info, company_id, source_url, item_title
-                ))
+            else:
+                # Handle old format for backward compatibility
+                # Extract dividend events
+                if 'dividend' in calendar_info:
+                    dividend_info = calendar_info['dividend']
+                    events.extend(await self._create_dividend_events(
+                        dividend_info, company_id, source_url, item_title
+                    ))
+                
+                # Extract earnings events
+                if 'earnings' in calendar_info:
+                    earnings_info = calendar_info['earnings']
+                    # Pass through any upcoming dates found
+                    if 'upcoming_dates' in calendar_info:
+                        earnings_info['upcoming_dates'] = calendar_info['upcoming_dates']
+                    events.extend(await self._create_earnings_events(
+                        earnings_info, company_id, source_url, item_title
+                    ))
+                
+                # Extract webcast events
+                if 'webcast' in calendar_info:
+                    webcast_info = calendar_info['webcast']
+                    # Pass through any upcoming dates found
+                    if 'upcoming_dates' in calendar_info:
+                        webcast_info['upcoming_dates'] = calendar_info['upcoming_dates']
+                    events.extend(await self._create_webcast_events(
+                        webcast_info, company_id, source_url, item_title
+                    ))
             
         except Exception as e:
             print(f"⚠️  Error extracting calendar events: {e}")
+        
+        return events
+    
+    async def _create_events_from_calendar_table(
+        self, 
+        calendar_info: Dict[str, Any], 
+        company_id: str,
+        source_url: str,
+        item_title: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Create calendar events directly from structured calendar table data
+        
+        Args:
+            calendar_info: Parsed calendar info from MFN calendar table
+            
+        Returns:
+            List of calendar event dictionaries
+        """
+        events = []
+        
+        try:
+            # Handle dividend events directly from calendar table
+            if 'dividend' in calendar_info and 'events' in calendar_info['dividend']:
+                for dividend_event in calendar_info['dividend']['events']:
+                    try:
+                        # Convert the structured dividend event to database format
+                        event = {
+                            "event_type": "dividend",
+                            "event_date": dividend_event['date'],
+                            "title": f"Ex-Dividend {dividend_event['amount']} {dividend_event['currency']}",
+                            "description": f"Dividend event: {dividend_event['event']}",
+                            "dividend_amount": Decimal(str(dividend_event['amount'])) if dividend_event['amount'] else None,
+                            "dividend_currency": dividend_event['currency'],
+                            "dividend_type": dividend_event['type'],
+                            "ex_dividend_date": dividend_event['date'],
+                            "metadata": {
+                                "source": "mfn_calendar_table",
+                                "raw_event_text": dividend_event['event'],
+                                "ticker": dividend_event.get('ticker'),
+                                "share_class": dividend_event.get('share_class'),
+                                "item_title": item_title
+                            }
+                        }
+                        
+                        # Add event time if available and valid (not just '-' or empty)
+                        if dividend_event.get('time') and dividend_event['time'].strip() != '-' and dividend_event['time'].strip():
+                            # Parse time string to time object if needed
+                            try:
+                                time_str = dividend_event['time'].strip()
+                                # Handle common time formats like "14:00", "14:00:00"
+                                if ':' in time_str:
+                                    time_parts = time_str.split(':')
+                                    if len(time_parts) >= 2:
+                                        hour = int(time_parts[0])
+                                        minute = int(time_parts[1])
+                                        second = int(time_parts[2]) if len(time_parts) > 2 else 0
+                                        event['event_time'] = time(hour, minute, second)
+                            except Exception as e:
+                                print(f"⚠️  Could not parse time '{dividend_event['time']}': {e}")
+                                # Don't set event_time if parsing fails
+                        
+                        events.append(event)
+                        
+                    except Exception as e:
+                        print(f"⚠️  Error creating dividend event from calendar table: {e}")
+                        continue
+            
+            # Handle earnings events directly from calendar table
+            if 'earnings' in calendar_info and 'events' in calendar_info['earnings']:
+                for earnings_event in calendar_info['earnings']['events']:
+                    try:
+                        event_title = earnings_event['event']
+                        if earnings_event['type'] == 'quarterly_report':
+                            event_title = f"Q{earnings_event.get('quarter', '?')} {earnings_event.get('year', '?')} Report"
+                        elif earnings_event['type'] == 'annual_report':
+                            event_title = f"{earnings_event.get('year', '?')} Annual Report"
+                        
+                        event = {
+                            "event_type": "earnings",
+                            "event_date": earnings_event['date'],
+                            "title": event_title,
+                            "description": f"Earnings event: {earnings_event['event']}",
+                            "report_period": f"Q{earnings_event.get('quarter', '?')}_{earnings_event.get('year', '?')}" if earnings_event.get('quarter') else None,
+                            "metadata": {
+                                "source": "mfn_calendar_table",
+                                "raw_event_text": earnings_event['event'],
+                                "event_type": earnings_event['type'],
+                                "quarter": earnings_event.get('quarter'),
+                                "year": earnings_event.get('year'),
+                                "item_title": item_title
+                            }
+                        }
+                        
+                        # Add event time if available and valid (not just '-' or empty)
+                        if earnings_event.get('time') and earnings_event['time'].strip() != '-' and earnings_event['time'].strip():
+                            # Parse time string to time object if needed
+                            try:
+                                time_str = earnings_event['time'].strip()
+                                # Handle common time formats like "14:00", "14:00:00"
+                                if ':' in time_str:
+                                    time_parts = time_str.split(':')
+                                    if len(time_parts) >= 2:
+                                        hour = int(time_parts[0])
+                                        minute = int(time_parts[1])
+                                        second = int(time_parts[2]) if len(time_parts) > 2 else 0
+                                        event['event_time'] = time(hour, minute, second)
+                            except Exception as e:
+                                print(f"⚠️  Could not parse time '{earnings_event['time']}': {e}")
+                                # Don't set event_time if parsing fails
+                        
+                        events.append(event)
+                        
+                    except Exception as e:
+                        print(f"⚠️  Error creating earnings event from calendar table: {e}")
+                        continue
+            
+            # Handle other calendar events
+            if 'other_events' in calendar_info and 'events' in calendar_info['other_events']:
+                for calendar_event in calendar_info['other_events']['events']:
+                    try:
+                        event = {
+                            "event_type": calendar_event['type'],
+                            "event_date": calendar_event['date'],
+                            "title": calendar_event['event'],
+                            "description": f"Calendar event: {calendar_event['event']}",
+                            "metadata": {
+                                "source": "mfn_calendar_table",
+                                "raw_event_text": calendar_event['event'],
+                                "event_type": calendar_event['type'],
+                                "item_title": item_title
+                            }
+                        }
+                        
+                        # Add event time if available and valid (not just '-' or empty)
+                        if calendar_event.get('time') and calendar_event['time'].strip() != '-' and calendar_event['time'].strip():
+                            # Parse time string to time object if needed
+                            try:
+                                time_str = calendar_event['time'].strip()
+                                # Handle common time formats like "14:00", "14:00:00"
+                                if ':' in time_str:
+                                    time_parts = time_str.split(':')
+                                    if len(time_parts) >= 2:
+                                        hour = int(time_parts[0])
+                                        minute = int(time_parts[1])
+                                        second = int(time_parts[2]) if len(time_parts) > 2 else 0
+                                        event['event_time'] = time(hour, minute, second)
+                            except Exception as e:
+                                print(f"⚠️  Could not parse time '{calendar_event['time']}': {e}")
+                                # Don't set event_time if parsing fails
+                        
+                        events.append(event)
+                        
+                    except Exception as e:
+                        print(f"⚠️  Error creating calendar event from calendar table: {e}")
+                        continue
+            
+            print(f"✅ Created {len(events)} events from calendar table data")
+            
+        except Exception as e:
+            print(f"❌ Error processing calendar table data: {e}")
         
         return events
     
@@ -263,74 +441,152 @@ class CalendarEventStorage:
         source_url: str,
         item_title: str
     ) -> List[Dict[str, Any]]:
-        """Create earnings calendar events"""
+        """Create earnings calendar events - FIXED to not create fake future dates"""
         events = []
         
+        # Extract actual dates from the calendar info first
+        upcoming_dates = earnings_info.get('upcoming_dates', [])
+        
+        # If we have REAL dates from the calendar, use those
+        if upcoming_dates:
+            for date_str in upcoming_dates[:2]:  # Max 2 to avoid spam
+                parsed_date = self._parse_date(date_str)
+                if parsed_date:
+                    # Only create events for reasonable dates (within 1 year)
+                    days_ahead = (parsed_date - date.today()).days
+                    if -30 <= days_ahead <= 365:  # 30 days past to 1 year future
+                        event = {
+                            "event_type": "earnings",
+                            "event_date": parsed_date,
+                            "title": f"Earnings Report - {date_str}",
+                            "description": f"Earnings date found in {item_title}",
+                            "metadata": {
+                                "source": "mfn_calendar_extraction",
+                                "raw_date": date_str,
+                                "item_title": item_title,
+                                "estimated_date": False
+                            }
+                        }
+                        events.append(event)
+            return events
+        
+        # Only estimate dates if we're dealing with CURRENT or NEXT quarter
         quarters = earnings_info.get('quarters_mentioned', [])
         years = earnings_info.get('years_mentioned', [])
         
-        # Only create events for recent/future years (avoid creating 100+ historical events)
-        current_year = date.today().year
-        relevant_years = [y for y in years if int(y) >= current_year - 1]  # This year and last year only
+        if not quarters or not years:
+            return []
         
-        # Limit to max 2 events to avoid spam
-        created_events = 0
-        for quarter in quarters[:2]:  # Only first 2 quarters
-            for year in relevant_years[:2]:  # Only first 2 years
-                if created_events >= 2:  # Max 2 earnings events
-                    break
-                    
+        current_year = date.today().year
+        current_month = date.today().month
+        current_quarter = (current_month - 1) // 3 + 1  # 1-4
+        
+        # Only process current year or next year
+        valid_years = [str(y) for y in [current_year, current_year + 1] if str(y) in years]
+        
+        if not valid_years:
+            print(f"⚠️  No current/next year found in earnings info, skipping")
+            return []
+        
+        # Only create ONE event for the most relevant quarter
+        for year in valid_years[:1]:  # Just first valid year
+            for quarter in quarters[:1]:  # Just first quarter
+                quarter_num = self._parse_quarter_number(quarter)
+                if not quarter_num:
+                    continue
+                
+                # Only create event if it's current or next quarter
+                if int(year) == current_year and quarter_num < current_quarter - 1:
+                    continue  # Skip old quarters
+                
                 try:
-                    # Try to estimate a reasonable date for this quarter/year
-                    estimated_date = self._estimate_earnings_date(quarter, int(year))
+                    estimated_date = self._estimate_earnings_date_conservative(quarter_num, int(year))
+                    
+                    # Final sanity check - must be within reasonable range
+                    days_ahead = (estimated_date - date.today()).days
+                    if days_ahead < -30 or days_ahead > 180:  # 30 days past to 6 months future
+                        print(f"⚠️  Estimated date {estimated_date} out of range, skipping")
+                        continue
                     
                     event = {
                         "event_type": "earnings",
                         "event_date": estimated_date,
-                        "title": f"{quarter} {year} Earnings Report",
-                        "description": f"Earnings report mentioned in {item_title}",
-                        "report_period": f"{quarter}_{year}",
+                        "title": f"Q{quarter_num} {year} Earnings Report (Estimated)",
+                        "description": f"Earnings period mentioned in {item_title}",
+                        "report_period": f"Q{quarter_num}_{year}",
                         "metadata": {
                             "source": "mfn_extraction",
-                            "quarter": quarter,
+                            "quarter": f"Q{quarter_num}",
                             "year": year,
                             "item_title": item_title,
-                            "estimated_date": True
+                            "estimated_date": True,
+                            "estimation_note": "Date estimated based on typical reporting schedule"
                         }
                     }
                     events.append(event)
-                    created_events += 1
+                    return events  # Only ONE event
                     
                 except Exception as e:
                     print(f"⚠️  Error creating earnings event: {e}")
-            
-            if created_events >= 2:
-                break
         
         return events
     
-    def _estimate_earnings_date(self, quarter: str, year: int) -> date:
-        """Estimate earnings date based on quarter and year"""
+    def _parse_quarter_number(self, quarter_str: str) -> Optional[int]:
+        """Parse quarter string to number (1-4)"""
+        quarter_str = quarter_str.upper()
+        if 'Q1' in quarter_str or '1Q' in quarter_str:
+            return 1
+        elif 'Q2' in quarter_str or '2Q' in quarter_str:
+            return 2
+        elif 'Q3' in quarter_str or '3Q' in quarter_str:
+            return 3
+        elif 'Q4' in quarter_str or '4Q' in quarter_str:
+            return 4
+        elif 'KVARTAL 1' in quarter_str:
+            return 1
+        elif 'KVARTAL 2' in quarter_str:
+            return 2
+        elif 'KVARTAL 3' in quarter_str:
+            return 3
+        elif 'KVARTAL 4' in quarter_str:
+            return 4
+        return None
+    
+    def _estimate_earnings_date_conservative(self, quarter: int, year: int) -> date:
+        """Conservative earnings date estimation - only for near-term dates"""
         try:
-            # Standard earnings release months by quarter
-            quarter_months = {
-                'Q1': 4,   # Q1 results usually released in April
-                'Q2': 7,   # Q2 results usually released in July  
-                'Q3': 10,  # Q3 results usually released in October
-                'Q4': 2,   # Q4 results usually released in February (next year)
-            }
+            # Typical Swedish earnings release schedule
+            # Q1: Late April/Early May
+            # Q2: Late July
+            # Q3: Late October
+            # Q4: Late January/Early February (next year)
             
-            month = quarter_months.get(quarter.upper(), date.today().month)
+            today = date.today()
             
-            # For Q4, results are released in February of the next year
-            if quarter.upper() == 'Q4':
-                year += 1
+            if quarter == 1:
+                # Q1 reports typically in late April
+                estimated = date(year, 4, 25)
+            elif quarter == 2:
+                # Q2 reports typically in late July
+                estimated = date(year, 7, 20)
+            elif quarter == 3:
+                # Q3 reports typically in late October
+                estimated = date(year, 10, 25)
+            elif quarter == 4:
+                # Q4 reports typically in late January/early February of NEXT year
+                estimated = date(year + 1, 1, 25)
+            else:
+                return today
             
-            # Use middle of the month as estimate
-            return date(year, month, 15)
+            # If the estimated date is more than 6 months away, it's too speculative
+            days_diff = (estimated - today).days
+            if days_diff > 180:
+                print(f"⚠️  Estimated date {estimated} too far in future")
+                return today
+            
+            return estimated
             
         except:
-            # Fallback to today if estimation fails
             return date.today()
     
     async def _create_webcast_events(
@@ -340,31 +596,49 @@ class CalendarEventStorage:
         source_url: str,
         item_title: str
     ) -> List[Dict[str, Any]]:
-        """Create webcast calendar events"""
+        """Create webcast calendar events - FIXED to not create events without dates"""
         events = []
         
-        webcast_urls = webcast_info.get('urls', [])
-        registration_required = webcast_info.get('registration_required', False)
+        # Don't create webcast events unless we have an actual date
+        # Webcasts are usually tied to earnings releases, so they should come with dates
         
-        if webcast_urls:
-            try:
-                event = {
-                    "event_type": "webcast",
-                    "event_date": date.today(),  # Default
-                    "title": f"Webcast/Conference Call",
-                    "description": f"Webcast mentioned in {item_title}",
-                    "webcast_url": webcast_urls[0],  # Use first URL
-                    "metadata": {
-                        "source": "mfn_extraction",
-                        "all_urls": webcast_urls,
-                        "registration_required": registration_required,
-                        "item_title": item_title
-                    }
-                }
-                events.append(event)
-                
-            except Exception as e:
-                print(f"⚠️  Error creating webcast event: {e}")
+        webcast_urls = webcast_info.get('urls', [])
+        if not webcast_urls:
+            return []
+        
+        # Check if we have a date in the webcast info or nearby context
+        upcoming_dates = webcast_info.get('upcoming_dates', [])
+        if not upcoming_dates:
+            print(f"⚠️  Webcast found but no date available - skipping event creation")
+            return []
+        
+        # Use the first valid date found
+        for date_str in upcoming_dates[:1]:  # Just first date
+            parsed_date = self._parse_date(date_str)
+            if parsed_date:
+                # Sanity check - must be reasonable
+                days_ahead = (parsed_date - date.today()).days
+                if -7 <= days_ahead <= 90:  # 1 week past to 3 months future
+                    try:
+                        event = {
+                            "event_type": "webcast",
+                            "event_date": parsed_date,
+                            "title": f"Earnings Webcast/Conference Call",
+                            "description": f"Webcast on {date_str} from {item_title}",
+                            "webcast_url": webcast_urls[0],  # Use first URL
+                            "metadata": {
+                                "source": "mfn_extraction",
+                                "all_urls": webcast_urls,
+                                "registration_required": webcast_info.get('registration_required', False),
+                                "item_title": item_title,
+                                "raw_date": date_str
+                            }
+                        }
+                        events.append(event)
+                        break
+                        
+                    except Exception as e:
+                        print(f"⚠️  Error creating webcast event: {e}")
         
         return events
     
@@ -415,16 +689,61 @@ class CalendarEventStorage:
         company_name: str
     ) -> Optional[NordicCompany]:
         """Find company by name (using same logic as document catalog)"""
-        # Direct name match first
+        # Direct name match first (case-insensitive)
+        from sqlalchemy import func
         result = await db.execute(
-            select(NordicCompany).where(NordicCompany.name == company_name)
+            select(NordicCompany).where(func.lower(NordicCompany.name) == func.lower(company_name))
+            .order_by(NordicCompany.created_at)  # Pick the first created
+            .limit(1)  # Handle multi-listed companies
         )
         company = result.scalar_one_or_none()
         if company:
             return company
             
-        # Fuzzy matching for common variations (MFN slug to database name)
+        # SYSTEMATIC FIX: Try without ticker suffix if company_name has (TICKER) pattern
+        import re
+        ticker_pattern = r'^(.+?)\s*\([A-Z0-9\s]+\)$'
+        match = re.match(ticker_pattern, company_name)
+        if match:
+            base_name = match.group(1).strip()
+            result = await db.execute(
+                select(NordicCompany).where(func.lower(NordicCompany.name) == func.lower(base_name))
+                .order_by(NordicCompany.created_at).limit(1)
+            )
+            company = result.scalar_one_or_none()
+            if company:
+                return company
+            
+        # ⭐ SYSTEMATIC FIX: Use centralized company mappings
+        from ..common.company_mappings import get_company_name, COMPANY_SLUG_TO_NAME
+        
+        # First try centralized mapping by treating company_name as potential slug
+        potential_slug = company_name.lower().replace(" ", "-").replace("(", "").replace(")", "").replace("&", "").strip("-")
+        mapped_name = get_company_name(potential_slug)
+        if mapped_name:
+            # Try finding by mapped name
+            result = await db.execute(
+                select(NordicCompany).where(func.lower(NordicCompany.name) == func.lower(mapped_name))
+                .order_by(NordicCompany.created_at).limit(1)
+            )
+            company = result.scalar_one_or_none()
+            if company:
+                return company
+        
+        # Fallback: Check if company_name matches any known MFN company names in our mapping
+        for slug, name in COMPANY_SLUG_TO_NAME.items():
+            if company_name.lower() in name.lower() or name.lower() in company_name.lower():
+                result = await db.execute(
+                    select(NordicCompany).where(func.lower(NordicCompany.name).contains(name.lower()))
+                    .order_by(NordicCompany.created_at).limit(1)
+                )
+                company = result.scalar_one_or_none()
+                if company:
+                    return company
+        
+        # Legacy fuzzy matching for backward compatibility
         name_variations = {
+            # Major companies (keeping for now)
             "volvo": "Volvo Group",
             "astrazeneca": "AstraZeneca", 
             "atlas-copco": "Atlas Copco AB",
@@ -434,7 +753,23 @@ class CalendarEventStorage:
             "nordea": "Nordea Bank Abp",
             "investor": "Investor AB",
             "abb": "ABB Ltd",
-            "hexagon": "Hexagon AB"
+            "hexagon": "Hexagon AB", 
+            "aak": "AAK",
+            "abas-protect": "ABAS Protect",
+            "abera-bioscience": "Abera Bioscience", 
+            "active-biotech": "Active Biotech",
+            "africa-energy": "Africa Energy",
+            "ages-industri": "Ages Industri",
+            "aik-fotboll": "AIK Fotboll",
+            "aino-health": "Aino Health",
+            "alfa-laval": "Alfa Laval AB",
+            "alligator-bioscience": "Alligator Bioscience",
+            "alm-equity": "ALM Equity",
+            "alzecure-pharma": "AlzeCure Pharma",
+            "amhult-2": "Amhult 2",
+            "addlife": "AddLife",
+            "addnode": "Addnode", 
+            "addtech": "Addtech"
         }
         
         # Check if company_name is a slug we know about
@@ -442,29 +777,97 @@ class CalendarEventStorage:
         if company_name_lower in name_variations:
             target_name = name_variations[company_name_lower]
             result = await db.execute(
-                select(NordicCompany).where(NordicCompany.name == target_name)
+                select(NordicCompany).where(func.lower(NordicCompany.name) == func.lower(target_name))
             )
             return result.scalar_one_or_none()
         
         return None
+    
+    async def _batch_check_existing_events(
+        self, 
+        db: AsyncSession, 
+        company_id: str, 
+        events: List[Dict[str, Any]]
+    ) -> set:
+        """Batch check which calendar events already exist for this company - MUCH faster than individual queries"""
+        
+        if not events:
+            return set()
+        
+        try:
+            print(f"🚀 Executing batch calendar query for {len(events)} events...")
+            
+            # Get all existing events for this company in one query
+            result = await db.execute(
+                select(NordicCalendarEvent.event_type, 
+                       NordicCalendarEvent.event_date, 
+                       NordicCalendarEvent.title).where(
+                    NordicCalendarEvent.company_id == company_id
+                )
+            )
+            
+            # Build set of existing event tuples for fast lookup
+            existing_events = set()
+            for row in result.fetchall():
+                event_key = (row[0], row[1], row[2])  # (event_type, event_date, title)
+                existing_events.add(event_key)
+            
+            print(f"✅ Batch calendar query found {len(existing_events)} existing events for company")
+            return existing_events
+            
+        except Exception as e:
+            print(f"❌ Batch calendar query failed: {e}")
+            import traceback
+            traceback.print_exc()
+            print(f"🔄 Falling back to individual event queries...")
+            
+            # Fallback to individual queries if batch fails
+            existing_events = set()
+            for event in events:
+                try:
+                    exists = await self._check_existing_event(
+                        db, company_id, event["event_type"], event["event_date"], event.get("title")
+                    )
+                    if exists:
+                        event_key = (event["event_type"], event["event_date"], event.get("title"))
+                        existing_events.add(event_key)
+                except:
+                    pass
+            return existing_events
     
     async def _check_existing_event(
         self, 
         db: AsyncSession, 
         company_id: str, 
         event_type: str, 
-        event_date: date
+        event_date: date,
+        event_title: str = None
     ) -> bool:
         """Check if similar calendar event already exists"""
-        result = await db.execute(
-            select(NordicCalendarEvent).where(
-                and_(
-                    NordicCalendarEvent.company_id == company_id,
-                    NordicCalendarEvent.event_type == event_type,
-                    NordicCalendarEvent.event_date == event_date
+        
+        # Use title for more specific duplicate detection
+        if event_title:
+            result = await db.execute(
+                select(NordicCalendarEvent).where(
+                    and_(
+                        NordicCalendarEvent.company_id == company_id,
+                        NordicCalendarEvent.event_type == event_type,
+                        NordicCalendarEvent.event_date == event_date,
+                        NordicCalendarEvent.title == event_title
+                    )
                 )
             )
-        )
+        else:
+            # Fallback to old logic
+            result = await db.execute(
+                select(NordicCalendarEvent).where(
+                    and_(
+                        NordicCalendarEvent.company_id == company_id,
+                        NordicCalendarEvent.event_type == event_type,
+                        NordicCalendarEvent.event_date == event_date
+                    )
+                )
+            )
         return result.scalar_one_or_none() is not None
 
 

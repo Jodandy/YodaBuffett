@@ -3,10 +3,12 @@ Document Catalog Storage
 Stores discovered PDF documents before download (index building)
 """
 import uuid
-from datetime import datetime
+import json
+from datetime import datetime, date
 from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, and_
+from nordic_ingestion.common.company_mappings import COMPANY_SLUG_TO_NAME
 
 from shared.database import AsyncSessionLocal
 from ..models import NordicDocument, NordicCompany
@@ -23,6 +25,20 @@ class DocumentCatalogStorage:
     4. "downloaded" = file stored locally
     5. "failed" = download failed
     """
+    
+    def _make_json_serializable(self, obj: Any) -> Any:
+        """
+        Convert Python objects to JSON-serializable format
+        Handles date objects and nested dictionaries
+        """
+        if isinstance(obj, (date, datetime)):
+            return obj.isoformat()
+        elif isinstance(obj, dict):
+            return {key: self._make_json_serializable(value) for key, value in obj.items()}
+        elif isinstance(obj, list):
+            return [self._make_json_serializable(item) for item in obj]
+        else:
+            return obj
     
     async def store_catalogued_documents(
         self, 
@@ -43,6 +59,15 @@ class DocumentCatalogStorage:
         
         async with AsyncSessionLocal() as db:
             
+            # OPTIMIZATION: Pre-load all existing PDF URLs to avoid repeated queries
+            all_pdf_urls = []
+            for item in mfn_items:
+                all_pdf_urls.extend(item.pdf_urls)
+            
+            print(f"🚀 Batch checking {len(all_pdf_urls)} PDF URLs for duplicates...")
+            existing_urls = await self._batch_check_existing_documents(db, all_pdf_urls)
+            print(f"📊 Found {len(existing_urls)} existing URLs in database")
+            
             for item in mfn_items:
                 try:
                     print(f"📄 Processing item: {item.company_name} - {len(item.pdf_urls)} PDFs")
@@ -60,12 +85,50 @@ class DocumentCatalogStorage:
                     for pdf_url in item.pdf_urls:
                         print(f"  📄 Processing PDF: {pdf_url}")
                         
-                        # Check if already catalogued
-                        existing = await self._check_existing_document(db, pdf_url)
-                        if existing:
+                        # OPTIMIZED: Use pre-loaded set instead of individual queries
+                        if pdf_url in existing_urls:
                             print(f"  🔄 Skipping duplicate: {pdf_url}")
                             stats["duplicates"] += 1
                             continue
+                        
+                        # Prepare clean metadata (calendar info is stored separately)
+                        raw_metadata = {
+                            # Core document info
+                            "pdf_url": pdf_url,
+                            "mfn_source": item.source_url,
+                            "discovery_date": datetime.utcnow().isoformat(),
+                            "catalog_source": "mfn.se",
+                            
+                            # Document content metadata
+                            "raw_title": item.title,
+                            "content_preview": item.content[:300] if item.content else None,
+                            "document_classification": item.document_type,
+                            "publication_date": item.date_published.isoformat() if item.date_published else None,
+                            
+                            # Language and content indicators
+                            "title_language": "swedish" if any(sw in item.title.lower() 
+                                for sw in ["kvartal", "delårs", "år", "styrelse", "bolag"]) else "english",
+                            
+                            # Financial relevance indicators
+                            "financial_keywords": self._extract_financial_keywords(item.title, item.content),
+                            "contains_financial_data": self._has_financial_indicators(item.title, item.content),
+                            
+                            # Document characteristics
+                            "title_length": len(item.title) if item.title else 0,
+                            "content_length": len(item.content) if item.content else 0,
+                            "has_calendar_events": bool(item.calendar_info),  # Just a boolean flag
+                            
+                            # LLM filtering hints
+                            "llm_filter_context": {
+                                "company": company.name,
+                                "suggested_relevance": self._assess_relevance(item.title, item.content, item.document_type),
+                                "key_phrases": self._extract_key_phrases(item.title, item.content),
+                                "document_purpose": self._infer_document_purpose(item.title, item.content)
+                            }
+                        }
+                        
+                        # Convert all date objects to JSON-serializable format
+                        json_safe_metadata = self._make_json_serializable(raw_metadata)
                         
                         # Create catalogued document entry
                         document = NordicDocument(
@@ -74,6 +137,7 @@ class DocumentCatalogStorage:
                             document_type=item.document_type,
                             report_period="Unknown",  # Default value for not-null constraint
                             title=item.title,
+                            publish_date=item.date_published.date() if item.date_published else None,  # Extract date from MFN table
                             source_url=item.source_url,
                             storage_path=None,  # Not downloaded yet
                             file_hash=None,     # Not downloaded yet
@@ -82,41 +146,7 @@ class DocumentCatalogStorage:
                             processing_status="catalogued",  # Key status!
                             page_count=None,
                             file_size_mb=None,
-                            metadata_={
-                                # Core document info
-                                "pdf_url": pdf_url,
-                                "mfn_source": item.source_url,
-                                "discovery_date": datetime.utcnow().isoformat(),
-                                "catalog_source": "mfn.se",
-                                
-                                # Rich metadata for LLM filtering
-                                "raw_title": item.title,  # Full original title
-                                "content_preview": item.content[:300] if item.content else None,  # First 300 chars
-                                "document_classification": item.document_type,  # Our initial classification
-                                "publication_date": item.date_published.isoformat() if item.date_published else None,
-                                "calendar_info": item.calendar_info,
-                                
-                                # Language and content indicators
-                                "title_language": "swedish" if any(sw in item.title.lower() 
-                                    for sw in ["kvartal", "delårs", "år", "styrelse", "bolag"]) else "english",
-                                
-                                # Financial relevance indicators
-                                "financial_keywords": self._extract_financial_keywords(item.title, item.content),
-                                "contains_financial_data": self._has_financial_indicators(item.title, item.content),
-                                
-                                # Document characteristics
-                                "title_length": len(item.title) if item.title else 0,
-                                "content_length": len(item.content) if item.content else 0,
-                                "has_calendar_events": bool(item.calendar_info),
-                                
-                                # LLM filtering hints
-                                "llm_filter_context": {
-                                    "company": company.name,
-                                    "suggested_relevance": self._assess_relevance(item.title, item.content, item.document_type),
-                                    "key_phrases": self._extract_key_phrases(item.title, item.content),
-                                    "document_purpose": self._infer_document_purpose(item.title, item.content)
-                                }
-                            }
+                            metadata_=json_safe_metadata
                         )
                         
                         print(f"  ✅ Creating document: {item.title[:50]}...")
@@ -236,57 +266,191 @@ class DocumentCatalogStorage:
         db: AsyncSession, 
         company_name: str
     ) -> Optional[NordicCompany]:
-        """Find company by name (fuzzy matching)"""
+        """Find company by name with comprehensive fuzzy matching"""
         
-        # Direct name match first
+        from sqlalchemy import func, or_
+        import re
+        
+        print(f"🔍 Looking for company: '{company_name}'")
+        
+        # 1. Direct name match first (case-insensitive)
         result = await db.execute(
-            select(NordicCompany).where(NordicCompany.name == company_name)
+            select(NordicCompany).where(func.lower(NordicCompany.name) == func.lower(company_name))
+            .order_by(NordicCompany.created_at)  # Pick the first created
+            .limit(1)  # Handle multi-listed companies like Better Collective
         )
         company = result.scalar_one_or_none()
         if company:
+            print(f"✅ Direct match found: {company.name}")
             return company
             
-        # Fuzzy matching for common variations (MFN slug to database name)
-        name_variations = {
-            "volvo": "Volvo Group",
-            "astrazeneca": "AstraZeneca", 
-            "atlas-copco": "Atlas Copco AB",
-            "ericsson": "Telefonaktiebolaget LM Ericsson",
-            "handm": "H&M Hennes & Mauritz AB",
-            "sandvik": "Sandvik AB",
-            "nordea": "Nordea Bank Abp",
-            "investor": "Investor AB",
-            "abb": "ABB Ltd",
-            "hexagon": "Hexagon AB"
-        }
+        # 2. Expanded hardcoded mappings for known tricky cases
+        # Use centralized mappings for consistency
+        name_variations = COMPANY_SLUG_TO_NAME
         
-        # Check if company_name is a slug we know about
         company_name_lower = company_name.lower()
         if company_name_lower in name_variations:
             target_name = name_variations[company_name_lower]
             result = await db.execute(
-                select(NordicCompany).where(NordicCompany.name == target_name)
+                select(NordicCompany).where(func.lower(NordicCompany.name) == func.lower(target_name))
             )
-            return result.scalar_one_or_none()
+            company = result.scalar_one_or_none()
+            if company:
+                print(f"✅ Hardcoded mapping found: {company.name}")
+                return company
         
-        # Try partial match as fallback
-        for slug, full_name in name_variations.items():
-            if slug in company_name_lower or company_name_lower in slug:
+        # 2.5. Try converting spaces to hyphens for slug format
+        # e.g., "Atlas Copco" → "atlas-copco"
+        if ' ' in company_name and company_name_lower not in name_variations:
+            slug_version = company_name.lower().replace(' ', '-')
+            if slug_version in name_variations:
+                target_name = name_variations[slug_version]
+                print(f"🔍 Trying slug version: {slug_version} → {target_name}")
+                
                 result = await db.execute(
-                    select(NordicCompany).where(NordicCompany.name == full_name)
+                    select(NordicCompany).where(
+                        func.lower(NordicCompany.name) == func.lower(target_name)
+                    )
                 )
                 company = result.scalar_one_or_none()
                 if company:
+                    print(f"✅ Found via slug mapping: {company.name}")
                     return company
-                
+        
+        # 3. Normalize MFN name and search with pattern matching
+        normalized_name = self._normalize_company_name(company_name)
+        print(f"🔄 Normalized name: '{normalized_name}'")
+        
+        # Try exact match on normalized name
+        result = await db.execute(
+            select(NordicCompany).where(func.lower(NordicCompany.name) == func.lower(normalized_name))
+        )
+        company = result.scalar_one_or_none()
+        if company:
+            print(f"✅ Normalized match found: {company.name}")
+            return company
+        
+        # 4. Flexible pattern matching - search for companies containing key terms
+        search_terms = self._extract_search_terms(company_name)
+        print(f"🔍 Search terms: {search_terms}")
+        
+        if search_terms:
+            # Build a query that searches for any of the search terms
+            conditions = []
+            for term in search_terms:
+                conditions.append(func.lower(NordicCompany.name).contains(term.lower()))
+            
+            result = await db.execute(
+                select(NordicCompany).where(or_(*conditions))
+            )
+            companies = result.scalars().all()
+            
+            if companies:
+                print(f"✅ Pattern matches found: {len(companies)} companies")
+                # Return the best match (shortest name = most specific)
+                best_match = min(companies, key=lambda c: len(c.name))
+                print(f"✅ Best match selected: {best_match.name}")
+                return best_match
+        
+        print(f"❌ No match found for '{company_name}'")
         return None
+        
+    def _normalize_company_name(self, name: str) -> str:
+        """Normalize MFN company name to database format"""
+        import re
+        
+        # Start with the original name
+        normalized = name
+        
+        # Convert from hyphen-separated to space-separated
+        normalized = normalized.replace('-', ' ')
+        
+        # Title case each word
+        normalized = ' '.join(word.capitalize() for word in normalized.split())
+        
+        # Handle special cases
+        special_cases = {
+            'Aac': 'AAC',
+            'Aak': 'AAK', 
+            'Abb': 'ABB',
+            '2curex': '2cureX',
+            'H&m': 'H&M'
+        }
+        
+        for old, new in special_cases.items():
+            normalized = re.sub(r'\b' + re.escape(old) + r'\b', new, normalized, flags=re.IGNORECASE)
+        
+        return normalized.strip()
+    
+    def _extract_search_terms(self, company_name: str) -> list:
+        """Extract meaningful search terms from company name"""
+        import re
+        
+        # Clean the name
+        clean_name = company_name.replace('-', ' ').replace('_', ' ')
+        
+        # Split into terms and filter
+        terms = []
+        for term in clean_name.split():
+            # Skip very short terms and common words
+            if len(term) >= 3 and term.lower() not in ['the', 'and', 'for', 'ltd', 'inc']:
+                terms.append(term)
+        
+        # Limit to most meaningful terms
+        return terms[:3]
+    
+    async def _batch_check_existing_documents(
+        self, 
+        db: AsyncSession, 
+        pdf_urls: List[str]
+    ) -> set:
+        """Batch check which PDF URLs already exist - MUCH faster than individual queries"""
+        from sqlalchemy import text
+        
+        if not pdf_urls:
+            return set()
+        
+        try:
+            print(f"🚀 Executing batch query for {len(pdf_urls)} URLs...")
+            
+            # SIMPLIFIED: Just get all documents and filter in Python (for now)
+            # This ensures the batch approach works, even if not perfectly optimized
+            result = await db.execute(
+                select(NordicDocument.metadata_.op('->>')('pdf_url')).where(
+                    NordicDocument.metadata_.op('->>')('pdf_url').isnot(None)
+                )
+            )
+            
+            # Get all existing PDF URLs and create set intersection
+            all_existing_urls = {row[0] for row in result.fetchall() if row[0]}
+            existing_urls = all_existing_urls.intersection(set(pdf_urls))
+            
+            print(f"✅ Batch query found {len(existing_urls)} existing URLs out of {len(pdf_urls)} requested")
+            return existing_urls
+            
+        except Exception as e:
+            print(f"❌ Batch query failed: {e}")
+            import traceback
+            traceback.print_exc()
+            print(f"🔄 Falling back to individual queries...")
+            
+            # Fallback to individual queries if batch fails
+            existing_urls = set()
+            for pdf_url in pdf_urls:
+                try:
+                    exists = await self._check_existing_document(db, pdf_url)
+                    if exists:
+                        existing_urls.add(pdf_url)
+                except:
+                    pass
+            return existing_urls
     
     async def _check_existing_document(
         self, 
         db: AsyncSession, 
         pdf_url: str
     ) -> bool:
-        """Check if PDF URL already catalogued"""
+        """Check if PDF URL already catalogued - DEPRECATED: Use batch method instead"""
         from sqlalchemy import text
         
         result = await db.execute(
