@@ -9,8 +9,30 @@ Production-ready modular monolith serving both Research and Nordic Ingestion ser
 
 ## Quick Start
 
-### 1. Install Dependencies
+### Option 1: Docker Deployment (RECOMMENDED)
 
+#### Daily Event Worker (Production)
+```bash
+cd backend/docker
+docker-compose up daily-event-scheduler -d
+
+# Check status
+docker ps | grep yodabuffett-daily-scheduler
+curl http://localhost:8085/health
+```
+
+#### Full Development Stack
+```bash
+cd backend/docker
+docker-compose up postgres worker-cli -d
+
+# Access CLI for development
+docker exec -it yodabuffett-worker-cli bash
+```
+
+### Option 2: Local Development
+
+#### 1. Install Dependencies
 ```bash
 cd backend/
 python -m venv venv
@@ -20,15 +42,13 @@ source venv/bin/activate  # Linux/Mac
 pip install -r requirements.txt
 ```
 
-### 2. Setup Environment
-
+#### 2. Setup Environment
 ```bash
 cp .env.example .env
 # Edit .env with your database credentials
 ```
 
-### 3. Setup Database
-
+#### 3. Setup Database
 ```bash
 # Start PostgreSQL (Docker example)
 docker run --name yodabuffett-db -e POSTGRES_PASSWORD=password -e POSTGRES_USER=yodabuffett -e POSTGRES_DB=yodabuffett -p 5432:5432 -d postgres:15
@@ -36,8 +56,7 @@ docker run --name yodabuffett-db -e POSTGRES_PASSWORD=password -e POSTGRES_USER=
 # Or use your existing PostgreSQL instance
 ```
 
-### 4. Run the Service
-
+#### 4. Run the Service
 ```bash
 python main.py
 ```
@@ -76,6 +95,66 @@ GET /api/v1/research/health
 
 # Document analysis (MVP1 integration)
 GET /api/v1/research/analyze
+```
+
+## Batch Processing (Nordic Ingestion)
+
+The Nordic Ingestion service includes production-ready batch processors for large-scale financial document collection:
+
+### Historical Document Collection
+```bash
+# Collect financial documents from ALL Swedish companies (~50,000 documents)
+python3 historical_ingestion_batch.py
+
+# Resume interrupted collection
+python3 historical_ingestion_batch.py  # Choose resume option when prompted
+```
+
+### PDF Downloads with Smart Prioritization
+```bash
+# PRIORITY: Download annual & quarterly reports ONLY (DEFAULT)
+# ~3,463 high-priority financial documents
+python3 pdf_download_batch.py --year 2025 --delay 10
+
+# Download ALL document types (press releases, governance, etc.)
+# ~14,473 total documents
+python3 pdf_download_batch.py --year 2025 --all-types --delay 10
+
+# Focus on specific company
+python3 pdf_download_batch.py --year 2025 --company "Volvo" --delay 10
+
+# Ultra-respectful mode (1 PDF per minute)
+python3 pdf_download_batch.py --year 2025 --delay 60
+```
+
+### Smart Company Retry System
+```bash
+# Automatically retry failed companies with intelligent slug detection
+# Tests case-insensitive matching and suffix variants (-holding, -group, etc.)
+python3 retry_failed_companies.py
+```
+
+### Analysis & Monitoring
+```bash
+# Analyze collection results
+python3 analyze_ingestion_results.py --failures
+python3 analyze_download_results.py
+
+# Quick company testing
+python3 test_mfn_collector.py
+```
+
+### File Organization
+Downloaded PDFs are organized in a scalable structure:
+```
+data/companies/SE/
+├── A/ABB_Ltd/2025/
+│   ├── annual_report/
+│   ├── quarterly_report/
+│   ├── press_release/
+│   └── governance/
+├── B/Bambuser/2025/...
+└── H/Hexagon_AB/2025/...
 ```
 
 ## Development

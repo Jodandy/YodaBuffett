@@ -689,6 +689,10 @@ class CalendarEventStorage:
         company_name: str
     ) -> Optional[NordicCompany]:
         """Find company by name (using same logic as document catalog)"""
+        # Debug: Print what we're looking for
+        if "absolent" in company_name.lower():
+            print(f"🔍 DEBUG: Calendar looking for absolent company: '{company_name}'")
+        
         # Direct name match first (case-insensitive)
         from sqlalchemy import func
         result = await db.execute(
@@ -714,21 +718,33 @@ class CalendarEventStorage:
             if company:
                 return company
             
-        # ⭐ SYSTEMATIC FIX: Use centralized company mappings
-        from ..common.company_mappings import get_company_name, COMPANY_SLUG_TO_NAME
+        # ⭐ SYSTEMATIC FIX: Use centralized company mappings (same as document storage)
+        from ..common.company_mappings import COMPANY_SLUG_TO_NAME
         
-        # First try centralized mapping by treating company_name as potential slug
-        potential_slug = company_name.lower().replace(" ", "-").replace("(", "").replace(")", "").replace("&", "").strip("-")
-        mapped_name = get_company_name(potential_slug)
-        if mapped_name:
-            # Try finding by mapped name
+        # Try centralized mappings for known companies
+        company_name_lower = company_name.lower()
+        if company_name_lower in COMPANY_SLUG_TO_NAME:
+            target_name = COMPANY_SLUG_TO_NAME[company_name_lower]
             result = await db.execute(
-                select(NordicCompany).where(func.lower(NordicCompany.name) == func.lower(mapped_name))
+                select(NordicCompany).where(func.lower(NordicCompany.name) == func.lower(target_name))
                 .order_by(NordicCompany.created_at).limit(1)
             )
             company = result.scalar_one_or_none()
             if company:
                 return company
+        
+        # Try converting spaces to hyphens for slug format (same as document storage)
+        if ' ' in company_name and company_name_lower not in COMPANY_SLUG_TO_NAME:
+            slug_version = company_name.lower().replace(' ', '-')
+            if slug_version in COMPANY_SLUG_TO_NAME:
+                target_name = COMPANY_SLUG_TO_NAME[slug_version]
+                result = await db.execute(
+                    select(NordicCompany).where(func.lower(NordicCompany.name) == func.lower(target_name))
+                    .order_by(NordicCompany.created_at).limit(1)
+                )
+                company = result.scalar_one_or_none()
+                if company:
+                    return company
         
         # Fallback: Check if company_name matches any known MFN company names in our mapping
         for slug, name in COMPANY_SLUG_TO_NAME.items():
