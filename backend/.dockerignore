@@ -1,0 +1,174 @@
+# YodaBuffett Docker Build Context Optimization
+# Excludes large data directories and temporary files from Docker build
+
+# =============================================================================
+# DATA DIRECTORIES (LARGEST EXCLUSIONS - 7.8GB+)
+# =============================================================================
+data/
+logs/
+temp/
+downloads/
+
+# =============================================================================
+# PYTHON BUILD ARTIFACTS
+# =============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# =============================================================================
+# VIRTUAL ENVIRONMENTS
+# =============================================================================
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# =============================================================================
+# IDE AND EDITOR FILES
+# =============================================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# =============================================================================
+# LOGS AND TEMPORARY FILES
+# =============================================================================
+*.log
+*.log.*
+*.out
+*.err
+*.tmp
+*.temp
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# =============================================================================
+# DATABASE FILES
+# =============================================================================
+*.db
+*.sqlite
+*.sqlite3
+
+# =============================================================================
+# BATCH PROCESSING RESULTS (LARGE JSON FILES)
+# =============================================================================
+historical_ingestion_*.json
+historical_ingestion_*.log
+pdf_download_*.json
+pdf_download_*.log
+daily_worker_*.json
+weekly_scanner_*.json
+*_results.txt
+*_companies_*.txt
+*_mappings*.json
+
+# =============================================================================
+# DEVELOPMENT AND DEBUG FILES
+# =============================================================================
+debug_*.py
+test_*.py
+analyze_*.py
+check_*.py
+diagnose_*.py
+quick_*.py
+save_*.py
+show_*.py
+expand_*.py
+find_*.py
+build_*.py
+retry_*.py
+run_*.py
+slow_*.py
+verify_*.py
+*test_results.txt
+
+# =============================================================================
+# GIT AND VERSION CONTROL
+# =============================================================================
+.git/
+.gitignore
+.gitattributes
+
+# =============================================================================
+# DOCUMENTATION (BUILD-TIME NOT NEEDED)
+# =============================================================================
+docs/
+*.md
+README*
+CHANGELOG*
+LICENSE*
+
+# =============================================================================
+# CONFIGURATION TEMPLATES
+# =============================================================================
+.env.example
+*.example
+*.template
+
+# =============================================================================
+# NODE.JS (IF ANY)
+# =============================================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# =============================================================================
+# MACOS SPECIFIC
+# =============================================================================
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# =============================================================================
+# SECURITY SENSITIVE
+# =============================================================================
+.env
+.env.local
+.env.production
+*.pem
+*.key
+*.crt
+secrets/
+
+# =============================================================================
+# KEEP ONLY ESSENTIAL FILES FOR DOCKER BUILD
+# =============================================================================
+# What WILL be included:
+# - requirements.txt
+# - Source code (*.py in nordic_ingestion/, workers/, shared/)
+# - Docker configuration files
+# - Essential scripts

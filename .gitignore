@@ -14,11 +14,9 @@
 
 # Environment files
 /.env
-/.env.example
 */.env
-*/.env.example
 */*.env
-*/*.env.example
+# Note: .env.example files are kept as templates with dummy values
 
 # Angular CLI and build artefacts
 /.angular-cli.json
@@ -79,3 +77,30 @@ backend/*/venv/
 # Documents (to be stored properly later)
 *.pdf
 *.PDF
+
+# Log files and results  
+*.log
+historical_ingestion_*.json
+pdf_download_*.json
+
+# Temporary development files
+test_*.py
+debug_*.py
+fix_*.py
+*_extractor.py
+*_comprehensive_*.py
+temp_*.py
+cleanup_*.py
+check_*.py
+retry_*.py
+quick_*.py
+run_*.py
+extract_*.py
+batch_*.py
+*_test_*.py
+
+# Result and analysis files
+*.txt
+*_results_*.json
+*_20*.json
+*_20*.log

@@ -5,7 +5,20 @@
       "Bash(source:*)",
       "Bash(python test:*)",
       "Bash(python:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(pkill:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker-compose build:*)",
+      "Bash(curl:*)",
+      "Bash(pip3 install:*)",
+      "Bash(rg:*)",
+      "Bash(psql:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }

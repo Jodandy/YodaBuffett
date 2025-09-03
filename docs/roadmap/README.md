@@ -1,47 +1,51 @@
-# YodaBuffett - Development Roadmap
+# YodaBuffett - Production Roadmap
 
 ## Roadmap Overview
-This folder tracks the development progress, MVPs, and future plans for YodaBuffett platform.
+This tracks the evolution from proven document analysis platform to comprehensive market intelligence system.
 
-## Current Status: Pre-MVP Phase
-Building proof-of-concept for core AI-assisted analysis capabilities.
+## Current Status: Production Foundation Complete
+Core document processing and analysis infrastructure operational with 50,000+ Nordic documents.
 
-## Active Development
+## Production Features
 
-### 🔬 **MVP 1: AI-Powered Report Analysis (IN PROGRESS)**
-**Goal**: Prove AI can extract valuable insights from financial documents
-**Timeline**: Current focus
-**Status**: Planning → Development
+### ✅ **Foundation: Document Intelligence Platform (COMPLETE)**
+**Achievement**: Comprehensive Nordic market document collection and analysis
+**Status**: Production-ready with batch processing capabilities
+**Data**: 50,000+ financial documents, calendar events, real-time ingestion
 
-See: [MVP1 - Report Analysis](./mvp1-report-analysis.md)
+See: [Document Intelligence](./mvp1-report-analysis.md)
 
-## Completed Milestones
-- ✅ Architecture design and documentation
-- ✅ Technology stack selection
-- ✅ Security and compliance framework
-- ✅ Development principles and guidelines
+## Production Achievements
+- ✅ MFN.se document collection (247 docs/company)
+- ✅ Batch processing infrastructure (480 companies)
+- ✅ PDF download and validation system
+- ✅ Calendar event extraction and storage
+- ✅ Database schema for Nordic financial data
+- ✅ Comprehensive error handling and retry logic
 
-## Upcoming MVPs (Planned)
+## Next Production Phases
 
-### 📊 **MVP 2: Company Search & Basic Dashboard**
-**Goal**: User can search companies and view basic financial data
-**Dependencies**: MVP 1 insights
-**Status**: Planning
+### 🧠 **Phase 1: Advanced Analytics Engine (NEXT)**
+**Goal**: Deploy semantic search and cross-company pattern detection
+**Components**: Vector database, hidden network models, predictive signals
+**Timeline**: Immediate priority
 
-### 🔍 **MVP 3: Personalized AI Research Assistant**
-**Goal**: User-specific AI that learns preferences and provides tailored insights
-**Dependencies**: MVP 1, MVP 2
-**Status**: Concept
+See: [Advanced Analytics](../features/advanced-analytics.md)
 
-### 📈 **MVP 4: Basic Backtesting Engine**
-**Goal**: Simple strategy testing with historical data
-**Dependencies**: Data ingestion pipeline
-**Status**: Concept
+### 📈 **Phase 2: Market Intelligence Platform**
+**Goal**: Real-time market insights and predictive analytics
+**Components**: Live data feeds, sector rotation models, competitive intelligence
+**Dependencies**: Phase 1 semantic foundation
 
-### 💼 **MVP 5: Multi-User Platform**
-**Goal**: Authentication, subscriptions, multi-tenant architecture
-**Dependencies**: MVP 1-3 validation
-**Status**: Concept
+### 🌐 **Phase 3: Multi-Market Expansion**
+**Goal**: Extend beyond Nordic markets to EU/US coverage
+**Components**: Multi-language processing, regulatory compliance, data partnerships
+**Dependencies**: Proven Nordic market success
+
+### 💼 **Phase 4: Enterprise Platform**
+**Goal**: Multi-tenant SaaS with institutional features
+**Components**: Authentication, subscriptions, API access, custom analytics
+**Dependencies**: Proven market intelligence value
 
 ## Success Criteria
 
