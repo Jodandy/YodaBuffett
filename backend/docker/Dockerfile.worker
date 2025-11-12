@@ -1,0 +1,144 @@
+# Multi-stage production Dockerfile for YodaBuffett Workers
+# Supports all worker types: document ingestors, event monitors, market data, maintenance
+# Optimized for size and security
+
+FROM python:3.11-slim-bookworm as base
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libc6-dev \
+    curl \
+    wget \
+    git \
+    libxml2-dev \
+    libxslt1-dev \
+    zlib1g-dev \
+    libjpeg-dev \
+    libpng-dev \
+    libffi-dev \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user for security
+RUN groupadd -r worker && useradd -r -g worker -d /app -s /bin/bash worker
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Install additional dependencies for workers
+RUN pip install --no-cache-dir \
+    beautifulsoup4 \
+    lxml \
+    aiofiles \
+    schedule \
+    docker \
+    fastapi \
+    uvicorn \
+    prometheus-client
+
+# Copy Docker scripts and set permissions (as root before user switch)
+COPY docker/health-check.sh /app/health-check.sh
+COPY docker/worker-entrypoint.sh /app/worker-entrypoint.sh
+RUN chmod +x /app/health-check.sh /app/worker-entrypoint.sh
+
+# Copy application code
+COPY . .
+
+# Create necessary directories and set permissions
+RUN mkdir -p /app/data /app/logs /app/temp && \
+    chown -R worker:worker /app
+
+# Production stage
+FROM base as production
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+ENV WORKER_MODE=production
+ENV DATA_VOLUME_PATH=/app/data
+ENV LOG_FILE_PATH=/app/logs/worker.log
+ENV TEMP_PATH=/app/temp
+
+# Expose health check port
+EXPOSE 8080
+
+# Switch to non-root user
+USER worker
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD /app/health-check.sh
+
+# Use entrypoint script for flexible worker startup (already copied)
+ENTRYPOINT ["/app/worker-entrypoint.sh"]
+
+# Default command (can be overridden)
+CMD ["python", "-m", "workers.base.base_worker"]
+
+# Development stage  
+FROM base as development
+
+# Install development dependencies
+RUN pip install --no-cache-dir \
+    pytest \
+    pytest-asyncio \
+    pytest-cov \
+    black \
+    flake8 \
+    mypy \
+    isort \
+    pre-commit \
+    jupyter \
+    ipython
+
+# Keep as root for development convenience
+USER root
+
+# Set development environment
+ENV WORKER_MODE=development
+ENV LOG_LEVEL=DEBUG
+ENV PYTHONPATH=/app
+
+# Expose additional development ports
+EXPOSE 8080 8090 8091 8888
+
+# Keep container running for interactive use
+CMD ["tail", "-f", "/dev/null"]
+
+# Management stage (includes Docker client for orchestration)
+FROM production as management
+
+# Switch back to root to install Docker CLI
+USER root
+
+# Install Docker CLI for worker management
+RUN curl -fsSL https://get.docker.com | sh
+
+# Install additional management tools
+RUN pip install --no-cache-dir \
+    streamlit \
+    plotly \
+    pandas \
+    redis \
+    celery
+
+# Create docker group and add worker user
+RUN groupadd -f docker && usermod -aG docker worker
+
+# Switch back to worker user
+USER worker
+
+# Expose management ports
+EXPOSE 8080 8090 8091 6379
+
+# Management entrypoint
+CMD ["python", "-m", "workers.management.worker_manager"]

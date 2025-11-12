@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.yodabuffett.daily-worker</string>
+    
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/jdandemar/Documents/YodaBuffett/backend/venv/bin/python</string>
+        <string>-m</string>
+        <string>workers.daily_event_worker</string>
+    </array>
+    
+    <key>WorkingDirectory</key>
+    <string>/Users/jdandemar/Documents/YodaBuffett/backend</string>
+    
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>DATA_VOLUME_PATH</key>
+        <string>/Users/jdandemar/Documents/YodaBuffett/backend/data</string>
+    </dict>
+    
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>6</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    
+    <key>StandardOutPath</key>
+    <string>/Users/jdandemar/Documents/YodaBuffett/backend/logs/daily-worker.log</string>
+    
+    <key>StandardErrorPath</key>
+    <string>/Users/jdandemar/Documents/YodaBuffett/backend/logs/daily-worker-error.log</string>
+    
+    <key>RunAtLoad</key>
+    <false/>
+    
+    <key>KeepAlive</key>
+    <false/>
+</dict>
+</plist>

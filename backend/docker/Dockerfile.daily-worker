@@ -1,0 +1,65 @@
+# Multi-stage production Dockerfile for Daily Event Worker
+# Optimized for size and security
+
+FROM python:3.11-slim-bookworm as base
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libc6-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user for security
+RUN groupadd -r worker && useradd -r -g worker -d /app -s /bin/bash worker
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Create necessary directories
+RUN mkdir -p /app/data /app/logs && \
+    chown -R worker:worker /app
+
+# Production stage
+FROM base as production
+
+# Switch to non-root user
+USER worker
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+ENV WORKER_MODE=production
+ENV DATA_VOLUME_PATH=/app/data
+ENV LOG_FILE_PATH=/app/logs/worker.log
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import asyncio; from workers.daily_event_worker import health_check; print(asyncio.run(health_check()))" || exit 1
+
+# Default command
+CMD ["python", "-m", "workers.daily_event_worker"]
+
+# Development stage  
+FROM base as development
+
+# Install development dependencies
+RUN pip install --no-cache-dir pytest pytest-asyncio black flake8 mypy
+
+# Keep as root for development convenience
+USER root
+
+ENV WORKER_MODE=development
+ENV LOG_LEVEL=DEBUG
+
+CMD ["python", "-m", "workers.daily_event_worker"]

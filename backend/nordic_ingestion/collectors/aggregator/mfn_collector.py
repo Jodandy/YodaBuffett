@@ -341,8 +341,36 @@ class MFNCollector:
                     else:
                         print(f"   🔄 Skipping document from {item_author} (not target company)")
                 else:
-                    # If no author found, include item (fallback for older format)
-                    company_mfn_items.append(item)
+                    # NO AUTHOR ATTRIBUTE - MUST VALIDATE MORE CAREFULLY
+                    # Check if the item contains company-specific information
+                    item_text = item.get_text().lower()
+                    target_company_lower = company.lower()
+                    
+                    # Look for company name in the item text
+                    if target_company_lower in item_text:
+                        company_mfn_items.append(item)
+                        print(f"   ✅ Found document likely from {company} (validated by content)")
+                    else:
+                        # Check all links in the item for company references
+                        item_links = item.find_all('a', href=True)
+                        company_found = False
+                        
+                        for link in item_links:
+                            href = link.get('href', '').lower()
+                            link_text = link.get_text().lower()
+                            
+                            # Convert company name to slug format for URL checking
+                            company_slug = company.lower().replace(' ', '-').replace('&', 'and')
+                            
+                            if company_slug in href or target_company_lower in link_text:
+                                company_found = True
+                                break
+                        
+                        if company_found:
+                            company_mfn_items.append(item)
+                            print(f"   ✅ Found document likely from {company} (validated by links)")
+                        else:
+                            print(f"   ⚠️  Skipping item with no author - cannot verify it belongs to {company}")
             
             print(f"🔍 After filtering: {len(company_mfn_items)} containers belong to {company}")
             mfn_items = company_mfn_items

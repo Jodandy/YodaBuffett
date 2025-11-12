@@ -1,0 +1,531 @@
+version: '3.8'
+
+services:
+  
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: yodabuffett-postgres
+    environment:
+      POSTGRES_DB: yodabuffett
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-dev_password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - yodabuffett-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Swedish Document Ingestor
+  swedish-document-ingestor:
+    profiles: ["production", "ingestors", "development"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+      target: production
+    container_name: yodabuffett-swedish-ingestor
+    environment:
+      # Worker Configuration
+      WORKER_TYPE: document_ingestor
+      WORKER_NAME: swedish-document-ingestor
+      WORKER_MARKET: swedish
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: yodabuffett
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-dev_password}
+      
+      # Scheduler Configuration
+      USE_CALENDAR_TARGETING: ${USE_CALENDAR_TARGETING:-true}
+      LOOK_AHEAD_DAYS: ${LOOK_AHEAD_DAYS:-3}
+      LOOK_BACK_DAYS: ${LOOK_BACK_DAYS:-1}
+      MAX_DAILY_TARGETS: ${MAX_DAILY_TARGETS:-100}
+      
+      # Scraping Configuration
+      SCRAPING_RATE_DELAY: ${RATE_DELAY:-2.0}
+      SCRAPING_TIMEOUT: 30
+      SCRAPING_MAX_RETRIES: 3
+      USER_AGENT: "YodaBuffett-SwedishIngestor/1.0"
+      
+      # Operational Configuration
+      HEALTH_CHECK_PORT: 8080
+      DATA_VOLUME_PATH: /app/data
+      LOG_FILE_PATH: /app/logs/swedish-ingestor.log
+    
+    volumes:
+      - worker_data:/app/data
+      - worker_logs:/app/logs
+    
+    ports:
+      - "8080:8080"  # Health check endpoint
+    
+    networks:
+      - yodabuffett-network
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    restart: unless-stopped
+    
+    command: ["python", "-m", "workers.ingestors.swedish_document_ingestor"]
+    
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8080/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    # Resource limits for production
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+
+  # Norwegian Document Ingestor
+  norwegian-document-ingestor:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+      target: production
+    container_name: yodabuffett-norwegian-ingestor
+    environment:
+      # Worker Configuration  
+      WORKER_TYPE: document_ingestor
+      WORKER_NAME: norwegian-document-ingestor
+      WORKER_MARKET: norwegian
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: yodabuffett
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-dev_password}
+      
+      # Scheduler Configuration
+      USE_CALENDAR_TARGETING: ${USE_CALENDAR_TARGETING:-true}
+      LOOK_AHEAD_DAYS: ${LOOK_AHEAD_DAYS:-3}
+      
+      # Scraping Configuration
+      SCRAPING_RATE_DELAY: ${RATE_DELAY:-2.0}
+      SCRAPING_TIMEOUT: 30
+      USER_AGENT: "YodaBuffett-NorwegianIngestor/1.0"
+      
+      DATA_VOLUME_PATH: /app/data
+      LOG_FILE_PATH: /app/logs/norwegian-ingestor.log
+    
+    volumes:
+      - worker_data:/app/data
+      - worker_logs:/app/logs
+    
+    ports:
+      - "8081:8080"  # Health check endpoint
+    
+    networks:
+      - yodabuffett-network
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    command: ["python", "-m", "workers.ingestors.norwegian_document_ingestor"]
+    
+    # Start disabled by default (enable when Norwegian implementation is ready)
+    restart: "no"
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+
+  # Swedish Event Monitor
+  swedish-event-monitor:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+      target: production
+    container_name: yodabuffett-swedish-event-monitor
+    environment:
+      # Worker Configuration
+      WORKER_TYPE: event_monitor
+      WORKER_NAME: swedish-event-monitor
+      WORKER_MARKET: swedish
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: yodabuffett
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-dev_password}
+      
+      # Monitoring Configuration
+      MONITOR_INTERVAL_HOURS: 24
+      
+      DATA_VOLUME_PATH: /app/data
+      LOG_FILE_PATH: /app/logs/event-monitor.log
+    
+    volumes:
+      - worker_data:/app/data
+      - worker_logs:/app/logs
+    
+    networks:
+      - yodabuffett-network
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    command: ["python", "-m", "workers.monitors.swedish_event_monitor"]
+    restart: unless-stopped
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+
+  # Nordic Surprise Scanner
+  nordic-surprise-scanner:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+      target: production
+    container_name: yodabuffett-surprise-scanner
+    environment:
+      # Worker Configuration
+      WORKER_TYPE: event_monitor
+      WORKER_NAME: nordic-surprise-scanner
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: yodabuffett
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-dev_password}
+      
+      # Scanner Configuration
+      WEEKLY_SAMPLE_SIZE: ${WEEKLY_SAMPLE_SIZE:-50}
+      SURPRISE_THRESHOLD_DAYS: 14
+      
+      # Scraping Configuration (slower for weekly)
+      SCRAPING_RATE_DELAY: 3.0
+      SCRAPING_TIMEOUT: 30
+      USER_AGENT: "YodaBuffett-SurpriseScanner/1.0"
+      
+      DATA_VOLUME_PATH: /app/data
+      LOG_FILE_PATH: /app/logs/surprise-scanner.log
+    
+    volumes:
+      - worker_data:/app/data
+      - worker_logs:/app/logs
+    
+    networks:
+      - yodabuffett-network
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    command: ["python", "-m", "workers.monitors.surprise_scanner"]
+    
+    # Run weekly via cron or manual trigger
+    restart: "no"
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+
+  # Market Data Workers
+  nordic-price-collector:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+      target: production
+    container_name: yodabuffett-price-collector
+    environment:
+      # Worker Configuration
+      WORKER_TYPE: market_data
+      WORKER_NAME: nordic-price-collector
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: yodabuffett
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-dev_password}
+      
+      # Market Data Configuration
+      COLLECTION_INTERVAL_MINUTES: ${PRICE_COLLECTION_INTERVAL:-5}
+      MARKETS: "swedish,norwegian,danish,finnish"
+      
+      DATA_VOLUME_PATH: /app/data
+      LOG_FILE_PATH: /app/logs/price-collector.log
+    
+    volumes:
+      - worker_data:/app/data
+      - worker_logs:/app/logs
+    
+    networks:
+      - yodabuffett-network
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    command: ["python", "-m", "workers.market_data.price_collector"]
+    
+    # Disabled by default - enable when market data collection is implemented
+    restart: "no"
+    
+    # Higher resource allocation for continuous operation
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+
+  # Maintenance Workers
+  database-cleanup-worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+      target: production
+    container_name: yodabuffett-db-cleanup
+    environment:
+      # Worker Configuration
+      WORKER_TYPE: maintenance
+      WORKER_NAME: database-cleanup-worker
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: yodabuffett
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-dev_password}
+      
+      # Cleanup Configuration
+      RETENTION_DAYS: ${DATA_RETENTION_DAYS:-365}
+      CLEANUP_SCHEDULE: "0 2 * * 1"  # Monday 2 AM
+      
+      DATA_VOLUME_PATH: /app/data
+      LOG_FILE_PATH: /app/logs/db-cleanup.log
+    
+    volumes:
+      - worker_data:/app/data
+      - worker_logs:/app/logs
+    
+    networks:
+      - yodabuffett-network
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    command: ["python", "-m", "workers.maintenance.database_cleanup"]
+    
+    # Run weekly
+    restart: "no"
+    
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+
+  # Worker Management System
+  worker-manager:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+      target: production
+    container_name: yodabuffett-worker-manager
+    environment:
+      # Manager Configuration
+      WORKER_TYPE: manager
+      WORKER_NAME: worker-manager
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: yodabuffett
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-dev_password}
+      
+      # Management Configuration
+      SCHEDULER_ENABLED: ${ENABLE_SCHEDULER:-true}
+      WEB_UI_PORT: 8090
+      API_PORT: 8091
+      
+      DATA_VOLUME_PATH: /app/data
+      LOG_FILE_PATH: /app/logs/manager.log
+    
+    volumes:
+      - worker_data:/app/data
+      - worker_logs:/app/logs
+      - /var/run/docker.sock:/var/run/docker.sock  # For Docker management
+    
+    ports:
+      - "8090:8090"  # Web UI
+      - "8091:8091"  # Management API
+    
+    networks:
+      - yodabuffett-network
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    command: ["python", "-m", "workers.management.worker_manager"]
+    restart: unless-stopped
+    
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+
+  # Daily Event Worker Scheduler
+  daily-event-scheduler:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+      target: production
+    container_name: yodabuffett-daily-scheduler
+    environment:
+      # Worker Configuration
+      WORKER_TYPE: scheduler
+      WORKER_NAME: daily-event-scheduler
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      
+      # Database Configuration
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_NAME: yodabuffett
+      DB_USER: yodabuffett
+      DB_PASSWORD: password
+      
+      # Scheduler Configuration
+      DAILY_RUN_TIME: ${DAILY_RUN_TIME:-06:00}
+      WORKER_MODE: production
+      
+      # Paths (using volumes)
+      DATA_VOLUME_PATH: /app/data
+      LOG_FILE_PATH: /app/logs/daily-scheduler.log
+      HEALTH_CHECK_PORT: 8085
+    
+    volumes:
+      - worker_data:/app/data
+      - worker_logs:/app/logs
+    
+    ports:
+      - "8085:8085"  # Health check endpoint
+    
+    networks:
+      - default
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    # Use entrypoint script (no command override needed)
+    restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+
+  # Development CLI (for operations)
+  worker-cli:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+      target: development
+    container_name: yodabuffett-worker-cli
+    environment:
+      WORKER_MODE: development
+      LOG_LEVEL: DEBUG
+      
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: yodabuffett
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-dev_password}
+      
+      # All worker types available for testing
+      AVAILABLE_WORKERS: "all"
+    
+    volumes:
+      - worker_data:/app/data
+      - worker_logs:/app/logs
+      - ../:/app  # Mount source code for development (read-write)
+    
+    networks:
+      - yodabuffett-network
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    # Keep container running for CLI access
+    command: ["tail", "-f", "/dev/null"]
+    
+    # Don't restart - used for manual operations
+    restart: "no"
+
+volumes:
+  postgres_data:
+    driver: local
+    name: yodabuffett_postgres_data
+  
+  worker_data:
+    driver: local
+    name: yodabuffett_worker_data
+  
+  worker_logs:
+    driver: local
+    name: yodabuffett_worker_logs
+
+networks:
+  yodabuffett-network:
+    driver: bridge
+    name: yodabuffett-network
+
