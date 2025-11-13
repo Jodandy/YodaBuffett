@@ -8,10 +8,10 @@ This tracks the evolution from document collection to a multi-product financial 
 
 ## Production Features
 
-### ✅ **Foundation: Document Intelligence Platform (COMPLETE)**
-**Achievement**: Comprehensive Nordic market document collection and analysis
-**Status**: Production-ready with batch processing capabilities
-**Data**: 50,000+ financial documents, calendar events, real-time ingestion
+### 🚧 **Foundation: Document Intelligence Platform (IN PROGRESS)**
+**Achievement**: Nordic market document collection and basic text extraction
+**Status**: Text extraction pipeline working, advanced analytics in development  
+**Data**: 47,931+ financial documents collected, text extraction functional
 
 See: [Document Intelligence](./mvp1-report-analysis.md)
 
