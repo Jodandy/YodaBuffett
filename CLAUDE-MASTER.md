@@ -1,7 +1,7 @@
-# YodaBuffett - AI-Powered Investment Research Platform
+# YodaBuffett - Multi-Product Financial Intelligence Platform
 
 ## Project Overview
-Production-ready platform for institutional-grade financial research and analysis. AI accelerates research workflows, powers predictive models, and enables sophisticated backtesting. Architecture built for scale, reliability, and continuous evolution as a comprehensive fintech platform.
+Next-generation financial research platform that powers multiple products on a unified foundation. From Bloomberg competitors to retail tools, all built on the same multi-database architecture with superior UX/UI, better pricing, and institutional-grade reliability. Platform enables custom hypothesis testing for sophisticated users while maintaining simplicity for retail customers.
 
 ## Quick Start
 ```bash
@@ -29,7 +29,8 @@ git push origin main
 
 ### Technology Stack
 - **Backend**: Python (AI/ML), TypeScript/Node.js (APIs)
-- **Database**: PostgreSQL + TimescaleDB + Vector DB
+- **Multi-Database**: PostgreSQL + TimescaleDB + Vector DB + ML Database + Redis
+- **Data Services**: Document processing, market data feeds, news APIs, web scraping
 - **Infrastructure**: Docker, K8s, Terraform
 - **AI**: OpenAI/Anthropic APIs, local models
 
@@ -45,7 +46,17 @@ git push origin main
 ## Project Structure
 ```
 YodaBuffett/
+├── AI_QUICK_START.md          # AI assistant cold-start guide (READ FIRST!)
+├── ARCHITECTURE_MAP.md        # Complete system overview and navigation
 ├── CLAUDE-MASTER.md           # This file - high-level overview
+├── backend/
+│   └── domains/               # Business domain organization
+│       ├── document_intelligence/__domain__.md  # Document processing
+│       ├── market_data/__domain__.md           # Market feeds & data
+│       ├── analytics/__domain__.md             # Cross-company analysis
+│       └── user_management/__domain__.md       # Auth & subscriptions
+├── tools/
+│   └── ai_docs_validator.py   # Validate documentation currency
 ├── docs/
 │   ├── architecture/
 │   │   ├── data-architecture.md      # Database schemas, data flow
@@ -105,7 +116,21 @@ YodaBuffett/
 
 ## Documentation Map
 
-**Need high-level architecture?** → Read this file  
+**🚀 NEW TO YODABUFFETT?** → `AI_QUICK_START.md` (AI cold-start guide)  
+**Need system overview?** → `ARCHITECTURE_MAP.md` (complete architecture map)  
+**Platform strategy & vision?** → `docs/strategy/platform-vision.md`  
+**Multi-product roadmap?** → `docs/roadmap/README.md`  
+**AI-first development methodology?** → `docs/development/ai-first-methodology.md`  
+**AI code standards?** → `docs/development/ai-code-standards.md`  
+**Competitive analysis?** → `docs/business/competitive-analysis.md`  
+**Multi-database design?** → `docs/architecture/multi-database-design.md`  
+**Data services architecture?** → `docs/architecture/data-services-architecture.md`
+
+**Domain-Specific Work:**  
+**Document processing?** → `backend/domains/document_intelligence/__domain__.md`  
+**Market data & feeds?** → `backend/domains/market_data/__domain__.md`  
+**Analytics & correlations?** → `backend/domains/analytics/__domain__.md`  
+**User management & auth?** → `backend/domains/user_management/__domain__.md`  
 **Working on data/database?** → `docs/architecture/data-architecture.md`  
 **Adding new features?** → `docs/development/extensibility.md`  
 **System not flexible enough?** → `docs/architecture/system-flexibility.md`  
