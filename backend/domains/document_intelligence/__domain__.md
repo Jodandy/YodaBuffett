@@ -17,17 +17,23 @@ Handles PDFs, annual reports, quarterly reports in Swedish, Norwegian, Danish, F
 ---
 
 ## Current Implementation (AI-Maintained)
-*Last updated: 2025-01-12 by AI Assistant*
+*Last updated: 2025-11-13 by AI Assistant*
 
 ### Business Purpose
-Transforms unstructured financial documents into structured, queryable data for the YodaBuffett platform. Serves as the foundation for all downstream analytics by ensuring high-quality data extraction from Nordic market documents.
+Extracts text and metadata from Nordic financial documents to enable future analytics. Currently focused on reliable PDF processing and structured data storage.
 
-### Key Capabilities
-- **PDF Text Extraction**: Handles complex financial document layouts with OCR fallback
+### Key Capabilities (IMPLEMENTED)
+- **PDF Text Extraction**: Robust extraction using pdfplumber + PyPDF2 fallback
+- **Document Metadata Extraction**: Company, year, document type from file structure  
+- **Text Chunking**: Prepares documents for future vector embedding
+- **Multi-language Detection**: Basic Nordic language detection (Swedish, Norwegian, English)
+- **Structured Storage**: PostgreSQL storage with proper indexing
+
+### Planned Capabilities (NOT YET IMPLEMENTED)
 - **Financial Data Extraction**: ML-based extraction of revenue, profits, ratios, and key metrics
-- **Document Classification**: Automatic categorization (annual reports, quarterly, press releases)
-- **Multi-language Processing**: Native support for Swedish, Norwegian, Danish, Finnish
+- **Document Classification**: Automatic categorization beyond file structure
 - **Semantic Search**: Vector embeddings for cross-document pattern detection
+- **Advanced Analytics**: Cross-company analysis and pattern detection
 
 ### Architecture Overview
 ```
@@ -36,9 +42,12 @@ PDF Upload → Text Extraction → Classification → Financial Analysis → Str
 pdf_processor → text_extractor → classifier → financial_analyzer → models → repositories
 ```
 
-### Services in Production
-- `PDFProcessor`: Handles PDF parsing, text extraction, and OCR fallback for damaged files
-- `TextExtractor`: Cleans and structures extracted text for downstream analysis
+### Services Implemented
+- `PDFProcessor`: Handles PDF parsing, text extraction with pdfplumber/PyPDF2 fallback
+- `DocumentProcessingService`: Orchestrates document processing pipeline with dependency injection
+
+### Services Planned (Not Yet Implemented)
+- `TextExtractor`: Advanced text cleaning and structure extraction
 - `DocumentClassifier`: ML-based classification into document types and priority levels
 - `FinancialDataExtractor`: Extracts structured financial metrics using specialized ML models
 - `SemanticIndexer`: Generates vector embeddings for document search and correlation
@@ -49,21 +58,25 @@ pdf_processor → text_extractor → classifier → financial_analyzer → model
 - `DocumentMetadata`: Classification, company mapping, and processing status
 - `DocumentEmbedding`: Vector representation for semantic search capabilities
 
-### API Endpoints (AI-Maintained)
+### API Endpoints (Planned - Not Yet Implemented)
 - `POST /documents/upload`: Upload new financial document for processing
 - `GET /documents/{id}/extract`: Retrieve extracted financial data for specific document
 - `GET /documents/search`: Semantic search across the document corpus
 - `POST /documents/classify`: Classify document type and extract metadata
 - `GET /documents/{id}/status`: Check processing status and any errors
 
-### Performance Characteristics (AI-Updated)
-- **Single Document Processing**: <2 minutes for standard Nordic financial reports
-- **Batch Processing**: 100 documents in <30 minutes with parallel workers
-- **Text Extraction**: <30 seconds per document, <10 seconds for text-only PDFs
+### Performance Characteristics (Current Implementation)
+- **Single Document Processing**: ~1-2 seconds for PDF text extraction
+- **Batch Processing**: 3 documents processed successfully in ~1.3 seconds (100% success rate)
+- **Text Extraction**: Working with both pdfplumber and PyPDF2 fallback
+- **Language Detection**: Basic Nordic language detection working
+- **Memory Usage**: Minimal for basic text extraction
+- **Supported File Sizes**: Tested with typical financial report PDFs
+
+### Planned Performance Targets
 - **Financial Data Extraction**: <90 seconds per document for complex reports
-- **Accuracy**: >95% for standard Nordic financial reports, 88% for complex layouts
-- **Memory Usage**: ~200MB per document during processing
-- **Supported File Sizes**: Up to 50MB per PDF document
+- **Accuracy**: >95% for standard Nordic financial reports
+- **Semantic Search**: <200ms response times
 
 ### Dependencies
 - **Vector Database**: Stores document embeddings for semantic search capabilities
@@ -78,16 +91,19 @@ pdf_processor → text_extractor → classifier → financial_analyzer → model
 - **← User Management**: Document access control and processing quotas
 - **← Shared Database**: Company mappings and document metadata storage
 
-### Testing Coverage (AI-Updated)
-- **Unit Tests**: 92% coverage across all services (last updated 2025-01-12)
-- **Integration Tests**: End-to-end document processing pipeline validation
-- **Performance Tests**: Load testing with 500+ concurrent document uploads
-- **Quality Tests**: Extraction accuracy validation against manually verified dataset
-- **Language Tests**: Multi-language processing accuracy for all Nordic languages
+### Testing Coverage (Current)
+- **Manual Testing**: Basic CLI testing with 3 Nordic documents (100% success rate)
+- **Integration Testing**: End-to-end PDF processing pipeline validated
+- **Unit Tests**: Not yet implemented (planned)
+- **Performance Tests**: Not yet implemented (planned)
+- **Quality Tests**: Not yet implemented (planned)
 
 ### Recent Changes (AI-Generated Log)
+- **2025-11-13**: Restructured domain with hexagonal architecture following HARD principles
+- **2025-11-13**: Implemented PDFProcessor and DocumentProcessingService with dependency injection
+- **2025-11-13**: Added PostgreSQL repositories with proper ports/adapters pattern
+- **2025-11-13**: Updated documentation to reflect actual implementation vs planned features
 - **2025-01-12**: Initial domain structure created with comprehensive documentation
-- **[Future updates will be added here by AI assistants]**
 
 ---
 
