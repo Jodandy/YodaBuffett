@@ -18,7 +18,8 @@
       "Bash(pip3 install:*)",
       "Bash(rg:*)",
       "Bash(psql:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(PYTHONPATH=. python3:*)"
     ],
     "deny": []
   }

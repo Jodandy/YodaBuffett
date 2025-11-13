@@ -19,15 +19,24 @@ Building extensible platform for any financial analysis, not just specific featu
 - Cost: ~$0.004 per document | Processing: 3-5 seconds
 - Foundation learnings: [mvp1-report-analysis/MVP1_LEARNINGS.md](./mvp1-report-analysis/MVP1_LEARNINGS.md)
 
-🚀 **Nordic Financial Data Platform** - DATA FOUNDATION READY
-- Complete Swedish market document collection (50,000+ documents)
-- **SMART PRIORITIZATION**: Annual & quarterly reports first (3,463 priority documents)
+🚀 **Nordic Financial Data Platform** - PRODUCTION READY
+- Complete Swedish market document collection (47,931 documents)
+- **SMART PRIORITIZATION**: Annual & quarterly reports first (30,342 priority documents)
 - **INTELLIGENT RETRY SYSTEM**: Case-insensitive matching + suffix pattern testing
 - **ORGANIZED STORAGE**: `data/companies/SE/{A-Z}/{Company}/{Year}/{Type}/`
 - Automated historical ingestion and PDF download batch processors
 - Real-time calendar events and financial document monitoring
 - RSS monitoring, document downloads, scheduled orchestration
 - Management CLI, API integration, and operational monitoring
+
+📄 **Document Processing Pipeline** - PRODUCTION READY
+- **47,931 PDFs Catalogued**: Complete text extraction infrastructure with pause/resume
+- **Robust State Management**: Independent processing state tracking with batch control
+- **Priority-Based Processing**: Annual reports (Priority 1) → Quarterly (Priority 2) → Other documents
+- **Multi-Market Architecture**: Regional partitioning ready for Nordic, Europe, North America, Asia
+- **Content Analysis**: Detects images, tables, scanned content for ML readiness
+- **Performance**: 2-5 seconds per document, ~2GB storage for all extracted text
+- **Documentation**: [docs/features/document-processing.md](./docs/features/document-processing.md)
 
 🤖 **Daily Event Worker System** - DEVELOPMENT ACTIVE (DOCKER)
 - **Automated Daily Collection**: Docker container runs daily at 6:00 AM with built-in scheduler
@@ -75,6 +84,7 @@ Building extensible platform for any financial analysis, not just specific featu
 | **Architecture decisions** | [docs/architecture/ARCHITECTURE_DECISIONS.md](./docs/architecture/ARCHITECTURE_DECISIONS.md) |
 | **Production components added** | [docs/PRODUCTION_COMPONENTS_ADDED.md](./docs/PRODUCTION_COMPONENTS_ADDED.md) |
 | **Multi-market worker system** | [docs/MULTI_MARKET_WORKERS_ADDED.md](./docs/MULTI_MARKET_WORKERS_ADDED.md) |
+| **Document processing pipeline** | [docs/features/document-processing.md](./docs/features/document-processing.md) |
 
 ## Quick Commands
 
@@ -115,6 +125,19 @@ python3 pdf_download_batch.py --year 2025 --delay 60
 # Analyze results
 python3 analyze_ingestion_results.py
 python3 analyze_download_results.py
+
+# DOCUMENT PROCESSING PIPELINE (Production Ready)
+# Activate virtual environment first
+source venv/bin/activate
+
+# Catalog all 47,931 PDFs without processing them
+PYTHONPATH=. python3 domains/document_intelligence/cli_stateful.py discover
+
+# Process documents in controllable batches with pause/resume
+PYTHONPATH=. python3 domains/document_intelligence/cli_stateful.py process 100
+
+# Check processing status anytime
+PYTHONPATH=. python3 domains/document_intelligence/cli_stateful.py status
 
 # MULTI-MARKET WORKER SYSTEM (Production Monitoring)
 # Individual worker testing

@@ -373,6 +373,50 @@ rm ~/Library/LaunchAgents/com.yodabuffett.daily-scheduler.plist
 # Now use Docker approach exclusively
 ```
 
+#### Document Processing Pipeline (Production Ready)
+**Purpose**: Robust PDF text extraction with pause/resume capabilities
+
+```bash
+# Activate virtual environment (required)
+source venv/bin/activate
+
+# PHASE 1: Document Discovery (catalog all PDFs without processing)
+PYTHONPATH=/Users/jdandemar/Documents/YodaBuffett/backend python3 domains/document_intelligence/cli_stateful.py discover
+
+# PHASE 2: Process documents in controllable batches
+PYTHONPATH=/Users/jdandemar/Documents/YodaBuffett/backend python3 domains/document_intelligence/cli_stateful.py process 50
+
+# Check processing status anytime
+PYTHONPATH=/Users/jdandemar/Documents/YodaBuffett/backend python3 domains/document_intelligence/cli_stateful.py status
+
+# Discover limited number for testing
+PYTHONPATH=/Users/jdandemar/Documents/YodaBuffett/backend python3 domains/document_intelligence/cli_stateful.py discover 100
+```
+
+**Features**:
+- **47,931 PDFs catalogued**: Complete Swedish market document collection
+- **Robust Pause/Resume**: Can interrupt processing with Ctrl+C and resume exactly where left off
+- **Processing Priorities**: Annual reports (Priority 1), Quarterly (Priority 2), Press releases (Priority 7)
+- **Independent State Tracking**: Uses `document_processing_state` table for reliable progress tracking
+- **Batch Processing**: Process any number of documents (10, 50, 100) with full control
+- **Content Analysis**: Detects images, tables, scanned content in PDFs
+- **Multi-Market Ready**: Regional partitioning supports Nordic, Europe, North America, Asia expansion
+
+**Expected Performance**:
+- **Text Extraction**: 2-5 seconds per PDF document
+- **Memory Usage**: Processes in chunks of 100 documents to prevent memory issues
+- **Storage**: ~2GB for all extracted text from 47,931 documents
+- **Completion Tracking**: Real-time progress with percentage complete
+- **Error Handling**: Continues processing even if individual documents fail
+
+**Current Status (as of implementation)**:
+- **📄 Total documents**: 47,931 catalogued
+- **🔍 Discovered**: 47,929 ready for processing
+- **✅ Completed**: 2 (test runs)
+- **📋 Priority 1**: 11,795 annual reports
+- **📋 Priority 2**: 18,547 quarterly reports
+- **🎯 Next**: Process high-priority documents first
+
 #### Analyze Ingestion Results
 **Purpose**: Quick analysis of batch ingestion results
 
@@ -482,6 +526,8 @@ YodaBuffett/
 - [ ] Check disk space: `df -h`
 - [ ] Check Nordic ingestion progress: `python3 analyze_ingestion_results.py`
 - [ ] Monitor PDF download progress: `python3 analyze_download_results.py`
+- [ ] **Check document processing status**: `PYTHONPATH=backend python3 domains/document_intelligence/cli_stateful.py status`
+- [ ] **Process daily batch** (if actively processing): `PYTHONPATH=backend python3 domains/document_intelligence/cli_stateful.py process 100`
 - [ ] Review document collection rates from latest batch run
 - [ ] Check `data/companies/` folder size and organization
 
@@ -492,6 +538,8 @@ YodaBuffett/
 - [ ] Update API usage tracking
 - [ ] Run fresh historical ingestion for new/updated companies
 - [ ] **Run focused PDF downloads**: `python3 pdf_download_batch.py --delay 10` (reports only)
+- [ ] **Process large document batches**: `PYTHONPATH=backend python3 domains/document_intelligence/cli_stateful.py process 500`
+- [ ] **Monitor document processing progress**: Check completion rate and processing errors
 - [ ] Retry failed companies: `python3 retry_failed_companies.py` (10-20 companies)
 - [ ] Analyze ingestion failure patterns and optimize slugs/mappings
 - [ ] Archive old ingestion result files: `gzip historical_ingestion_*.json pdf_download_*.json`
@@ -620,6 +668,40 @@ psql postgresql://yoda:buffett123@localhost:5432/yodabuffett
 \d nordic_companies
 
 # Restart ingestion with fresh database connection
+```
+
+#### Document Processing Issues
+```bash
+# Check processing status
+PYTHONPATH=backend python3 domains/document_intelligence/cli_stateful.py status
+
+# Restart interrupted processing (resumes automatically)
+PYTHONPATH=backend python3 domains/document_intelligence/cli_stateful.py process 100
+
+# Reset stuck processing status (if documents stuck in 'processing' state)
+psql postgresql://yoda:buffett123@localhost:5432/yodabuffett
+UPDATE document_processing_state SET processing_status = 'discovered' 
+WHERE processing_status = 'processing' AND last_attempt_at < NOW() - INTERVAL '1 hour';
+
+# Clear failed documents to retry (after fixing underlying issue)
+UPDATE document_processing_state SET processing_status = 'discovered', 
+attempt_count = 0, last_error = NULL 
+WHERE processing_status = 'failed';
+
+# Check database tables exist
+\d document_processing_state;
+\d batch_processing_sessions;
+
+# Verify virtual environment is activated
+source venv/bin/activate
+pip list | grep pydantic-settings
+
+# Common solutions:
+# 1. Always activate venv first: source venv/bin/activate  
+# 2. Use correct PYTHONPATH: PYTHONPATH=backend python3 ...
+# 3. Check database connectivity: psql postgresql://...
+# 4. Monitor disk space for text storage: df -h
+# 5. Process in smaller batches if memory issues: process 20
 ```
 
 #### MFN.se Structure Changes

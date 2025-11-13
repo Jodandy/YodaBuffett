@@ -82,11 +82,18 @@ class PDFProcessor:
             if len(path_parts) < 6:
                 return None
             
-            country = path_parts[-5]  # SE
-            company_name = path_parts[-4].replace('_', ' ')  # AAK_AB -> AAK AB
-            year = int(path_parts[-3])  # 2025
-            document_type = path_parts[-2]  # annual_report, quarterly_report, etc.
-            file_name = path_parts[-1]
+            # Fix: Find the country code (should be SE, not letter folder)
+            # Look for the companies directory and get the country after it
+            for i, part in enumerate(path_parts):
+                if part == "companies" and i + 1 < len(path_parts):
+                    country = path_parts[i + 1]  # SE
+                    company_name = path_parts[i + 3].replace('_', ' ')  # AAK_AB -> AAK AB  
+                    year = int(path_parts[i + 4])  # 2025
+                    document_type = path_parts[i + 5]  # annual_report, quarterly_report, etc.
+                    file_name = path_parts[-1]
+                    break
+            else:
+                return None  # Couldn't find companies directory
             
             # Extract date from filename (format: YYYY-MM-DD-...)
             date_published = None
@@ -115,21 +122,47 @@ class PDFProcessor:
     
     async def _extract_text_from_pdf(self, file_path: str) -> Tuple[str, int, List[str]]:
         """
-        Extract text from PDF using multiple strategies
+        Extract text from PDF using multiple strategies and detect content types
         
         Returns: (full_text, total_pages, errors)
         """
         errors = []
         full_text = ""
         total_pages = 0
+        content_analysis = {
+            "total_images": 0,
+            "total_tables": 0,
+            "pages_with_images": [],
+            "pages_with_tables": [],
+            "text_to_image_ratio": 0.0,
+            "has_scanned_content": False
+        }
         
-        # Strategy 1: Try pdfplumber (better for complex layouts)
+        # Strategy 1: Try pdfplumber (better for complex layouts + content analysis)
         try:
             with pdfplumber.open(file_path) as pdf:
                 total_pages = len(pdf.pages)
-                for page in pdf.pages:
+                
+                for page_num, page in enumerate(pdf.pages, 1):
                     page_text = page.extract_text() or ""
                     full_text += page_text + "\\n\\n"
+                    
+                    # Analyze page content
+                    self._analyze_page_content(page, page_num, content_analysis)
+                
+                # Calculate text-to-image ratio
+                text_chars = len(full_text.strip())
+                if content_analysis["total_images"] > 0:
+                    content_analysis["text_to_image_ratio"] = text_chars / content_analysis["total_images"]
+                
+                # Detect scanned content (very low text extraction vs pages)
+                if total_pages > 0:
+                    avg_text_per_page = text_chars / total_pages
+                    if avg_text_per_page < 100:  # Less than 100 chars per page suggests scanning
+                        content_analysis["has_scanned_content"] = True
+                
+                # Store content analysis in errors list for now (will move to metadata)
+                errors.append(f"content_analysis: {content_analysis}")
                 
                 if full_text.strip():
                     return full_text, total_pages, errors
@@ -153,6 +186,29 @@ class PDFProcessor:
             errors.append(f"PyPDF2 error: {str(e)}")
         
         return full_text, total_pages, errors
+    
+    def _analyze_page_content(self, page, page_num: int, content_analysis: dict):
+        """Analyze page for images, tables, and other content types"""
+        try:
+            # Detect images
+            if hasattr(page, 'images') and page.images:
+                image_count = len(page.images)
+                content_analysis["total_images"] += image_count
+                if image_count > 0:
+                    content_analysis["pages_with_images"].append(page_num)
+            
+            # Detect tables
+            if hasattr(page, 'extract_tables'):
+                tables = page.extract_tables()
+                if tables:
+                    table_count = len(tables)
+                    content_analysis["total_tables"] += table_count
+                    content_analysis["pages_with_tables"].append(page_num)
+            
+        except Exception as e:
+            logger.debug(f"Content analysis failed for page {page_num}: {e}")
+            # Don't fail the whole extraction for content analysis errors
+            pass
     
     def _clean_text(self, text: str) -> str:
         """
