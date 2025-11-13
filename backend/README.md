@@ -6,6 +6,8 @@ Production-ready modular monolith serving both Research and Nordic Ingestion ser
 
 - **Research Service** (`/api/v1/research`) - MVP1 document analysis
 - **Nordic Ingestion Service** (`/api/v1/nordic`) - Swedish financial data ingestion
+- **Document Intelligence** (`domains/document_intelligence/`) - Vector embedding pipeline with OpenAI integration
+- **Analytics Domain** (`domains/analytics/`) - Vector-based predictive modeling (planned)
 
 ## Quick Start
 
@@ -143,6 +145,44 @@ python3 analyze_download_results.py
 # Quick company testing
 python3 test_mfn_collector.py
 ```
+
+## Vector Embeddings (Document Intelligence)
+
+Generate semantic embeddings for extracted financial documents using OpenAI's text-embedding-3-small model.
+
+### Setup
+```bash
+# Ensure OpenAI API key is set in backend/.env
+OPENAI_API_KEY=sk-your-api-key-here
+
+# Activate virtual environment
+source venv/bin/activate
+cd domains/document_intelligence/
+```
+
+### Commands
+```bash
+# Check embedding status
+python cli_embedding_generation.py status
+
+# Preview next documents for embedding
+python cli_embedding_generation.py preview 10
+
+# Generate embeddings (small batch)
+python cli_embedding_generation.py generate 5
+
+# Test with single document
+python cli_embedding_generation.py test
+
+# Filter by company
+python cli_embedding_generation.py generate 3 --company=Volvo
+```
+
+### Performance
+- **Cost**: ~$0.026 per 1,000 documents (~$47 for full 1,827 document corpus)
+- **Speed**: ~1 second per document (including OpenAI API call and database storage)
+- **Storage**: 1536-dimensional vectors in PostgreSQL with pgvector extension
+- **Providers**: Currently OpenAI, architecture supports Claude, local models
 
 ### File Organization
 Downloaded PDFs are organized in a scalable structure:

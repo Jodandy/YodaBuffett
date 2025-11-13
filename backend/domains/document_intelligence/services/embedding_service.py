@@ -27,6 +27,8 @@ class EmbeddingService:
     def __init__(self, api_key: str = None, model: str = "text-embedding-3-small"):
         self.client = AsyncOpenAI(api_key=api_key) if api_key else None
         self.model = model
+        self.provider = "openai"  # Explicit provider tracking
+        self.model_full_name = f"{self.provider}/{model}"  # Full provider/model string
         self.embedding_dimension = 1536 if "small" in model else 3072
         self.batch_size = 100  # OpenAI recommended batch size
         self.rate_limit_delay = 1.0  # Seconds between batches
@@ -136,6 +138,9 @@ class EmbeddingService:
             stored_count = 0
             
             for chunk_index, embedding, chunk_text in chunk_embeddings:
+                # Convert embedding list to string format for pgvector
+                embedding_str = str(embedding)
+                
                 await conn.execute("""
                     INSERT INTO document_embeddings (
                         extracted_document_id, chunk_index, embedding, chunk_text,
@@ -144,8 +149,8 @@ class EmbeddingService:
                     ON CONFLICT (extracted_document_id, chunk_index, embedding_version) 
                     DO NOTHING
                 """, 
-                    document_id, chunk_index, embedding, chunk_text,
-                    self.model, "v1.0", datetime.now()
+                    document_id, chunk_index, embedding_str, chunk_text,
+                    self.model_full_name, "v1.0", datetime.now()
                 )
                 stored_count += 1
             

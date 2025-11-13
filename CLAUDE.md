@@ -31,12 +31,23 @@ Building extensible platform for any financial analysis, not just specific featu
 
 📄 **Document Processing Pipeline** - PRODUCTION READY
 - **47,931 PDFs Catalogued**: Complete text extraction infrastructure with pause/resume
+- **1,827 Documents Extracted**: Text extraction complete with PostgreSQL storage
 - **Robust State Management**: Independent processing state tracking with batch control
 - **Priority-Based Processing**: Annual reports (Priority 1) → Quarterly (Priority 2) → Other documents
 - **Multi-Market Architecture**: Regional partitioning ready for Nordic, Europe, North America, Asia
 - **Content Analysis**: Detects images, tables, scanned content for ML readiness
 - **Performance**: 2-5 seconds per document, ~2GB storage for all extracted text
 - **Documentation**: [docs/features/document-processing.md](./docs/features/document-processing.md)
+
+🧠 **Vector Embedding System** - PRODUCTION ACTIVE
+- **OpenAI Integration**: Real embeddings using `openai/text-embedding-3-small` model
+- **PostgreSQL + pgvector**: 1536-dimensional vectors stored with semantic search capability
+- **20 Documents Embedded**: Testing completed, production pipeline validated
+- **Sectional Embeddings Planned**: Financial section-specific embeddings (balance sheet, income statement, etc.)
+- **Cost Efficient**: ~$0.026 per 1,000 documents, estimated $47 for full corpus
+- **Provider Flexible**: Architecture supports OpenAI, Claude, local models with explicit tracking
+- **Performance**: ~1 second per document including API calls and database storage
+- **Documentation**: [docs/features/sectional-embeddings.md](./docs/features/sectional-embeddings.md)
 
 🤖 **Daily Event Worker System** - DEVELOPMENT ACTIVE (DOCKER)
 - **Automated Daily Collection**: Docker container runs daily at 6:00 AM with built-in scheduler
