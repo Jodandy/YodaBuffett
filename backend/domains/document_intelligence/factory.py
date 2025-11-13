@@ -4,9 +4,9 @@ Wires up all dependencies following HARD architecture principles
 """
 
 import sys
+import os
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent.parent))
-from shared.config import settings
 from .repositories.postgres_repository import (
     PostgresDocumentRepository,
     PostgresExtractionRepository, 
@@ -18,9 +18,13 @@ from .services.document_processor import DocumentProcessingService
 
 def get_database_url() -> str:
     """Get PostgreSQL database URL for asyncpg"""
-    db_url = settings.database_url
+    # Try environment variable first, then fallback to default
+    db_url = os.getenv('DATABASE_URL') or 'postgresql://yodabuffett:password@localhost:5432/yodabuffett'
+    
+    # Convert from SQLAlchemy format if needed
     if db_url.startswith("postgresql+asyncpg://"):
         db_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
+    
     return db_url
 
 

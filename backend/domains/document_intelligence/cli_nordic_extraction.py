@@ -112,17 +112,17 @@ class NordicExtractionController:
                 
                 try:
                     # Process single document using storage_path
-                    filing_id = await self.processing_service.process_single_document(
+                    extracted_document_id = await self.processing_service.process_single_document(
                         doc['storage_path']
                     )
                     
                     extraction_duration = int(time() - start_time)
                     
-                    if filing_id:
+                    if extracted_document_id:
                         # Mark as completed with performance metrics
                         await self.extraction_service.mark_extraction_completed(
                             document_id=doc['id'],
-                            filing_id=filing_id,
+                            extracted_document_id=extracted_document_id,
                             text_length=0,  # Will be updated by processing service
                             extraction_duration=extraction_duration,
                             confidence=0.95  # Default confidence for successful extraction

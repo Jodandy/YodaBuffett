@@ -195,7 +195,7 @@ class NordicExtractionService:
     async def mark_extraction_completed(
         self, 
         document_id: str, 
-        filing_id: str,
+        extracted_document_id: str,
         text_length: int,
         extraction_duration: int,
         confidence: Optional[float] = None,
@@ -210,7 +210,7 @@ class NordicExtractionService:
                 UPDATE nordic_documents 
                 SET extraction_status = 'completed',
                     extracted_at = NOW(),
-                    filing_id = $2,
+                    extracted_document_id = $2,
                     text_length = $3,
                     extraction_duration_seconds = $4,
                     extraction_confidence = $5,
@@ -219,7 +219,7 @@ class NordicExtractionService:
                     extraction_error = NULL
                 WHERE id = $1
             """, 
-                document_id, filing_id, text_length, extraction_duration,
+                document_id, extracted_document_id, text_length, extraction_duration,
                 confidence, content_analysis, warnings
             )
             

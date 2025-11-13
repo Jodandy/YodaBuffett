@@ -25,9 +25,9 @@ class PostgresDocumentRepository(DocumentRepository):
         conn = await asyncpg.connect(self.db_url)
         
         try:
-            # Insert filing record
-            filing_id = await conn.fetchval("""
-                INSERT INTO filings (
+            # Insert extracted document record
+            extracted_document_id = await conn.fetchval("""
+                INSERT INTO extracted_documents (
                     company_name, country, form_type, filing_date, year,
                     raw_text, extracted_text, file_path, file_name,
                     total_pages, language, text_length, metadata
@@ -55,12 +55,12 @@ class PostgresDocumentRepository(DocumentRepository):
             # Insert chunks
             for chunk in document.chunks:
                 await conn.execute("""
-                    INSERT INTO document_chunks (
-                        filing_id, chunk_index, chunk_text, page_numbers,
+                    INSERT INTO extracted_document_chunks (
+                        extracted_document_id, chunk_index, chunk_text, page_numbers,
                         char_start, char_end, chunk_metadata
                     ) VALUES ($1, $2, $3, $4, $5, $6, $7)
                 """,
-                    filing_id,
+                    extracted_document_id,
                     chunk.chunk_index,
                     chunk.text,
                     chunk.page_numbers,
@@ -69,7 +69,7 @@ class PostgresDocumentRepository(DocumentRepository):
                     json.dumps(chunk.metadata)
                 )
             
-            return filing_id
+            return extracted_document_id
             
         finally:
             await conn.close()
@@ -79,30 +79,30 @@ class PostgresDocumentRepository(DocumentRepository):
         conn = await asyncpg.connect(self.db_url)
         
         try:
-            # Get filing record
-            filing = await conn.fetchrow("""
-                SELECT * FROM filings WHERE id = $1
+            # Get extracted document record
+            extracted_doc = await conn.fetchrow("""
+                SELECT * FROM extracted_documents WHERE id = $1
             """, document_id)
             
-            if not filing:
+            if not extracted_doc:
                 return None
             
             # Get chunks
             chunk_rows = await conn.fetch("""
-                SELECT * FROM document_chunks 
-                WHERE filing_id = $1 
+                SELECT * FROM extracted_document_chunks 
+                WHERE extracted_document_id = $1 
                 ORDER BY chunk_index
             """, document_id)
             
             # Build document info
             doc_info = DocumentInfo(
-                company_name=filing['company_name'],
-                country=filing['country'],
-                year=filing['year'],
-                document_type=filing['form_type'],
-                date_published=filing['filing_date'],
-                file_path=filing['file_path'],
-                file_name=filing['file_name']
+                company_name=extracted_doc['company_name'],
+                country=extracted_doc['country'],
+                year=extracted_doc['year'],
+                document_type=extracted_doc['form_type'],
+                date_published=extracted_doc['filing_date'],
+                file_path=extracted_doc['file_path'],
+                file_name=extracted_doc['file_name']
             )
             
             # Build chunks
@@ -119,15 +119,15 @@ class PostgresDocumentRepository(DocumentRepository):
             ]
             
             # Build processed document
-            metadata = json.loads(filing['metadata']) if filing['metadata'] else {}
+            metadata = json.loads(extracted_doc['metadata']) if extracted_doc['metadata'] else {}
             
             return ProcessedDocument(
                 document_info=doc_info,
-                full_text=filing['extracted_text'],
+                full_text=extracted_doc['extracted_text'],
                 chunks=chunks,
-                total_pages=filing['total_pages'],
-                language=filing['language'],
-                text_length=filing['text_length'],
+                total_pages=extracted_doc['total_pages'],
+                language=extracted_doc['language'],
+                text_length=extracted_doc['text_length'],
                 processing_errors=metadata.get('processing_errors', [])
             )
             
@@ -139,13 +139,13 @@ class PostgresDocumentRepository(DocumentRepository):
         conn = await asyncpg.connect(self.db_url)
         
         try:
-            filing_ids = await conn.fetch("""
-                SELECT id FROM filings WHERE company_name = $1
+            extracted_document_ids = await conn.fetch("""
+                SELECT id FROM extracted_documents WHERE company_name = $1
                 ORDER BY year DESC, filing_date DESC
             """, company_name)
             
             documents = []
-            for row in filing_ids:
+            for row in extracted_document_ids:
                 doc = await self.get_document_by_id(row['id'])
                 if doc:
                     documents.append(doc)
@@ -160,14 +160,14 @@ class PostgresDocumentRepository(DocumentRepository):
         conn = await asyncpg.connect(self.db_url)
         
         try:
-            filing_ids = await conn.fetch("""
-                SELECT id FROM filings WHERE form_type = $1
+            extracted_document_ids = await conn.fetch("""
+                SELECT id FROM extracted_documents WHERE form_type = $1
                 ORDER BY year DESC, filing_date DESC
                 LIMIT 100
             """, document_type)
             
             documents = []
-            for row in filing_ids:
+            for row in extracted_document_ids:
                 doc = await self.get_document_by_id(row['id'])
                 if doc:
                     documents.append(doc)
@@ -271,14 +271,14 @@ class PostgresProcessingLogRepository(ProcessingLogRepository):
         
         try:
             # Overall counts
-            total_docs = await conn.fetchval("SELECT COUNT(*) FROM filings")
+            total_docs = await conn.fetchval("SELECT COUNT(*) FROM extracted_documents")
             total_errors = await conn.fetchval("SELECT COUNT(*) FROM processing_log WHERE status = 'error'")
             total_success = await conn.fetchval("SELECT COUNT(*) FROM processing_log WHERE status = 'success'")
             
             # By document type
             by_type = await conn.fetch("""
                 SELECT form_type, COUNT(*) as count
-                FROM filings
+                FROM extracted_documents
                 GROUP BY form_type
                 ORDER BY count DESC
             """)
@@ -286,7 +286,7 @@ class PostgresProcessingLogRepository(ProcessingLogRepository):
             # By language
             by_language = await conn.fetch("""
                 SELECT language, COUNT(*) as count
-                FROM filings
+                FROM extracted_documents
                 GROUP BY language
                 ORDER BY count DESC
             """)
