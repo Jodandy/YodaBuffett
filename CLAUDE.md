@@ -19,7 +19,7 @@ Building extensible platform for any financial analysis, not just specific featu
 - Cost: ~$0.004 per document | Processing: 3-5 seconds
 - Foundation learnings: [mvp1-report-analysis/MVP1_LEARNINGS.md](./mvp1-report-analysis/MVP1_LEARNINGS.md)
 
-🚀 **Nordic Financial Data Platform** - PRODUCTION READY
+🚀 **Nordic Financial Data Platform** - DATA FOUNDATION READY
 - Complete Swedish market document collection (50,000+ documents)
 - **SMART PRIORITIZATION**: Annual & quarterly reports first (3,463 priority documents)
 - **INTELLIGENT RETRY SYSTEM**: Case-insensitive matching + suffix pattern testing
@@ -29,7 +29,7 @@ Building extensible platform for any financial analysis, not just specific featu
 - RSS monitoring, document downloads, scheduled orchestration
 - Management CLI, API integration, and operational monitoring
 
-🤖 **Daily Event Worker System** - PRODUCTION ACTIVE (DOCKER)
+🤖 **Daily Event Worker System** - DEVELOPMENT ACTIVE (DOCKER)
 - **Automated Daily Collection**: Docker container runs daily at 6:00 AM with built-in scheduler
 - **Event-Driven Intelligence**: Only processes companies with upcoming financial events
 - **Calendar Integration**: Targets earnings, reports, AGMs, dividends automatically  
@@ -38,7 +38,7 @@ Building extensible platform for any financial analysis, not just specific featu
 - **Zero Manual Intervention**: Set-and-forget Docker operation with health monitoring
 - **Portable Deployment**: Same behavior on any Docker-capable server
 
-🌍 **Multi-Market Worker System** - PRODUCTION DEPLOYED  
+🌍 **Multi-Market Worker System** - DEVELOPMENT DEPLOYED  
 - **Specialized Workers**: Swedish, Norwegian, Danish, Finnish market ingestors
 - **Event-Driven Architecture**: Calendar-targeted collection with smart scheduling
 - **Unified Management**: Web dashboard + REST API for all Nordic markets
