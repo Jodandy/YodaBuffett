@@ -26,8 +26,10 @@ Transforms raw document and market data into actionable investment intelligence.
 - **Cross-Company Correlation**: Multi-dimensional similarity analysis using financial + textual data
 - **Hidden Pattern Detection**: Identifies supply chain dependencies, talent flows, market signals
 - **Predictive Modeling**: Ensemble machine learning models for earnings, risk, and market movements  
+- **Vector-Based Predictions**: Document semantic analysis for stock performance, ESG, and credit risk forecasting
 - **Risk Assessment**: Systematic risk scoring and correlation analysis
 - **Market Intelligence**: Early warning systems and sector rotation prediction
+- **Backtesting Framework**: Walk-forward validation of predictive models with performance tracking
 
 ### Architecture Overview
 ```
@@ -45,6 +47,12 @@ Multi-Source Data → Feature Engineering → ML Models → Pattern Detection �
 - `TrendAnalyzer`: Time-series analysis of financial metrics, sentiment, and market patterns
 - `SignalGenerator`: Creates actionable investment signals from detected patterns and predictions
 
+### Services in Development (Vector Predictions)
+- `VectorPredictionManager`: Orchestrates multiple ML models using document vectors for stock, ESG, and credit predictions
+- `VectorFeatureExtractor`: Extracts semantic features from document embeddings for ML model training
+- `VectorBacktester`: Walk-forward backtesting framework with performance tracking and risk-adjusted metrics
+- `ModelPerformanceTracker`: Monitors prediction accuracy and automatically triggers model retraining
+
 ### Core Models
 - `CorrelationMatrix`: Cross-company similarity scores with confidence intervals
 - `PatternResult`: Detected patterns with supporting evidence and confidence scores
@@ -58,6 +66,14 @@ Multi-Source Data → Feature Engineering → ML Models → Pattern Detection �
 - `GET /analytics/risk/{company_id}`: Comprehensive risk assessment with component scores  
 - `POST /analytics/signals/generate`: Generate investment signals based on current analysis
 - `GET /analytics/trends/{company_id}`: Historical trend analysis with forward projections
+
+### Vector Prediction Endpoints (Planned)
+- `POST /analytics/predictions/{document_id}`: Generate all model predictions for new document
+- `GET /analytics/predictions/stock/{company_id}`: Stock performance predictions (1m, 3m, 6m horizons)
+- `GET /analytics/predictions/esg/{company_id}`: ESG rating change predictions
+- `GET /analytics/predictions/credit/{company_id}`: Credit risk assessment and rating predictions
+- `GET /analytics/models/{model_name}/performance`: Model performance metrics and backtesting results
+- `POST /analytics/models/retrain`: Trigger model retraining with new data
 
 ### Performance Characteristics (AI-Updated)
 - **Cross-Company Correlation**: <30 seconds for 500 Nordic companies
@@ -88,6 +104,9 @@ Multi-Source Data → Feature Engineering → ML Models → Pattern Detection �
 - **Backtesting**: Historical performance validation of signals and risk models
 
 ### Recent Changes (AI-Generated Log)
+- **2025-11-13**: Designed vector-based predictive modeling system for stock performance, ESG, and credit risk forecasting
+- **2025-11-13**: Planned VectorPredictionManager, VectorFeatureExtractor, and VectorBacktester services
+- **2025-11-13**: Defined comprehensive database schema for model storage and prediction tracking
 - **2025-01-12**: Initial domain structure created with comprehensive documentation
 - **[Future updates will be added here by AI assistants]**
 
