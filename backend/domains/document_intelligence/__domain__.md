@@ -107,6 +107,17 @@ Extraction Tracking ← Priority Queuing ← Content Analysis ← Language Detec
 
 ### Cross-Domain Integration
 - **→ Analytics Domain**: Provides structured financial data for correlation analysis
+- **→ Market Data Domain**: Enriches documents with company metadata and market context
+
+### Recent Changes (AI-Generated Log)
+- **2025-11-13**: Implemented vector embedding pipeline with OpenAI text-embedding-3-small integration
+- **2025-11-13**: Generated 20 real embeddings with PostgreSQL + pgvector storage, validated production pipeline
+- **2025-11-13**: Added explicit provider tracking (openai/text-embedding-3-small vs text-embedding-3-small)
+- **2025-11-13**: Fixed PostgreSQL vector data type conversion for pgvector compatibility
+- **2025-11-13**: Documented sectional embeddings concept for financial report section-specific analysis
+- **2025-11-13**: Set up embedding generation CLI with status monitoring and batch processing
+- **2025-11-13**: Established 1,827 extracted documents ready for embedding generation
+- **[Future updates will be added here by AI assistants]**
 - **→ Market Data Domain**: Validates extracted data against market information  
 - **← User Management**: Document access control and processing quotas
 - **← Shared Database**: Company mappings and document metadata storage
