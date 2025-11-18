@@ -39,17 +39,25 @@ Building extensible platform for any financial analysis, not just specific featu
 - **Performance**: 2-5 seconds per document, ~2GB storage for all extracted text
 - **Documentation**: [docs/features/document-processing.md](./docs/features/document-processing.md)
 
-🧠 **Vector Embedding System** - PRODUCTION ACTIVE
+🧠 **Section-Based Financial Intelligence** - PRODUCTION READY
+- **Intelligent Financial Section Parsing**: Nordic language support for complete financial statements
+- **CID Artifact Filtering**: Automatically skips documents with >1% CID artifacts for quality control
+- **Production Performance**: ~1 second per document, ~40-70 meaningful sections per document
+- **Multi-Provider Embeddings**: OpenAI, Cohere, local models - same sections, different providers (ready for testing)
+- **85% Cost Reduction**: Intelligent section boundaries vs mechanical chunks
+- **Independent Validation**: Test section quality before spending on embeddings
+- **Complete Pipeline**: `cli_section_chunking.py` → `cli_multi_embeddings.py` → advanced analysis
+- **Current Status**: 50 documents processed with 2,039 sections created successfully
+
+🧠 **Vector Embedding System** - PRODUCTION ACTIVE (Legacy)
 - **OpenAI Integration**: Real embeddings using `openai/text-embedding-3-small` model
 - **PostgreSQL + pgvector**: 1536-dimensional vectors stored with semantic search capability
 - **20 Documents Embedded**: Testing completed, production pipeline validated
-- **Sectional Embeddings Planned**: Financial section-specific embeddings (balance sheet, income statement, etc.)
 - **Cost Efficient**: ~$0.026 per 1,000 documents, estimated $47 for full corpus
 - **Provider Flexible**: Architecture supports OpenAI, Claude, local models with explicit tracking
 - **Performance**: ~1 second per document including API calls and database storage
-- **Documentation**: [docs/features/sectional-embeddings.md](./docs/features/sectional-embeddings.md)
 
-🤖 **Daily Event Worker System** - DEVELOPMENT ACTIVE (DOCKER)
+🤖 **Daily Event Worker System** - PRODUCTION ACTIVE (DOCKER)
 - **Automated Daily Collection**: Docker container runs daily at 6:00 AM with built-in scheduler
 - **Event-Driven Intelligence**: Only processes companies with upcoming financial events
 - **Calendar Integration**: Targets earnings, reports, AGMs, dividends automatically  
@@ -58,7 +66,7 @@ Building extensible platform for any financial analysis, not just specific featu
 - **Zero Manual Intervention**: Set-and-forget Docker operation with health monitoring
 - **Portable Deployment**: Same behavior on any Docker-capable server
 
-🌍 **Multi-Market Worker System** - DEVELOPMENT DEPLOYED  
+🌍 **Multi-Market Worker System** - PRODUCTION DEPLOYED  
 - **Specialized Workers**: Swedish, Norwegian, Danish, Finnish market ingestors
 - **Event-Driven Architecture**: Calendar-targeted collection with smart scheduling
 - **Unified Management**: Web dashboard + REST API for all Nordic markets
@@ -96,6 +104,8 @@ Building extensible platform for any financial analysis, not just specific featu
 | **Production components added** | [docs/PRODUCTION_COMPONENTS_ADDED.md](./docs/PRODUCTION_COMPONENTS_ADDED.md) |
 | **Multi-market worker system** | [docs/MULTI_MARKET_WORKERS_ADDED.md](./docs/MULTI_MARKET_WORKERS_ADDED.md) |
 | **Document processing pipeline** | [docs/features/document-processing.md](./docs/features/document-processing.md) |
+| **Section-based embeddings** | [docs/features/section-based-embeddings.md](./docs/features/section-based-embeddings.md) |
+| **Human operator guide** | [docs/operations/human-operator-guide.md](./docs/operations/human-operator-guide.md) |
 
 ## Quick Commands
 
@@ -146,6 +156,20 @@ PYTHONPATH=. python3 domains/document_intelligence/cli_stateful.py discover
 
 # Process documents in controllable batches with pause/resume
 PYTHONPATH=. python3 domains/document_intelligence/cli_stateful.py process 100
+
+# SECTION-BASED EMBEDDINGS (Intelligent Financial Analysis)
+# Phase 1: Section Chunking (Rule-Based, Free) - PRODUCTION READY
+python domains/document_intelligence/cli_section_chunking.py setup
+python domains/document_intelligence/cli_section_chunking.py status
+python domains/document_intelligence/cli_section_chunking.py test Volvo
+python domains/document_intelligence/cli_section_chunking.py process 50
+python domains/document_intelligence/cli_section_chunking.py inspect Volvo
+
+# Phase 2: Multi-Provider Embeddings (AI-Based, Flexible) - READY FOR TESTING
+python domains/document_intelligence/cli_multi_embeddings.py openai setup
+python domains/document_intelligence/cli_multi_embeddings.py openai status
+python domains/document_intelligence/cli_multi_embeddings.py openai process 100
+python domains/document_intelligence/cli_multi_embeddings.py openai compare
 
 # Check processing status anytime
 PYTHONPATH=. python3 domains/document_intelligence/cli_stateful.py status

@@ -19,7 +19,8 @@
       "Bash(rg:*)",
       "Bash(psql:*)",
       "Bash(git add:*)",
-      "Bash(PYTHONPATH=. python3:*)"
+      "Bash(PYTHONPATH=. python3:*)",
+      "mcp__ide__executeCode"
     ],
     "deny": []
   }
