@@ -538,6 +538,19 @@ Verify:
 - Any interdependencies between segments
 - Spinoff or sale likelihood
 
+MANDATORY CHECKS (before any investment):
+
+1. Insider transactions (past 12 months)
+   - Any director sales to ZERO? → RED FLAG
+   - Total insider selling >5% market cap? → RED FLAG
+   - Selling >10x insider buying? → RED FLAG
+
+2. Buyback timing
+   - Buyback acceleration during insider selling? → RED FLAG
+   - Board members selling while buybacks occurring? → RED FLAG
+
+3. If BOTH present → AUTOMATIC DISQUALIFY
+
 ───────────────────────────────────────────
 SECTION C: THESIS STRESS TEST
 ───────────────────────────────────────────
@@ -565,7 +578,7 @@ CURRENT PRICE: $___
 ANALYSIS DATE: [Date]
 
 ───────────────────────────────────────────
-QUICK FILTERS
+QUICK FILTERSz
 ───────────────────────────────────────────
 ✓ OCF/EBIT: __% (Healthy/Concerning)
 ✓ DSO: ___ days (Normal/High)  
