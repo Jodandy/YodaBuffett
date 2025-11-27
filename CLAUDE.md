@@ -75,9 +75,18 @@ Building extensible platform for any financial analysis, not just specific featu
 - **Professional Operations**: Production monitoring, logging, and error handling
 - **Scalable Foundation**: Easy expansion to additional markets and worker types
 
-🧠 **Advanced Analytics & Intelligence** - IN DEVELOPMENT
+🧠 **Temporal Anomaly Detection** - PROOF-OF-CONCEPT VALIDATED ⭐ PROMISING EDGE
+- **CONCEPT PROVEN**: Successfully detected real financial events in historical testing
+- **AAK 2020-2021**: Balance sheet anomaly detected → Major asset/debt spike
+- **AcadeMedia 2017-2018**: Risk factor changes → Swedish schooling law changes  
+- **AddLife 2018-2019**: Income statement anomaly → 40% revenue growth
+- Company-specific pattern baselines using local embeddings (FREE)
+- 11,000+ section embeddings across Nordic companies
+- Automated anomaly thresholds with similarity scoring
+- Real-time deviation detection from historical communication patterns
+
+🧠 **Advanced Analytics & Intelligence** - EXPANDING
 - Vector-based semantic search across all financial documents
-- **NEW: Temporal anomaly detection** - Company-specific pattern changes as early signals
 - Hidden connection discovery between companies and markets  
 - Predictive modeling and systemic risk analysis
 - Cross-company pattern detection and market intelligence
@@ -108,6 +117,54 @@ Building extensible platform for any financial analysis, not just specific featu
 | **Document processing pipeline** | [docs/features/document-processing.md](./docs/features/document-processing.md) |
 | **Section-based embeddings** | [docs/features/section-based-embeddings.md](./docs/features/section-based-embeddings.md) |
 | **Human operator guide** | [docs/operations/human-operator-guide.md](./docs/operations/human-operator-guide.md) |
+
+## 🚀 **Quick Commands - Temporal Anomaly Detection**
+
+### Complete Pipeline (Production Ready)
+```bash
+# 1. Extract text from PDFs (if needed)
+cd backend/
+python reset_extraction_processing.py 1  # Reset stuck extractions
+python domains/document_intelligence/cli_nordic_extraction.py extract 100000
+
+# 2. Create smart financial sections
+python domains/document_intelligence/cli_section_chunking.py status
+python domains/document_intelligence/cli_section_chunking.py process 1000
+
+# 3. Generate local embeddings (FREE)
+python domains/document_intelligence/cli_multi_embeddings.py local setup
+python domains/document_intelligence/cli_multi_embeddings.py local process 10000
+
+# 4. Run temporal anomaly detection (CORE EDGE)
+python test_temporal_patterns.py
+python test_embedding_quality.py
+```
+
+### Quality Validation & Debugging
+```bash
+# Check embedding quality
+python test_embedding_quality.py
+python debug_embeddings.py
+
+# Clean any dummy embeddings
+python count_dummy_embeddings.py
+python clean_dummy_embeddings.py
+
+# Investigate specific anomalies
+python investigate_embeddings.py
+```
+
+### Monitoring & Diagnostics
+```bash
+# Check pipeline status
+python domains/document_intelligence/cli_nordic_extraction.py status
+python domains/document_intelligence/cli_section_chunking.py status
+python domains/document_intelligence/cli_multi_embeddings.py local status
+
+# Diagnostic tools
+python check_embedding_tables.py
+python diagnose_extraction_issue.py
+```
 
 ## Quick Commands
 

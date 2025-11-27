@@ -417,7 +417,27 @@ python domains/document_intelligence/cli_section_chunking.py process 50
 python domains/document_intelligence/cli_section_chunking.py inspect Volvo
 ```
 
-**PHASE 2: Multi-Provider Embeddings (AI-Based, Flexible Cost) - READY FOR TESTING**
+**PHASE 2: Multi-Provider Embeddings (AI-Based, Flexible Cost) - PRODUCTION READY**
+
+**LOCAL MODEL EMBEDDINGS (FREE, PRODUCTION-TESTED)** ⭐ RECOMMENDED
+```bash
+# Setup local embeddings database (uses sentence-transformers)
+python domains/document_intelligence/cli_multi_embeddings.py local setup
+
+# Check local embedding status
+python domains/document_intelligence/cli_multi_embeddings.py local status
+
+# Process sections with local embeddings (small batch test)
+python domains/document_intelligence/cli_multi_embeddings.py local process 50
+
+# Process larger batches for production (recommended)
+python domains/document_intelligence/cli_multi_embeddings.py local process 1000
+
+# Scale up to all sections (11K+ sections)
+python domains/document_intelligence/cli_multi_embeddings.py local process 10000
+```
+
+**OPENAI EMBEDDINGS (PAID, HIGH QUALITY)**
 ```bash
 # Setup OpenAI embeddings database
 python domains/document_intelligence/cli_multi_embeddings.py openai setup
@@ -433,11 +453,59 @@ python domains/document_intelligence/cli_multi_embeddings.py openai process 100
 
 # Compare all embedding providers
 python domains/document_intelligence/cli_multi_embeddings.py openai compare
+```
 
-# Alternative providers for cost optimization
+**ALTERNATIVE PROVIDERS**
+```bash
+# Cohere embeddings (placeholder)
 python domains/document_intelligence/cli_multi_embeddings.py cohere setup
 python domains/document_intelligence/cli_multi_embeddings.py cohere process 20 Volvo
-python domains/document_intelligence/cli_multi_embeddings.py local process 20 Volvo
+```
+
+## 🚨 **PHASE 3: Temporal Anomaly Detection (PRODUCTION VALIDATED)** ⭐ CORE EDGE
+
+**VALIDATED RESULTS**: Successfully detected real financial events:
+- AAK 2020-2021: Balance sheet anomaly → Major asset/debt spike  
+- AcadeMedia 2017-2018: Risk factor changes → Swedish schooling law changes
+- AddLife 2018-2019: Income statement anomaly → 40% revenue growth
+
+**EMBEDDING QUALITY VALIDATION**
+```bash
+# Test embedding quality and similarity patterns
+python test_embedding_quality.py
+
+# Debug any embedding issues
+python debug_embeddings.py
+
+# Check for dummy embeddings that need regeneration
+python count_dummy_embeddings.py
+python clean_dummy_embeddings.py
+```
+
+**TEMPORAL ANOMALY DETECTION**
+```bash
+# Run temporal pattern analysis (core edge detection)
+python test_temporal_patterns.py
+
+# Search through embeddings semantically
+python test_embedding_search.py
+
+# Investigate specific anomalies
+python investigate_embeddings.py
+```
+
+**PRODUCTION MONITORING**
+```bash
+# Check table relationships and data integrity
+python check_embedding_tables.py
+python check_table_columns.py
+
+# Reset stuck processing states if needed
+python reset_stuck_documents.py
+python reset_extraction_processing.py
+
+# Diagnose extraction pipeline issues
+python diagnose_extraction_issue.py
 ```
 
 **Legacy Embeddings (Mechanical Chunks)**

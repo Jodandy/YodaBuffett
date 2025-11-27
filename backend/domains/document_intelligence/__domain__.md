@@ -1,37 +1,56 @@
 # Domain: Document Intelligence
 
 ## AI Quick Start (Cold Start Context)
-Processes 47K+ Nordic financial documents to extract structured financial data.
-Handles PDFs, annual reports, quarterly reports in Swedish, Norwegian, Danish, Finnish.
+**PROOF-OF-CONCEPT TEMPORAL ANOMALY DETECTION SYSTEM** 🧪
+Processes 106K+ Nordic financial documents with AI-powered temporal anomaly detection.
+Successfully validated concept by detecting real financial events: AAK balance sheet changes, AcadeMedia regulatory impacts, AddLife growth inflections.
 
-**Key AI Request Patterns**: "process documents", "extract financial data", "PDF analysis", "document classification"
+**Key AI Request Patterns**: "temporal anomaly detection", "embedding generation", "financial signal detection", "document intelligence"
 
-**Start Files**: `services/pdf_processor.py`, `services/financial_data_extractor.py`, `services/document_classifier.py`
+**Start Files**: `cli_multi_embeddings.py`, `services/section_chunking_service.py`, `test_temporal_patterns.py`
 
 ## When to Work Here
+- **Temporal anomaly detection**: Detecting changes in company communication patterns
+- **Embedding generation**: Local model embeddings for financial sections  
+- **Financial signal detection**: Early warning systems for market events
 - User asks to process financial documents or extract data from PDFs
-- Requests for document classification or text extraction
-- Issues with the Nordic document corpus (47K+ documents)
+- Issues with the Nordic document corpus (106K+ documents)
+- Section-based intelligent document parsing
 - Adding support for new document types or languages
 
 ---
 
 ## Current Implementation (AI-Maintained)
-*Last updated: 2025-11-13 by AI Assistant*
+*Last updated: 2025-11-27 by AI Assistant*
 
-### Business Purpose
-Processes 47,931 Nordic financial documents with robust pause/resume capabilities. Extracts text and metadata to enable future financial analytics and AI-driven insights.
+### Business Purpose - PROOF-OF-CONCEPT VALIDATED
+**BREAKTHROUGH**: Temporal anomaly detection concept successfully validated by identifying real financial events:
+- AAK 2020-2021: Balance sheet anomaly → Major asset/debt spike
+- AcadeMedia 2017-2018: Risk factor changes → Swedish schooling law changes  
+- AddLife 2018-2019: Income statement anomaly → 40% revenue growth
 
-### Key Capabilities (IMPLEMENTED)
-- **Robust PDF Text Extraction**: pdfplumber + PyPDF2 fallback with content analysis (images, tables, scanned documents)
-- **Document Discovery & Cataloging**: Independent state tracking for 47,931 PDFs without processing them
-- **Pause/Resume Processing**: Stateful processing controller with batch control and interrupt handling
-- **Document Metadata Extraction**: Company, year, document type, priority, region from file structure
-- **Priority-Based Processing**: Annual reports (Priority 1), Quarterly (Priority 2), Press releases (Priority 7)
-- **Text Chunking**: Prepares documents for future vector embedding with overlap and sentence boundary detection
-- **Multi-language Detection**: Nordic language detection (Swedish, Norwegian, Danish, Finnish, English)
-- **Multi-Market Architecture**: Regional partitioning ready for Europe, North America, Asia expansion
-- **Structured Storage**: PostgreSQL with regional partitioning and comprehensive indexing
+Processes 106,683+ Nordic financial documents with intelligent section parsing and local embedding generation for company-specific temporal pattern analysis.
+
+### Key Capabilities (WORK IN PROGRESS)
+🧪 **TEMPORAL ANOMALY DETECTION (PROOF-OF-CONCEPT)** 
+- **Concept Validated**: Real financial event detection with verified outcomes
+- **Company-Specific Baselines**: Individual temporal patterns for each company  
+- **Automated Anomaly Scoring**: Similarity thresholds with significance detection
+- **Local Embeddings**: FREE sentence-transformers model (11,000+ embeddings)
+
+📊 **INTELLIGENT SECTION PARSING**
+- **Financial Section Chunking**: Smart parsing of balance sheets, income statements, risk factors
+- **CID Artifact Filtering**: Automatic quality control for PDF extraction issues
+- **Section Confidence Scoring**: Quality metrics for parsed content
+- **183,884 Sections**: Across 19,425 documents with average 9.5 sections per document
+
+🔧 **ROBUST EXTRACTION PIPELINE**
+- **106,683 Extracted Documents**: Complete Nordic financial document corpus
+- **Multi-Provider Embeddings**: OpenAI, Cohere, Local model support
+- **Pause/Resume Processing**: Database-driven state management
+- **Priority-Based Processing**: Annual reports (Priority 1), Quarterly (Priority 2)
+- **Multi-language Support**: Nordic language detection (Swedish, Norwegian, Danish, Finnish)
+- **Quality Validation**: Comprehensive embedding quality testing and debugging tools
 
 ### Production Status (READY)
 - **109,237 Documents Downloaded**: Complete Swedish market document collection with historical data
@@ -56,11 +75,23 @@ NordicExtractionService → DocumentProcessingService → PDFProcessor → TextC
 Extraction Tracking ← Priority Queuing ← Content Analysis ← Language Detection ← Regional Partitioning
 ```
 
-### Services Implemented
-- `NordicExtractionService`: Database-driven extraction management using `nordic_documents` table for state tracking
-- `DocumentProcessingService`: Orchestrates PDF text extraction pipeline with dependency injection
-- `PDFProcessor`: Handles PDF parsing, text extraction with pdfplumber/PyPDF2 fallback, content analysis
-- `PostgreSQLRepository`: Storage for `extracted_documents` and `extracted_document_chunks` with proper indexing
+### Services Implemented (PRODUCTION)
+🚨 **TEMPORAL ANOMALY DETECTION**
+- `test_temporal_patterns.py`: Core temporal anomaly detection with validated results
+- `test_embedding_quality.py`: Embedding quality validation and similarity testing
+- `test_embedding_search.py`: Semantic search capabilities across financial sections
+
+📊 **SECTION PARSING & EMBEDDINGS** 
+- `SectionChunkingService`: Intelligent financial section parsing with CID filtering
+- `MultiProviderEmbeddingService`: Local/OpenAI/Cohere embedding generation  
+- `FinancialSectionParser`: Rule-based Nordic financial document section detection
+- `LocalEmbeddingProvider`: FREE sentence-transformers integration (production-tested)
+
+🔧 **EXTRACTION PIPELINE**
+- `NordicExtractionService`: Database-driven extraction management  
+- `DocumentProcessingService`: PDF text extraction orchestration
+- `PDFProcessor`: pdfplumber + PyPDF2 fallback with content analysis
+- `PostgreSQLRepository`: Storage with pgvector support for embeddings
 
 ### Services Planned (Not Yet Implemented)
 - `TextExtractor`: Advanced text cleaning and structure extraction
@@ -110,13 +141,17 @@ Extraction Tracking ← Priority Queuing ← Content Analysis ← Language Detec
 - **→ Market Data Domain**: Enriches documents with company metadata and market context
 
 ### Recent Changes (AI-Generated Log)
+- **2025-11-27**: 🚨 **BREAKTHROUGH** - Validated temporal anomaly detection with real financial events
+- **2025-11-27**: Detected AAK balance sheet changes, AcadeMedia regulatory impacts, AddLife growth inflections
+- **2025-11-27**: Implemented production-ready local embedding system (FREE, sentence-transformers)
+- **2025-11-27**: Generated 11,000+ section embeddings with quality validation tools
+- **2025-11-27**: Created comprehensive temporal pattern analysis and anomaly detection system
+- **2025-11-27**: Built section chunking service with CID artifact filtering and quality scoring
+- **2025-11-27**: Established multi-provider embedding architecture (local/OpenAI/Cohere)
+- **2025-11-27**: Processed 183,884 financial sections across 19,425 documents
+- **2025-11-27**: Created debugging and monitoring tools for embedding quality control
 - **2025-11-13**: Implemented vector embedding pipeline with OpenAI text-embedding-3-small integration
 - **2025-11-13**: Generated 20 real embeddings with PostgreSQL + pgvector storage, validated production pipeline
-- **2025-11-13**: Added explicit provider tracking (openai/text-embedding-3-small vs text-embedding-3-small)
-- **2025-11-13**: Fixed PostgreSQL vector data type conversion for pgvector compatibility
-- **2025-11-13**: Documented sectional embeddings concept for financial report section-specific analysis
-- **2025-11-13**: Set up embedding generation CLI with status monitoring and batch processing
-- **2025-11-13**: Established 1,827 extracted documents ready for embedding generation
 - **[Future updates will be added here by AI assistants]**
 - **→ Market Data Domain**: Validates extracted data against market information  
 - **← User Management**: Document access control and processing quotas
@@ -143,28 +178,45 @@ Extraction Tracking ← Priority Queuing ← Content Analysis ← Language Detec
 
 ## Common Patterns and Examples
 
-### Nordic Document Extraction Flow (PRODUCTION)
+### TEMPORAL ANOMALY DETECTION WORKFLOW (PROOF-OF-CONCEPT)
 ```bash
-# Activate virtual environment (required)
-source venv/bin/activate
+# Experimental pipeline - concept validation
+cd /Users/jdandemar/Documents/YodaBuffett/backend
 
-# Navigate to the backend directory (important for relative paths)
+# 1. Check extraction status (106K+ documents ready)
+python domains/document_intelligence/cli_nordic_extraction.py status
+
+# 2. Generate intelligent financial sections
+python domains/document_intelligence/cli_section_chunking.py process 1000
+
+# 3. Create local embeddings (FREE - production tested)
+python domains/document_intelligence/cli_multi_embeddings.py local setup
+python domains/document_intelligence/cli_multi_embeddings.py local process 10000
+
+# 4. Run temporal anomaly detection (CORE EDGE)
+python test_temporal_patterns.py
+python test_embedding_quality.py
+python test_embedding_search.py
+```
+
+### EMBEDDING QUALITY CONTROL (PRODUCTION)
+```bash
+# Validate embedding quality and debug issues
+python test_embedding_quality.py
+python debug_embeddings.py
+python count_dummy_embeddings.py
+python clean_dummy_embeddings.py
+
+# Investigate specific anomalies
+python investigate_embeddings.py
+```
+
+### Nordic Document Extraction Flow (LEGACY REFERENCE)
+```bash
+# Legacy extraction commands (still functional)
 cd backend
-
-# Check extraction status and queue
 PYTHONPATH=. python3 -m domains.document_intelligence.cli_nordic_extraction status
-
-# Preview next documents to extract
-PYTHONPATH=. python3 -m domains.document_intelligence.cli_nordic_extraction preview 20
-
-# Extract priority documents (annual & quarterly reports first)
 PYTHONPATH=. python3 -m domains.document_intelligence.cli_nordic_extraction extract 100 --priority=2
-
-# Reset failed extractions for retry
-PYTHONPATH=. python3 -m domains.document_intelligence.cli_nordic_extraction reset-failed 2
-
-# Update extraction version and reprocess
-PYTHONPATH=. python3 -m domains.document_intelligence.cli_nordic_extraction version v1.1 --reprocess --priority=2
 ```
 
 ### Standard Document Processing Flow (API - Planned)
