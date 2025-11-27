@@ -113,20 +113,44 @@ class CohereEmbeddingProvider(EmbeddingProvider):
 
 
 class LocalEmbeddingProvider(EmbeddingProvider):
-    """Local embedding provider (example for sentence-transformers)"""
+    """Local embedding provider using sentence-transformers"""
     
-    def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
-        # This would use sentence-transformers
-        # from sentence_transformers import SentenceTransformer
-        # self.model = SentenceTransformer(model_name)
-        self.model_name_str = model_name
-        self._embedding_dimension = 384  # MiniLM dimension
-        logger.warning("Local provider not implemented - returning dummy embeddings")
+    def __init__(self, model_name: str = "paraphrase-multilingual-MiniLM-L12-v2"):
+        try:
+            from sentence_transformers import SentenceTransformer
+            self.model = SentenceTransformer(model_name)
+            self.model_name_str = model_name
+            self._embedding_dimension = self.model.get_sentence_embedding_dimension()
+            logger.info(f"✅ Local model loaded: {model_name} ({self._embedding_dimension}D)")
+        except ImportError:
+            raise ImportError("sentence-transformers not installed. Run: pip install sentence-transformers")
+        except Exception as e:
+            raise Exception(f"Failed to load local model {model_name}: {e}")
     
     async def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
-        # Placeholder implementation
-        logger.info(f"Would generate {len(texts)} local embeddings")
-        return [[0.2] * self.embedding_dimension for _ in texts]
+        try:
+            # Clean texts
+            cleaned_texts = []
+            for text in texts:
+                cleaned = " ".join(text.split())  # Normalize whitespace
+                if len(cleaned) > 8000:  # Truncate very long texts
+                    cleaned = cleaned[:8000] + "..."
+                cleaned_texts.append(cleaned)
+            
+            # Generate embeddings using the local model
+            embeddings = self.model.encode(cleaned_texts, show_progress_bar=False)
+            
+            # Convert numpy arrays to lists
+            embeddings_list = [embedding.tolist() for embedding in embeddings]
+            
+            logger.info(f"Generated {len(embeddings_list)} local embeddings using {self.model_name_str}")
+            
+            return embeddings_list
+            
+        except Exception as e:
+            logger.error(f"Local embedding error: {e}")
+            # Return dummy vectors on error
+            return [[0.0] * self.embedding_dimension for _ in texts]
     
     @property
     def model_name(self) -> str:
