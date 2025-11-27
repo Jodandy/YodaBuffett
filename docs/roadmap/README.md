@@ -101,6 +101,7 @@ See: [Document Intelligence](./mvp1-report-analysis.md)
 - **User Retention**: >85% annually vs. industry 70%
 
 ### Product Differentiation
+- **Temporal Anomaly Detection**: Company-specific pattern analysis for early signals
 - **Custom Hypothesis Testing**: Enable user-driven analysis
 - **Multi-Source Validation**: Data quality advantage over competitors
 - **Superior UX/UI**: Modern interface vs. legacy platforms

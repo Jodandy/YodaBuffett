@@ -75,8 +75,9 @@ Building extensible platform for any financial analysis, not just specific featu
 - **Professional Operations**: Production monitoring, logging, and error handling
 - **Scalable Foundation**: Easy expansion to additional markets and worker types
 
-🧠 **Advanced Analytics & Intelligence** - DESIGNING
+🧠 **Advanced Analytics & Intelligence** - IN DEVELOPMENT
 - Vector-based semantic search across all financial documents
+- **NEW: Temporal anomaly detection** - Company-specific pattern changes as early signals
 - Hidden connection discovery between companies and markets  
 - Predictive modeling and systemic risk analysis
 - Cross-company pattern detection and market intelligence
@@ -89,6 +90,7 @@ Building extensible platform for any financial analysis, not just specific featu
 | **Development roadmap** | [docs/roadmap/README.md](./docs/roadmap/README.md) |
 | **Production progress** | [docs/roadmap/README.md](./docs/roadmap/README.md) |
 | **Advanced analytics concepts** | [docs/features/advanced-analytics.md](./docs/features/advanced-analytics.md) |
+| **Temporal anomaly detection** | [docs/features/temporal-anomaly-detection.md](./docs/features/temporal-anomaly-detection.md) |
 | **Database/Data design** | [docs/architecture/data-architecture.md](./docs/architecture/data-architecture.md) |
 | **Architecture rules** | [docs/development/principles.md](./docs/development/principles.md) |
 | **System flexibility** | [docs/architecture/system-flexibility.md](./docs/architecture/system-flexibility.md) |

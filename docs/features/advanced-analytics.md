@@ -48,6 +48,28 @@ Traditional financial analysis focuses on single companies in isolation. YodaBuf
 - Build "resilience scores" from response patterns
 - **Example**: COVID response language → predict post-crisis performance
 
+## 🚨 **Temporal Anomaly Detection**
+
+### Company-Specific Pattern Analysis
+- Track how individual companies' communications evolve over time
+- Detect significant deviations from historical patterns
+- Early warning system for fundamental changes
+- **Example**: Volvo suddenly emphasizing "supply chain risks" → potential margin pressure
+
+### Communication Style Changes
+- Tone shifts in management discussions
+- New topics entering risk disclosures
+- Complexity changes indicating obfuscation
+- **Example**: Shift from "growth" to "optimization" language → strategic pivot signal
+
+### Backtestable Edge Discovery
+- Correlate communication anomalies with subsequent stock moves
+- Identify which types of changes are most predictive
+- Company-specific thresholds for significance
+- **Example**: 87% of major tone shifts preceded 10%+ moves within 60 days
+
+[See detailed implementation →](./temporal-anomaly-detection.md)
+
 ## 🌐 **Systemic Risk Models**
 
 ### Hidden Correlation Discovery
