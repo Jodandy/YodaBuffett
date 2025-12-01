@@ -17,15 +17,17 @@ git push origin main
 
 ## Core Architecture
 
-### Services
-1. **API Gateway** (`/backend/api-gateway/`) - Authentication, routing, rate limiting
-2. **Research Service** (`/backend/research-service/`) - RAG-based Q&A, embeddings
-3. **Nordic Ingestion Service** (`/backend/nordic_ingestion/`) - Multi-market document collection
-4. **Multi-Market Workers** (`/backend/workers/`) - Specialized market data workers
-5. **Strategy Engine** (`/backend/strategy-engine/`) - Backtesting, strategy DSL
-6. **Prediction Service** (`/backend/prediction-service/`) - ML/LLM ensemble predictions
-7. **User Service** (`/backend/user-service/`) - Auth, subscriptions
-8. **Frontend** (`/frontend/`) - Next.js interface
+### Modular Monolith Design
+The system uses a **modular monolith** architecture for optimal development velocity and operational simplicity at current scale.
+
+### Core Modules
+1. **Analytics Domain** (`/backend/domains/analytics/`) - Backtesting, temporal anomaly detection, predictive modeling
+2. **Document Intelligence Domain** (`/backend/domains/document_intelligence/`) - PDF processing, embeddings, section analysis
+3. **Market Data Domain** (`/backend/domains/market_data/`) - Market data feeds and normalization
+4. **User Management Domain** (`/backend/domains/user_management/`) - Authentication, subscriptions
+5. **Nordic Ingestion Service** (`/backend/nordic_ingestion/`) - Multi-market document collection
+6. **Multi-Market Workers** (`/backend/workers/`) - Specialized market data workers
+7. **Research Service** (`/backend/research-service/`) - RAG-based Q&A system
 
 ### Technology Stack
 - **Backend**: Python (AI/ML), TypeScript/Node.js (APIs)

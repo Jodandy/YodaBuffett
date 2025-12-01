@@ -462,7 +462,59 @@ python domains/document_intelligence/cli_multi_embeddings.py cohere setup
 python domains/document_intelligence/cli_multi_embeddings.py cohere process 20 Volvo
 ```
 
-## 🚨 **PHASE 3: Temporal Anomaly Detection (PRODUCTION VALIDATED)** ⭐ CORE EDGE
+## 🚨 **PHASE 3: Document-Level Embeddings (HIERARCHICAL ANALYSIS)** ⭐ NEW CAPABILITY
+
+**PURPOSE**: Complement section-level embeddings with document-level analysis for macro patterns
+
+**PHASE 3A: Document Embedding Setup**
+```bash
+# Setup document embeddings database (hierarchical embedding architecture)
+python domains/document_intelligence/cli_document_embeddings.py local setup
+
+# Check document embedding status
+python domains/document_intelligence/cli_document_embeddings.py local status
+
+# Process documents using hierarchical method (weights section embeddings intelligently)
+python domains/document_intelligence/cli_document_embeddings.py local process --count 50 --method hierarchical
+
+# Process larger batches for production
+python domains/document_intelligence/cli_document_embeddings.py local process --count 500 --method hierarchical
+
+# Alternative methods:
+# Full text method (embed complete document)
+python domains/document_intelligence/cli_document_embeddings.py local process --count 20 --method full_text
+
+# Section summary method (embed key sections only)
+python domains/document_intelligence/cli_document_embeddings.py local process --count 20 --method section_summary
+```
+
+**PHASE 3B: Document-Level Analysis (PRODUCTION VALIDATED)**
+```bash
+# Document-level temporal anomaly detection
+python test_document_temporal_patterns.py
+
+# Unified search across both document and section levels
+python test_unified_embedding_search.py
+
+# Find similar documents at company level
+python domains/document_intelligence/cli_document_embeddings.py local similar --company "Volvo" --year 2023
+
+# Cluster documents by communication patterns
+python domains/document_intelligence/cli_document_embeddings.py local cluster --clusters 15
+
+# Detect document outliers for specific company
+python domains/document_intelligence/cli_document_embeddings.py local outliers --company "Volvo" --threshold 5.0
+```
+
+**CAPABILITIES ENABLED**:
+- **Dual-Level Analysis**: Document-level for macro patterns + Section-level for micro patterns
+- **Temporal Anomalies**: Detect overall communication shifts vs specific topic changes
+- **Unified Search**: Search across both granularities simultaneously
+- **Document Classification**: Cluster companies by communication style
+- **Outlier Detection**: Find unusual documents in company history
+- **Hierarchical Architecture**: Three embedding methods (hierarchical, full_text, section_summary)
+
+## 🚨 **PHASE 4: Temporal Anomaly Detection (PRODUCTION VALIDATED)** ⭐ CORE EDGE
 
 **VALIDATED RESULTS**: Successfully detected real financial events:
 - AAK 2020-2021: Balance sheet anomaly → Major asset/debt spike  
@@ -482,12 +534,18 @@ python count_dummy_embeddings.py
 python clean_dummy_embeddings.py
 ```
 
-**TEMPORAL ANOMALY DETECTION**
+**TEMPORAL ANOMALY DETECTION (BOTH LEVELS)**
 ```bash
-# Run temporal pattern analysis (core edge detection)
+# Run section-level temporal pattern analysis (core edge detection)
 python test_temporal_patterns.py
 
-# Search through embeddings semantically
+# Run document-level temporal pattern analysis (macro changes)
+python test_document_temporal_patterns.py
+
+# Search through embeddings semantically (unified across levels)
+python test_unified_embedding_search.py
+
+# Legacy section-level search
 python test_embedding_search.py
 
 # Investigate specific anomalies
@@ -689,7 +747,8 @@ YodaBuffett/
 - [ ] **Check document processing status**: `PYTHONPATH=backend python3 domains/document_intelligence/cli_stateful.py status`
 - [ ] **Process daily batch** (if actively processing): `PYTHONPATH=backend python3 domains/document_intelligence/cli_stateful.py process 100`
 - [ ] **Check section chunking status**: `python domains/document_intelligence/cli_section_chunking.py status`
-- [ ] **Check embedding generation status**: `python domains/document_intelligence/cli_multi_embeddings.py openai status`
+- [ ] **Check section embedding status**: `python domains/document_intelligence/cli_multi_embeddings.py local status`
+- [ ] **Check document embedding status**: `python domains/document_intelligence/cli_document_embeddings.py local status`
 - [ ] Review document collection rates from latest batch run
 - [ ] Check `data/companies/` folder size and organization
 
@@ -703,7 +762,10 @@ YodaBuffett/
 - [ ] **Process large document batches**: `PYTHONPATH=backend python3 domains/document_intelligence/cli_stateful.py process 500`
 - [ ] **Monitor document processing progress**: Check completion rate and processing errors
 - [ ] **Process section chunking batches**: `python domains/document_intelligence/cli_section_chunking.py process 100`
-- [ ] **Generate embeddings for new sections**: `python domains/document_intelligence/cli_multi_embeddings.py openai process 500`
+- [ ] **Generate section embeddings for new sections**: `python domains/document_intelligence/cli_multi_embeddings.py local process 500`
+- [ ] **Generate document embeddings**: `python domains/document_intelligence/cli_document_embeddings.py local process 200 --method hierarchical`
+- [ ] **Run document-level temporal anomaly analysis**: `python test_document_temporal_patterns.py`
+- [ ] **Test unified search capabilities**: `python test_unified_embedding_search.py`
 - [ ] **Validate section quality**: `python domains/document_intelligence/cli_section_chunking.py inspect` (random companies)
 - [ ] **Compare embedding providers**: `python domains/document_intelligence/cli_multi_embeddings.py openai compare`
 - [ ] Retry failed companies: `python3 retry_failed_companies.py` (10-20 companies)

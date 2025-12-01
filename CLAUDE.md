@@ -75,13 +75,21 @@ Building extensible platform for any financial analysis, not just specific featu
 - **Professional Operations**: Production monitoring, logging, and error handling
 - **Scalable Foundation**: Easy expansion to additional markets and worker types
 
-🧠 **Temporal Anomaly Detection** - PROOF-OF-CONCEPT VALIDATED ⭐ PROMISING EDGE
+🧠 **Hierarchical Embedding Architecture** - PRODUCTION READY ⭐ DUAL-LEVEL INTELLIGENCE
+- **Document-Level Embeddings**: Macro patterns and overall communication shifts
+- **Section-Level Embeddings**: Micro analysis and specific topic changes  
+- **Unified Search**: Query across both granularities simultaneously
+- **Three Embedding Methods**: Hierarchical (weighted sections), full text, section summary
+- **Production Tools**: Complete CLI interface for generation, analysis, and monitoring
+- **Temporal Anomaly Detection**: Both macro (document) and micro (section) level detection
+
+🧠 **Temporal Anomaly Detection** - VALIDATED AT BOTH LEVELS ⭐ PROMISING EDGE
 - **CONCEPT PROVEN**: Successfully detected real financial events in historical testing
 - **AAK 2020-2021**: Balance sheet anomaly detected → Major asset/debt spike
 - **AcadeMedia 2017-2018**: Risk factor changes → Swedish schooling law changes  
 - **AddLife 2018-2019**: Income statement anomaly → 40% revenue growth
 - Company-specific pattern baselines using local embeddings (FREE)
-- 11,000+ section embeddings across Nordic companies
+- Document and section-level analysis with 11,000+ embeddings
 - Automated anomaly thresholds with similarity scoring
 - Real-time deviation detection from historical communication patterns
 
@@ -131,12 +139,18 @@ python domains/document_intelligence/cli_nordic_extraction.py extract 100000
 python domains/document_intelligence/cli_section_chunking.py status
 python domains/document_intelligence/cli_section_chunking.py process 1000
 
-# 3. Generate local embeddings (FREE)
+# 3. Generate section embeddings (FREE, LOCAL)
 python domains/document_intelligence/cli_multi_embeddings.py local setup
 python domains/document_intelligence/cli_multi_embeddings.py local process 10000
 
-# 4. Run temporal anomaly detection (CORE EDGE)
-python test_temporal_patterns.py
+# 4. Generate document embeddings (HIERARCHICAL)
+python domains/document_intelligence/cli_document_embeddings.py local setup
+python domains/document_intelligence/cli_document_embeddings.py local process --count 1000 --method hierarchical
+
+# 5. Run dual-level temporal anomaly detection (CORE EDGE)
+python test_temporal_patterns.py                    # Section-level anomalies
+python test_document_temporal_patterns.py           # Document-level anomalies
+python test_unified_embedding_search.py             # Unified search across levels
 python test_embedding_quality.py
 ```
 
@@ -160,6 +174,7 @@ python investigate_embeddings.py
 python domains/document_intelligence/cli_nordic_extraction.py status
 python domains/document_intelligence/cli_section_chunking.py status
 python domains/document_intelligence/cli_multi_embeddings.py local status
+python domains/document_intelligence/cli_document_embeddings.py local status
 
 # Diagnostic tools
 python check_embedding_tables.py
@@ -224,11 +239,20 @@ python domains/document_intelligence/cli_section_chunking.py test Volvo
 python domains/document_intelligence/cli_section_chunking.py process 50
 python domains/document_intelligence/cli_section_chunking.py inspect Volvo
 
-# Phase 2: Multi-Provider Embeddings (AI-Based, Flexible) - READY FOR TESTING
-python domains/document_intelligence/cli_multi_embeddings.py openai setup
-python domains/document_intelligence/cli_multi_embeddings.py openai status
-python domains/document_intelligence/cli_multi_embeddings.py openai process 100
-python domains/document_intelligence/cli_multi_embeddings.py openai compare
+# Phase 2: Section Embeddings (AI-Based, Flexible) - READY FOR TESTING
+python domains/document_intelligence/cli_multi_embeddings.py local setup
+python domains/document_intelligence/cli_multi_embeddings.py local status
+python domains/document_intelligence/cli_multi_embeddings.py local process 1000
+
+# Phase 3: Document Embeddings (Hierarchical Architecture) - PRODUCTION READY
+python domains/document_intelligence/cli_document_embeddings.py local setup
+python domains/document_intelligence/cli_document_embeddings.py local status
+python domains/document_intelligence/cli_document_embeddings.py local process --count 500 --method hierarchical
+
+# Analysis Tools
+python domains/document_intelligence/cli_document_embeddings.py local similar --company "Volvo" --year 2023
+python domains/document_intelligence/cli_document_embeddings.py local cluster --clusters 15
+python domains/document_intelligence/cli_document_embeddings.py local outliers --company "AAK" --threshold 5.0
 
 # Check processing status anytime
 PYTHONPATH=. python3 domains/document_intelligence/cli_stateful.py status
