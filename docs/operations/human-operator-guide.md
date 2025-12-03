@@ -5,6 +5,60 @@ Everything a human operator needs to run, manage, and maintain the YodaBuffett s
 
 ## Quick Start Commands
 
+### Daily Automation Status (macOS LaunchAgents - ACTIVE)
+```bash
+# Check automation status
+launchctl list | grep yodabuffett
+
+# View current logs
+tail -f backend/logs/daily-market-data-worker.log
+tail -f backend/logs/daily-document-worker-morning.log  
+tail -f backend/logs/daily-pdf-download.log
+tail -f backend/logs/daily-document-pipeline.log
+
+# Manual runs (for testing)
+cd backend
+python3 workers/daily_market_data_worker.py
+python3 workers/daily_event_worker.py --dry-run
+python3 pdf_download_batch.py --year=2025 --delay 10
+python3 workers/daily_document_pipeline.py
+```
+
+### Daily Schedule (Automatic via LaunchAgents)
+```
+🌅 03:00 AM - Daily Market Data Worker
+📄 07:00 AM - Document Discovery Worker (Morning)  
+📄 09:00 AM - Document Discovery Worker (Late)
+📥 10:00 AM - PDF Download Worker
+🔄 11:00 AM - Document Processing Pipeline
+   └── Text Extraction
+   └── Vector Embeddings  
+   └── Section Processing
+🚨 12:00 PM - Temporal Anomaly Detection
+   └── Document-level analysis
+   └── Section-level analysis
+   └── Notifications & alerts
+```
+
+### View Anomaly Alerts
+```bash
+# View recent anomalies from database (if using automatic storage)
+cd backend
+python3 view_anomalies.py --days 7
+python3 anomaly_cli.py stats
+
+# Check anomaly detection logs
+tail -f backend/logs/daily-anomaly-detection.log
+
+# View latest notifications
+ls -la backend/data/anomaly_notifications_*.txt
+cat backend/data/anomaly_notifications_*.txt | head -50
+
+# Run temporal anomaly analysis on existing embeddings (no database storage)
+python3 analyze_existing_embeddings.py --days 500
+python3 analyze_existing_embeddings.py --company "AAK" --days 500
+```
+
 ### System Startup (Full Stack)
 ```bash
 # Start everything
@@ -294,83 +348,391 @@ python3 retry_failed_companies.py
 - **Database Integration**: Actually saves documents to database
 - **Smart Recovery**: Distinguishes between URL issues vs processing errors
 
-### Daily Event Worker (Production Automation)
+### Daily Automation System (Production Active) ⭐
 
-#### Docker-Based Automated Daily Collection
-**Purpose**: Event-driven daily Swedish financial data collection running on Docker schedule
+#### macOS LaunchAgent Automated Daily Pipeline
+**Purpose**: Complete end-to-end daily financial data collection using native macOS scheduling
 
+**🕒 Daily Schedule:**
+- **3:00 AM** - Market Data Collection (all 787 companies)
+- **7:00 AM** - Document Discovery (event-driven, metadata only)  
+- **9:00 AM** - Document Discovery (catch stragglers)
+- **10:00 AM** - PDF Download (actual files from discovered documents)
+
+#### Quick Status Check
 ```bash
-# Check Docker scheduler status
-docker ps | grep yodabuffett-daily-scheduler
+# Check all scheduled workers
+launchctl list | grep yodabuffett
 
-# View Docker scheduler logs
-docker logs yodabuffett-daily-scheduler --tail 50
+# View recent activity logs
+tail -30 /Users/jdandemar/Documents/YodaBuffett/logs/daily-market-data-worker.log
+tail -30 /Users/jdandemar/Documents/YodaBuffett/logs/daily-document-worker-morning.log
+tail -30 /Users/jdandemar/Documents/YodaBuffett/logs/daily-pdf-download.log
 
-# View worker execution results (inside container)
-docker exec yodabuffett-daily-scheduler ls -la /app/data/daily_worker_*.json
-
-# Test immediately (dry-run)
-docker exec yodabuffett-daily-scheduler python -m workers.daily_event_worker --dry-run
-
-# Test for specific date
-docker exec yodabuffett-daily-scheduler python -m workers.daily_event_worker --date 2025-09-01 --dry-run
-
-# Run immediately for today
-docker exec yodabuffett-daily-scheduler python -m workers.daily_event_worker
+# Test workers manually (dry run)
+cd /Users/jdandemar/Documents/YodaBuffett/backend
+python -m workers.daily_event_worker --dry-run
+python -m workers.daily_market_data_worker --dry-run
 ```
 
-**What it does:**
-- **Runs automatically at 6:00 AM daily** using Docker container with built-in scheduler
-- **Event-driven targeting**: Only processes companies with upcoming financial events (earnings, reports, AGMs)
-- **Intelligent scheduling**: Scrapes day-of or day-after events for optimal document availability
-- **Batch-optimized**: Uses database query optimizations (10-100x faster than individual queries)
-- **Smart company resolution**: Automatic slug resolution with centralized mappings
-- **Progress tracking**: Saves detailed results to JSON files after each execution
-- **Portable deployment**: Same behavior on any Docker-capable server
-
-**Expected Performance:**
-- **Daily targets**: 0-50 companies (instead of 1600+) based on calendar events
-- **Processing time**: 2-3 seconds per company with batch optimizations
-- **Success rate**: 85%+ (event-driven timing improves document availability)
-- **Resource usage**: 256MB memory limit, 0.25 CPU cores
-
-**Docker Service Management:**
+#### Manual Worker Execution
 ```bash
-# Start the daily scheduler
-docker-compose up daily-event-scheduler -d
+# Trigger workers manually for testing
+launchctl start com.yodabuffett.daily-market-data-worker
+launchctl start com.yodabuffett.daily-document-worker-morning
+launchctl start com.yodabuffett.daily-document-worker-late
+launchctl start com.yodabuffett.daily-pdf-download
 
-# Stop the daily scheduler
-docker-compose stop daily-event-scheduler
-
-# Restart the daily scheduler
-docker-compose restart daily-event-scheduler
-
-# View health check
-curl http://localhost:8085/health
-
-# Check container resources
-docker stats yodabuffett-daily-scheduler
-
-# Update scheduler configuration
-# Edit docker-compose.yml environment variables
-# Then: docker-compose up daily-event-scheduler -d --force-recreate
+# Run workers directly (bypass scheduler)
+cd /Users/jdandemar/Documents/YodaBuffett/backend
+python -m workers.daily_event_worker
+python -m workers.daily_market_data_worker
+python pdf_download_batch.py --year 2025 --delay 15
 ```
 
-**Files Generated:**
-- **Results**: `/app/data/daily_worker_YYYYMMDD_HHMMSS.json` (inside container)
-- **Logs**: Available via `docker logs yodabuffett-daily-scheduler`
-- **Health**: Available at `http://localhost:8085/health`
-
-**Migration from macOS LaunchAgent:**
-If you previously used the macOS LaunchAgent setup, disable it:
+#### System Management
 ```bash
-# Stop old macOS scheduler
-launchctl unload ~/Library/LaunchAgents/com.yodabuffett.daily-scheduler.plist
+# Stop/disable all automated workers
+launchctl unload ~/Library/LaunchAgents/com.yodabuffett.daily-market-data-worker.plist
+launchctl unload ~/Library/LaunchAgents/com.yodabuffett.daily-document-worker-morning.plist
+launchctl unload ~/Library/LaunchAgents/com.yodabuffett.daily-document-worker-late.plist
+launchctl unload ~/Library/LaunchAgents/com.yodabuffett.daily-pdf-download.plist
 
-# Remove old plist file (optional)
-rm ~/Library/LaunchAgents/com.yodabuffett.daily-scheduler.plist
+# Re-enable all automated workers
+launchctl load ~/Library/LaunchAgents/com.yodabuffett.daily-market-data-worker.plist
+launchctl load ~/Library/LaunchAgents/com.yodabuffett.daily-document-worker-morning.plist
+launchctl load ~/Library/LaunchAgents/com.yodabuffett.daily-document-worker-late.plist
+launchctl load ~/Library/LaunchAgents/com.yodabuffett.daily-pdf-download.plist
 
-# Now use Docker approach exclusively
+# Check if workers are properly loaded
+launchctl list | grep yodabuffett
+```
+
+**What Each Worker Does:**
+
+**Market Data Worker (3:00 AM):**
+- Updates stock prices for all companies using Yahoo Finance
+- Calculates technical indicators (RSI, moving averages)
+- Processes ~787 companies in 10-15 minutes
+- Logs: `/Users/jdandemar/Documents/YodaBuffett/logs/daily-market-data-worker.log`
+
+**Document Discovery Workers (7:00 AM & 9:00 AM):**
+- Event-driven targeting: Only processes companies with scheduled financial events
+- Scrapes MFN.se for new document metadata and PDF URLs
+- Typical load: 0-50 companies per day (not all 1600+)
+- Intelligent deduplication: Skips already processed documents
+- Logs: `/Users/jdandemar/Documents/YodaBuffett/logs/daily-document-worker-*.log`
+
+**PDF Download Worker (10:00 AM):**
+- Downloads actual PDF files from URLs discovered by document workers
+- Focuses on 2025 documents (most recent/relevant)
+- 15-second delays between downloads (respectful rate limiting)
+- Smart prioritization: Annual/quarterly reports first
+- Organized storage: `data/companies/SE/A/CompanyName/2025/quarterly_report/`
+- Logs: `/Users/jdandemar/Documents/YodaBuffett/logs/daily-pdf-download.log`
+
+#### Expected Performance
+- **Market Data**: ~787 companies, 10-15 minutes total
+- **Document Discovery**: 0-50 companies based on events, 2-5 minutes total
+- **PDF Downloads**: Variable based on discovered documents, respectful 15s delays
+- **Storage Growth**: ~5-20 new PDFs per day (event-dependent)
+- **Success Rate**: 85%+ (event-driven timing improves availability)
+
+#### Configuration Files (LaunchAgent plists)
+Located in `~/Library/LaunchAgents/`:
+- `com.yodabuffett.daily-market-data-worker.plist` (3:00 AM)
+- `com.yodabuffett.daily-document-worker-morning.plist` (7:00 AM)  
+- `com.yodabuffett.daily-document-worker-late.plist` (9:00 AM)
+- `com.yodabuffett.daily-pdf-download.plist` (10:00 AM)
+
+#### Advantages over Docker Deployment
+✅ **Native macOS integration** - No container networking issues  
+✅ **Direct database access** - Uses existing PostgreSQL connection  
+✅ **Simpler debugging** - Direct access to processes and logs  
+✅ **Auto-restart on reboot** - macOS handles service persistence  
+✅ **Lower resource overhead** - No virtualization layer  
+✅ **Easier log monitoring** - Standard file system logs  
+
+#### Migration to Cloud (Future)
+Docker configurations remain available in `backend/docker/` for cloud deployment when ready. The same Python workers will run identically in containers.
+
+## 📅 **Complete Daily Automation Management Guide** ⭐ PRODUCTION ACTIVE
+
+### Overview of Automated Systems
+The YodaBuffett platform runs **6 automated daily processes** via macOS LaunchAgents:
+
+```
+🌅 03:00 AM - Market Data Collection (787 companies, ~15 min)
+📄 07:00 AM - Document Discovery Morning (event-driven, ~5 min)
+📄 09:00 AM - Document Discovery Late (catch stragglers, ~5 min)
+📥 10:00 AM - PDF Download (discovered documents, variable)
+🔄 11:00 AM - Document Processing Pipeline (extract, embed, chunk)
+🚨 12:00 PM - Temporal Anomaly Detection (pattern analysis)
+```
+
+### Quick Management Commands
+
+#### Check System Status
+```bash
+# See all YodaBuffett automation services
+launchctl list | grep yodabuffett
+
+# Expected output (PID shows service is running):
+# 12345  0  com.yodabuffett.daily-market-data-worker
+# 23456  0  com.yodabuffett.daily-document-worker-morning
+# 34567  0  com.yodabuffett.daily-document-worker-late
+# 45678  0  com.yodabuffett.daily-pdf-download
+# 56789  0  com.yodabuffett.daily-document-pipeline
+# 67890  0  com.yodabuffett.daily-anomaly-detection
+```
+
+#### View Real-Time Logs
+```bash
+# Market data collection (runs at 3 AM)
+tail -f ~/Documents/YodaBuffett/backend/logs/daily-market-data-worker.log
+
+# Document discovery (runs at 7 AM and 9 AM)
+tail -f ~/Documents/YodaBuffett/backend/logs/daily-document-worker-morning.log
+tail -f ~/Documents/YodaBuffett/backend/logs/daily-document-worker-late.log
+
+# PDF downloads (runs at 10 AM)
+tail -f ~/Documents/YodaBuffett/backend/logs/daily-pdf-download.log
+
+# Document processing pipeline (runs at 11 AM)
+tail -f ~/Documents/YodaBuffett/backend/logs/daily-document-pipeline.log
+
+# Anomaly detection (runs at 12 PM)
+tail -f ~/Documents/YodaBuffett/backend/logs/daily-anomaly-detection.log
+
+# View all automation logs together
+tail -f ~/Documents/YodaBuffett/backend/logs/daily-*.log
+```
+
+#### Manual Control
+```bash
+# Force immediate run of any service
+launchctl start com.yodabuffett.daily-market-data-worker
+launchctl start com.yodabuffett.daily-document-worker-morning
+launchctl start com.yodabuffett.daily-document-pipeline
+launchctl start com.yodabuffett.daily-anomaly-detection
+
+# Stop a service (won't run until next scheduled time)
+launchctl stop com.yodabuffett.daily-market-data-worker
+
+# Disable a service completely
+launchctl unload ~/Library/LaunchAgents/com.yodabuffett.daily-market-data-worker.plist
+
+# Re-enable a disabled service
+launchctl load ~/Library/LaunchAgents/com.yodabuffett.daily-market-data-worker.plist
+```
+
+### Managing LaunchAgents
+
+#### Fix Common Issues
+```bash
+# If services show errors or won't load, run the fix script
+cd ~/Documents/YodaBuffett/backend
+python3 fix_launchagents.py
+
+# This script will:
+# - Validate all plist files
+# - Fix permissions
+# - Reload services properly
+# - Show status of each service
+```
+
+#### Modify Schedule Times
+```bash
+# Edit the plist file to change schedule
+nano ~/Library/LaunchAgents/com.yodabuffett.daily-market-data-worker.plist
+
+# Find the StartCalendarInterval section:
+<key>StartCalendarInterval</key>
+<dict>
+    <key>Hour</key>
+    <integer>3</integer>    <!-- Change this to new hour (0-23) -->
+    <key>Minute</key>
+    <integer>0</integer>    <!-- Change this to new minute (0-59) -->
+</dict>
+
+# After editing, reload the service:
+launchctl unload ~/Library/LaunchAgents/com.yodabuffett.daily-market-data-worker.plist
+launchctl load ~/Library/LaunchAgents/com.yodabuffett.daily-market-data-worker.plist
+```
+
+### Monitor Daily Results
+
+#### Check What Was Processed Today
+```bash
+# Market data updates
+grep "✅ Completed processing" ~/Documents/YodaBuffett/backend/logs/daily-market-data-worker.log | tail -10
+
+# Documents discovered
+grep "new documents found" ~/Documents/YodaBuffett/backend/logs/daily-document-worker-*.log | tail -20
+
+# PDFs downloaded
+ls -la ~/Documents/YodaBuffett/backend/data/companies/SE/*/*/2025/*/*.pdf | wc -l
+
+# Processing pipeline results
+grep "documents processed successfully" ~/Documents/YodaBuffett/backend/logs/daily-document-pipeline.log | tail -5
+
+# Anomalies detected
+grep "anomalies found" ~/Documents/YodaBuffett/backend/logs/daily-anomaly-detection.log | tail -5
+```
+
+#### View Processing Statistics
+```bash
+# Check disk space usage growth
+du -sh ~/Documents/YodaBuffett/backend/data/companies/
+
+# Count total PDFs collected
+find ~/Documents/YodaBuffett/backend/data/companies -name "*.pdf" | wc -l
+
+# See latest downloaded files
+find ~/Documents/YodaBuffett/backend/data/companies -name "*.pdf" -mtime -1 -ls
+
+# Database statistics
+cd ~/Documents/YodaBuffett/backend
+python3 << EOF
+from shared.database import AsyncSessionLocal
+import asyncio
+from sqlalchemy import text
+
+async def check_stats():
+    async with AsyncSessionLocal() as db:
+        docs = await db.execute(text("SELECT COUNT(*) FROM nordic_documents"))
+        print(f"Total documents: {docs.scalar():,}")
+        
+        embeddings = await db.execute(text("SELECT COUNT(*) FROM document_embeddings"))
+        print(f"Total embeddings: {embeddings.scalar():,}")
+        
+        recent = await db.execute(text("""
+            SELECT COUNT(*) FROM nordic_documents 
+            WHERE created_at > CURRENT_DATE - INTERVAL '7 days'
+        """))
+        print(f"Documents added last 7 days: {recent.scalar():,}")
+
+asyncio.run(check_stats())
+EOF
+```
+
+### Troubleshooting Automation
+
+#### Service Not Running
+```bash
+# Check if service is loaded
+launchctl list | grep yodabuffett
+
+# Check recent errors in system log
+log show --predicate 'subsystem == "com.apple.launchd"' --last 1h | grep yodabuffett
+
+# Check service-specific log for errors
+tail -100 ~/Documents/YodaBuffett/backend/logs/daily-market-data-worker.log | grep ERROR
+
+# Common fixes:
+# 1. Run fix_launchagents.py
+# 2. Check Python path in plist matches your system
+# 3. Verify virtual environment exists
+# 4. Check database connectivity
+```
+
+#### Service Running But Not Working
+```bash
+# Test the worker directly
+cd ~/Documents/YodaBuffett/backend
+source venv/bin/activate
+
+# Test with dry run first
+python3 -m workers.daily_market_data_worker --dry-run
+python3 -m workers.daily_event_worker --dry-run
+python3 workers/daily_document_pipeline.py --test
+
+# Check for import errors
+python3 -c "from workers.daily_market_data_worker import DailyMarketDataWorker"
+
+# Verify environment variables
+python3 -c "import os; print(os.environ.get('DATABASE_URL', 'NOT SET'))"
+```
+
+#### Reset and Restart Everything
+```bash
+# Complete reset of all automation
+cd ~/Documents/YodaBuffett/backend
+
+# 1. Stop all services
+for service in daily-market-data-worker daily-document-worker-morning daily-document-worker-late daily-pdf-download daily-document-pipeline daily-anomaly-detection; do
+    launchctl stop com.yodabuffett.$service
+    launchctl unload ~/Library/LaunchAgents/com.yodabuffett.$service.plist 2>/dev/null
+done
+
+# 2. Clear logs (optional - backup first if needed)
+mkdir -p logs/backup_$(date +%Y%m%d)
+mv logs/daily-*.log logs/backup_$(date +%Y%m%d)/
+
+# 3. Fix and reload all services
+python3 fix_launchagents.py
+
+# 4. Verify all services loaded
+launchctl list | grep yodabuffett
+```
+
+### Best Practices
+
+#### Daily Monitoring Routine
+1. **Morning (8 AM)**: Check overnight market data collection
+   ```bash
+   tail -50 ~/Documents/YodaBuffett/backend/logs/daily-market-data-worker.log
+   ```
+
+2. **Mid-Morning (10 AM)**: Verify document discovery worked
+   ```bash
+   grep "Processing complete" ~/Documents/YodaBuffett/backend/logs/daily-document-worker-*.log | tail -5
+   ```
+
+3. **Afternoon (1 PM)**: Check full pipeline completion
+   ```bash
+   # Quick status of all services
+   for log in ~/Documents/YodaBuffett/backend/logs/daily-*.log; do
+       echo "=== $(basename $log) ==="
+       tail -3 $log | grep -E "(Completed|ERROR|Failed)"
+   done
+   ```
+
+#### Weekly Maintenance
+```bash
+# Archive old logs
+cd ~/Documents/YodaBuffett/backend/logs
+tar -czf archive_$(date +%Y%m%d).tar.gz daily-*.log
+echo "" > daily-*.log  # Clear logs after archiving
+
+# Check disk space
+df -h ~/Documents/YodaBuffett/backend/data/
+
+# Verify database growth
+du -sh ~/Documents/YodaBuffett/backend/data/
+```
+
+### Advanced Configuration
+
+#### Environment Variables
+Each service reads from `~/.zshrc` or `~/.bash_profile`:
+```bash
+export DATABASE_URL="postgresql://yodabuffett:your_password@localhost:5432/yodabuffett"
+export PYTHONPATH="/Users/jdandemar/Documents/YodaBuffett/backend"
+export OPENAI_API_KEY="sk-..."  # For embeddings
+```
+
+#### Resource Limits
+LaunchAgents respect system resources by default. To add limits:
+```xml
+<!-- Add to any plist file -->
+<key>SoftResourceLimits</key>
+<dict>
+    <key>NumberOfFiles</key>
+    <integer>1024</integer>
+    <key>MemoryLock</key>
+    <integer>67108864</integer>  <!-- 64MB -->
+</dict>
 ```
 
 #### Document Processing Pipeline (Production Ready)
@@ -573,6 +935,82 @@ python domains/document_intelligence/cli_embedding_generation.py status
 python domains/document_intelligence/cli_embedding_generation.py process 3 Volvo
 ```
 
+## 🚨 **PHASE 5: Temporal Anomaly Analysis from Existing Embeddings** ⭐ NEW CAPABILITY
+
+**PURPOSE**: Analyze temporal communication patterns from your 50,000+ existing embeddings without storing results
+
+### Quick Analysis Commands
+```bash
+# Analyze latest anomalies by date (default sort)
+cd backend/
+python3 analyze_existing_embeddings.py --days 500
+
+# Analyze highest-scoring anomalies 
+python3 analyze_existing_embeddings.py --days 500 --sort score
+
+# Analyze specific company patterns
+python3 analyze_existing_embeddings.py --company "AAK" --days 500
+python3 analyze_existing_embeddings.py --company "Volvo" --days 1000
+
+# Check what data is available
+python3 check_document_dates.py
+python3 check_embeddings_schema.py
+```
+
+### Understanding the Output
+The analyzer shows temporal anomalies sorted by your preference:
+
+**Latest Anomalies Mode (--sort date):**
+```
+🕒 LATEST 10 ANOMALIES (Most Recent)
+----------------------------------------------------------------------
+ 1. 🚨 2025-08-30 | AAK | Score: 0.78
+    📄 Current:  Q2_2025_Interim_Report.pdf
+    📄 Previous: 2025-05-15 - Q1_2025_Interim_Report.pdf
+    📊 Gap: 107 days | Similarity: 0.22
+```
+
+**Severity Classifications:**
+- 🚨 **Significant** (Score ≥ 0.7): Major communication pattern shifts
+- ⚠️ **Moderate** (Score 0.5-0.7): Notable changes worth investigating  
+- ℹ️ **Minor** (Score 0.3-0.5): Small variations, likely normal evolution
+
+### Common Use Cases
+```bash
+# Check recent market-wide communication shifts
+python3 analyze_existing_embeddings.py --days 90 --sort date
+
+# Find most dramatic changes across all time
+python3 analyze_existing_embeddings.py --days 2000 --sort score
+
+# Investigate specific company before earnings
+python3 analyze_existing_embeddings.py --company "Ericsson" --days 365
+
+# Quick pre-market check for surprises
+python3 analyze_existing_embeddings.py --days 30 --sort date --min-docs 3
+```
+
+### Troubleshooting Analysis Issues
+
+**Issue: "0 documents in last X days"**
+```bash
+# Check actual date ranges in your data
+python3 check_document_dates.py
+
+# Use appropriate time window based on output
+python3 analyze_existing_embeddings.py --days 1000  # Adjust as needed
+```
+
+**Issue: Embedding dimension errors**
+- The analyzer handles multiple embedding models/dimensions automatically
+- Documents are grouped by embedding model before comparison
+- Mismatched dimensions return neutral similarity (0.5)
+
+**Issue: JSON parsing errors**
+- Your embeddings are stored as JSON strings in PostgreSQL
+- The analyzer automatically parses these strings
+- No manual intervention needed
+
 **Features**:
 
 **Document Processing:**
@@ -720,7 +1158,11 @@ YodaBuffett/
 ├── logs/
 │   ├── app.log           # Application logs
 │   ├── error.log         # Error logs
-│   └── access.log        # API access logs
+│   ├── access.log        # API access logs
+│   ├── daily-market-data-worker.log          # Daily market data automation
+│   ├── daily-document-worker-morning.log     # Daily document discovery (7 AM)
+│   ├── daily-document-worker-late.log        # Daily document discovery (9 AM)
+│   └── daily-pdf-download.log                # Daily PDF download automation
 ├── backend/
 │   ├── historical_ingestion_*.json    # Ingestion results
 │   ├── pdf_download_*.json            # Download results
@@ -738,27 +1180,46 @@ YodaBuffett/
 ## Monitoring & Maintenance
 
 ### Daily Checks
-- [ ] Check service status: `docker-compose ps`
+
+#### Automated Workers (Check First)
+- [ ] **Check daily automation status**: `launchctl list | grep yodabuffett`
+- [ ] **Review market data automation**: `tail -30 logs/daily-market-data-worker.log`
+- [ ] **Review document discovery automation**: `tail -30 logs/daily-document-worker-morning.log`
+- [ ] **Review PDF download automation**: `tail -30 logs/daily-pdf-download.log`
+- [ ] **Check new PDF files**: `ls -la data/companies/SE/*/*/2025/*/` (recent downloads)
+- [ ] **Monitor disk usage growth**: `du -sh data/companies/`
+
+#### Manual System Checks  
+- [ ] Check disk space: `df -h`
 - [ ] Review error logs: `tail -f logs/error.log`
 - [ ] Monitor API costs: OpenAI/Anthropic dashboards
-- [ ] Check disk space: `df -h`
-- [ ] Check Nordic ingestion progress: `python3 analyze_ingestion_results.py`
-- [ ] Monitor PDF download progress: `python3 analyze_download_results.py`
 - [ ] **Check document processing status**: `PYTHONPATH=backend python3 domains/document_intelligence/cli_stateful.py status`
 - [ ] **Process daily batch** (if actively processing): `PYTHONPATH=backend python3 domains/document_intelligence/cli_stateful.py process 100`
 - [ ] **Check section chunking status**: `python domains/document_intelligence/cli_section_chunking.py status`
 - [ ] **Check section embedding status**: `python domains/document_intelligence/cli_multi_embeddings.py local status`
 - [ ] **Check document embedding status**: `python domains/document_intelligence/cli_document_embeddings.py local status`
-- [ ] Review document collection rates from latest batch run
-- [ ] Check `data/companies/` folder size and organization
+
+#### Legacy Manual Scripts (Now Automated)
+- [ ] ~~Check Nordic ingestion progress~~ (Now automated via daily workers)
+- [ ] ~~Monitor PDF download progress~~ (Now automated via daily workers)
+- [ ] ~~Review document collection rates~~ (Check automation logs instead)
 
 ### Weekly Tasks
+
+#### Automated System Maintenance
+- [ ] **Review automation logs**: Check week's worth of daily worker performance
+- [ ] **Monitor automation health**: `launchctl list | grep yodabuffett` (ensure all workers running)
+- [ ] **Archive automation logs**: `gzip logs/daily-*.log` (keep logs manageable)
+- [ ] **Check PDF collection stats**: Count new PDFs downloaded this week
+- [ ] **Verify automation is working**: Manual spot check of recent document discovery
+
+#### Database & Storage
 - [ ] Backup database: `pg_dump > weekly_backup.sql`
 - [ ] Clear old cache files: `find data/cache -mtime +7 -delete`
-- [ ] Review system performance logs
-- [ ] Update API usage tracking
-- [ ] Run fresh historical ingestion for new/updated companies
-- [ ] **Run focused PDF downloads**: `python3 pdf_download_batch.py --delay 10` (reports only)
+- [ ] Monitor disk usage trends: `du -sh data/companies/` vs last week
+- [ ] Archive old manual ingestion results: `gzip historical_ingestion_*.json pdf_download_*.json`
+
+#### Document Processing & AI Pipeline
 - [ ] **Process large document batches**: `PYTHONPATH=backend python3 domains/document_intelligence/cli_stateful.py process 500`
 - [ ] **Monitor document processing progress**: Check completion rate and processing errors
 - [ ] **Process section chunking batches**: `python domains/document_intelligence/cli_section_chunking.py process 100`
@@ -768,10 +1229,18 @@ YodaBuffett/
 - [ ] **Test unified search capabilities**: `python test_unified_embedding_search.py`
 - [ ] **Validate section quality**: `python domains/document_intelligence/cli_section_chunking.py inspect` (random companies)
 - [ ] **Compare embedding providers**: `python domains/document_intelligence/cli_multi_embeddings.py openai compare`
-- [ ] Retry failed companies: `python3 retry_failed_companies.py` (10-20 companies)
-- [ ] Analyze ingestion failure patterns and optimize slugs/mappings
-- [ ] Archive old ingestion result files: `gzip historical_ingestion_*.json pdf_download_*.json`
+
+#### System Performance & Optimization
+- [ ] Review system performance logs
+- [ ] Update API usage tracking  
 - [ ] Verify PDF file integrity: spot check downloaded PDFs can be opened
+- [ ] Review automation failure patterns and optimize company slug mappings if needed
+
+#### Legacy Manual Operations (Only if Automation Fails)
+- [ ] ~~Run fresh historical ingestion~~ (Now automated daily)
+- [ ] ~~Run focused PDF downloads~~ (Now automated daily)  
+- [ ] ~~Retry failed companies~~ (Automated retries in daily workers)
+- [ ] Manual fallback only if daily automation shows consistent failures
 
 ### Monthly Tasks
 - [ ] Review and rotate API keys (production)

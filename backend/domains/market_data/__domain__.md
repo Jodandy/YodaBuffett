@@ -39,11 +39,13 @@ External Feeds → Data Ingestion → Validation → Quality Scoring → Storage
 ```
 
 ### Services in Production  
-- `RealTimeFeedManager`: Manages connections to multiple data providers with failover
-- `DataValidator`: Cross-source validation and outlier detection algorithms
-- `HistoricalDataService`: Time-series data management and gap filling
-- `QualityScorer`: Real-time data quality assessment and provider reliability tracking
-- `NordicMarketSpecialist`: Specialized handling for Nordic market peculiarities
+- `HistoricalDataIngestor`: Comprehensive historical data ingestion from Yahoo Finance with technical indicators
+- `YahooProvider`: Provider-agnostic interface for Yahoo Finance market data (domains/market_data/services/)
+- `CompanyIngestionTracker`: Advanced tracking and error categorization for large-scale ingestion operations
+- `RealTimeFeedManager`: Manages connections to multiple data providers with failover (planned)
+- `DataValidator`: Cross-source validation and outlier detection algorithms (planned)
+- `QualityScorer`: Real-time data quality assessment and provider reliability tracking (planned)
+- `NordicMarketSpecialist`: Specialized handling for Nordic market peculiarities (planned)
 
 ### Core Models
 - `MarketDataPoint`: Individual price/volume observation with source and quality metadata
@@ -90,7 +92,12 @@ External Feeds → Data Ingestion → Validation → Quality Scoring → Storage
 
 ### Recent Changes (AI-Generated Log)
 - **2025-01-12**: Initial domain structure created with comprehensive documentation
-- **[Future updates will be added here by AI assistants]**
+- **2025-12-01**: Added comprehensive historical data ingestion system for 787 Nordic companies
+  - Created production-ready ingestion scripts with error tracking and categorization
+  - Implemented maximum historical data collection (up to 20+ years per company)
+  - Added Swedish ticker mapping system using company-list.json for accurate symbol resolution
+  - Built advanced progress tracking with priority-based processing (high-document companies first)
+  - Established foreign key constraint handling for seamless database integration
 
 ---
 

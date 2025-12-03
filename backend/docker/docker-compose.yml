@@ -15,7 +15,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     ports:
-      - "5432:5432"
+      - "5433:5432"
     networks:
       - yodabuffett-network
     healthcheck:
@@ -426,11 +426,11 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       
       # Database Configuration
-      DB_HOST: host.docker.internal
+      DB_HOST: 192.168.0.168
       DB_PORT: 5432
       DB_NAME: yodabuffett
-      DB_USER: yodabuffett
-      DB_PASSWORD: password
+      DB_USER: yoda
+      DB_PASSWORD: buffett123
       
       # Scheduler Configuration
       DAILY_RUN_TIME: ${DAILY_RUN_TIME:-06:00}
@@ -450,6 +450,9 @@ services:
     
     networks:
       - default
+    
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     
     depends_on:
       postgres:
@@ -471,6 +474,69 @@ services:
         limits:
           memory: 256M
           cpus: '0.25'
+
+  # Daily Market Data Worker Scheduler
+  daily-market-data-scheduler:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+      target: production
+    container_name: yodabuffett-daily-market-data
+    environment:
+      # Worker Configuration
+      WORKER_TYPE: scheduler
+      WORKER_NAME: daily-market-data-scheduler
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      
+      # Database Configuration
+      DB_HOST: 192.168.0.168
+      DB_PORT: 5432
+      DB_NAME: yodabuffett
+      DB_USER: yoda
+      DB_PASSWORD: buffett123
+      
+      # Market Data Scheduler Configuration
+      DAILY_RUN_TIME: ${MARKET_DATA_RUN_TIME:-06:30}
+      WORKER_MODE: production
+      
+      # Paths (using volumes)
+      DATA_VOLUME_PATH: /app/data
+      LOG_FILE_PATH: /app/logs/daily-market-data.log
+      HEALTH_CHECK_PORT: 8086
+    
+    volumes:
+      - worker_data:/app/data
+      - worker_logs:/app/logs
+    
+    ports:
+      - "8086:8086"  # Health check endpoint
+    
+    networks:
+      - default
+    
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    command: ["python", "-m", "workers.daily_market_data_worker"]
+    restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    # Resource limits for market data processing
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
 
   # Development CLI (for operations)
   worker-cli:

@@ -57,14 +57,27 @@ Building extensible platform for any financial analysis, not just specific featu
 - **Provider Flexible**: Architecture supports OpenAI, Claude, local models with explicit tracking
 - **Performance**: ~1 second per document including API calls and database storage
 
-🤖 **Daily Event Worker System** - PRODUCTION ACTIVE (DOCKER)
-- **Automated Daily Collection**: Docker container runs daily at 6:00 AM with built-in scheduler
+🤖 **Complete Daily Automation System** - PRODUCTION ACTIVE (macOS LaunchAgents)
+- **Full Document Intelligence Pipeline**: Discovery → Download → Extract → Embed → Analyze (fully automated)
+- **6-Stage Daily Schedule**: 
+  - 3:00 AM (market data) → 7:00 AM (documents) → 9:00 AM (documents) → 10:00 AM (PDFs) → 11:00 AM (processing) → 12:00 PM (anomaly detection)
+- **Complete Text Processing**: PDF download, text extraction, vector embeddings, section analysis
+- **Temporal Anomaly Detection**: Automatic pattern analysis at noon daily
 - **Event-Driven Intelligence**: Only processes companies with upcoming financial events
 - **Calendar Integration**: Targets earnings, reports, AGMs, dividends automatically  
 - **Performance Optimized**: 50x fewer companies processed (0-50 vs 1600+)
-- **Batch Database Queries**: 10-100x faster duplicate checking and storage
-- **Zero Manual Intervention**: Set-and-forget Docker operation with health monitoring
-- **Portable Deployment**: Same behavior on any Docker-capable server
+- **Zero Manual Intervention**: Native macOS scheduling with comprehensive logging
+- **Ready for Analysis**: Documents are fully processed and searchable within hours of publication
+- **Historical Catch-Up**: Comprehensive catch-up system for missed periods
+
+📈 **Market Data Integration** - PRODUCTION ACTIVE
+- **787 Companies**: Complete Nordic market coverage with Yahoo Finance integration  
+- **Automated Daily Updates**: Native macOS scheduling runs at 3:00 AM daily
+- **Incremental Collection**: Only fetches recent data (last 7 days) for efficiency
+- **Provider Agnostic**: Architecture supports multiple data sources (Yahoo, Alpha Vantage, etc.)
+- **Technical Indicators**: RSI, moving averages, volume analysis
+- **Historical Backfill**: Complete price history for all tracked companies
+- **Database Integration**: Seamless storage with document intelligence system
 
 🌍 **Multi-Market Worker System** - PRODUCTION DEPLOYED  
 - **Specialized Workers**: Swedish, Norwegian, Danish, Finnish market ingestors
@@ -93,6 +106,15 @@ Building extensible platform for any financial analysis, not just specific featu
 - Automated anomaly thresholds with similarity scoring
 - Real-time deviation detection from historical communication patterns
 
+📈 **Historical Market Data System** - PRODUCTION READY
+- **Comprehensive Data Ingestion**: 787 Nordic companies with up to 20+ years of historical data each
+- **Maximum Coverage**: 500,000+ to 1,000,000+ price points total for temporal anomaly validation
+- **Swedish Ticker Intelligence**: Automated mapping using authoritative company-list.json with fuzzy matching
+- **Robust Error Handling**: Categorized failure tracking with targeted recovery procedures
+- **Provider-Agnostic Architecture**: Yahoo Finance integration with Bloomberg/Reuters expansion ready
+- **Database Integration**: Seamless integration with company_master table and foreign key handling
+- **Documentation**: [docs/market_data_ingestion.md](./backend/docs/market_data_ingestion.md)
+
 🧠 **Advanced Analytics & Intelligence** - EXPANDING
 - Vector-based semantic search across all financial documents
 - Hidden connection discovery between companies and markets  
@@ -106,6 +128,7 @@ Building extensible platform for any financial analysis, not just specific featu
 | **High-level overview** | [CLAUDE-MASTER.md](./CLAUDE-MASTER.md) |
 | **Development roadmap** | [docs/roadmap/README.md](./docs/roadmap/README.md) |
 | **Production progress** | [docs/roadmap/README.md](./docs/roadmap/README.md) |
+| **Market data ingestion system** | [docs/market_data_ingestion.md](./backend/docs/market_data_ingestion.md) |
 | **Advanced analytics concepts** | [docs/features/advanced-analytics.md](./docs/features/advanced-analytics.md) |
 | **Temporal anomaly detection** | [docs/features/temporal-anomaly-detection.md](./docs/features/temporal-anomaly-detection.md) |
 | **Database/Data design** | [docs/architecture/data-architecture.md](./docs/architecture/data-architecture.md) |
@@ -125,6 +148,64 @@ Building extensible platform for any financial analysis, not just specific featu
 | **Document processing pipeline** | [docs/features/document-processing.md](./docs/features/document-processing.md) |
 | **Section-based embeddings** | [docs/features/section-based-embeddings.md](./docs/features/section-based-embeddings.md) |
 | **Human operator guide** | [docs/operations/human-operator-guide.md](./docs/operations/human-operator-guide.md) |
+
+## 🚀 **Quick Commands - Daily Automation**
+
+### Production Daily Workers (macOS LaunchAgents)
+```bash
+# Check all daily automation workers
+launchctl list | grep yodabuffett
+
+# View recent automation logs
+tail -30 /Users/jdandemar/Documents/YodaBuffett/logs/daily-market-data-worker.log
+tail -30 /Users/jdandemar/Documents/YodaBuffett/logs/daily-document-worker-morning.log
+tail -30 /Users/jdandemar/Documents/YodaBuffett/logs/daily-pdf-download.log
+
+# Test workers manually (dry run)
+cd /Users/jdandemar/Documents/YodaBuffett/backend
+python -m workers.daily_event_worker --dry-run
+python -m workers.daily_market_data_worker --dry-run
+```
+
+### Manual Worker Execution
+```bash
+# Trigger workers manually for testing
+launchctl start com.yodabuffett.daily-market-data-worker
+launchctl start com.yodabuffett.daily-document-worker-morning  
+launchctl start com.yodabuffett.daily-document-worker-late
+launchctl start com.yodabuffett.daily-pdf-download
+
+# Run workers directly (bypass scheduler)
+cd /Users/jdandemar/Documents/YodaBuffett/backend
+python -m workers.daily_event_worker
+python -m workers.daily_market_data_worker
+python pdf_download_batch.py --year 2025 --delay 15
+```
+
+### Historical Catch-Up
+```bash
+# Catch up on missed document collection periods
+python historical_document_catchup.py --days-back 7
+
+# Run comprehensive historical market data ingestion
+python historical_market_data_batch.py
+
+# Retry failed companies with smart suffix testing
+python retry_failed_companies.py
+```
+
+### System Management
+```bash
+# Stop/disable all automated workers
+launchctl unload ~/Library/LaunchAgents/com.yodabuffett.daily-*.plist
+
+# Re-enable all automated workers  
+launchctl load ~/Library/LaunchAgents/com.yodabuffett.daily-*.plist
+
+# Check downloaded files and growth
+ls -la /Users/jdandemar/Documents/YodaBuffett/backend/data/companies/SE/
+du -sh /Users/jdandemar/Documents/YodaBuffett/backend/data/companies/
+```
 
 ## 🚀 **Quick Commands - Temporal Anomaly Detection**
 
@@ -168,6 +249,46 @@ python clean_dummy_embeddings.py
 python investigate_embeddings.py
 ```
 
+## 🚨 **Quick Commands - Temporal Anomaly Analysis (NEW)**
+
+### Analyze Existing Embeddings Without Storage
+```bash
+# Latest anomalies by date (default - most recent communication changes)
+cd backend/
+python3 analyze_existing_embeddings.py --days 500
+
+# Highest-scoring anomalies (most dramatic changes)
+python3 analyze_existing_embeddings.py --days 500 --sort score
+
+# Company-specific temporal analysis
+python3 analyze_existing_embeddings.py --company "AAK" --days 500
+python3 analyze_existing_embeddings.py --company "Volvo" --days 1000
+
+# Check available data ranges first
+python3 check_document_dates.py
+python3 check_embeddings_schema.py
+```
+
+### Understanding Anomaly Output
+- 🚨 **Significant** (Score ≥ 0.7): Major communication pattern shifts
+- ⚠️ **Moderate** (Score 0.5-0.7): Notable changes worth investigating
+- ℹ️ **Minor** (Score 0.3-0.5): Small variations, likely normal evolution
+
+### Common Analysis Patterns
+```bash
+# Pre-market surprise check
+python3 analyze_existing_embeddings.py --days 30 --sort date
+
+# Quarterly earnings pattern analysis
+python3 analyze_existing_embeddings.py --company "Ericsson" --days 365
+
+# Market-wide communication shifts
+python3 analyze_existing_embeddings.py --days 90 --sort date
+
+# Historical anomaly research
+python3 analyze_existing_embeddings.py --days 2000 --sort score
+```
+
 ### Monitoring & Diagnostics
 ```bash
 # Check pipeline status
@@ -185,18 +306,31 @@ python diagnose_extraction_issue.py
 
 ### Docker-First Production (RECOMMENDED)
 ```bash
+# DAILY WORKERS SETUP (BOTH DOCUMENT AND MARKET DATA)
+cd backend
+python3 setup_daily_workers.py                  # Interactive setup and management
+
 # DAILY EVENT WORKER (PRODUCTION - AUTOMATIC AT 6:00 AM)
 cd backend/docker
-docker-compose up daily-event-scheduler -d      # Start production scheduler
+docker-compose up daily-event-scheduler -d      # Start document scheduler
 docker ps | grep yodabuffett-daily-scheduler    # Check if scheduler running  
 docker logs yodabuffett-daily-scheduler --tail 20 # View scheduler activity
 curl http://localhost:8085/health               # Check scheduler health
 
-# Test daily worker manually
-docker exec yodabuffett-daily-scheduler python -m workers.daily_event_worker --dry-run
+# DAILY MARKET DATA WORKER (PRODUCTION - AUTOMATIC AT 6:30 AM)
+docker-compose up daily-market-data-scheduler -d # Start market data scheduler
+docker ps | grep yodabuffett-daily-market-data   # Check if scheduler running
+docker logs yodabuffett-daily-market-data --tail 20 # View market data activity  
+curl http://localhost:8086/health                # Check market data health
 
-# View execution results (inside container)
-docker exec yodabuffett-daily-scheduler ls -la /app/data/daily_worker_*.json
+# DOCUMENT HISTORICAL CATCH-UP
+cd backend
+python3 historical_document_catchup.py --days-back 30  # Catch up last 30 days
+python3 historical_document_catchup.py --start-date 2024-11-01 --end-date 2024-12-01
+
+# MARKET DATA MANUAL OPERATIONS
+python3 workers/daily_market_data_worker.py --run-now    # Run market data update now
+python3 workers/daily_market_data_worker.py --dry-run    # Check what would be updated
 ```
 
 ### Direct Script Commands (Development)

@@ -1,0 +1,351 @@
+{
+  "attempted": 50,
+  "success": 49,
+  "failed": 0,
+  "skipped": 1,
+  "companies": [
+    {
+      "company_name": "Nordic Semiconductor",
+      "ticker": "SIVE",
+      "yahoo_symbol": "SIVE.ST",
+      "price_points": 249,
+      "doc_count": 708
+    },
+    {
+      "company_name": "Troax Group",
+      "ticker": "TROAX",
+      "yahoo_symbol": "TROAX.ST",
+      "price_points": 249,
+      "doc_count": 566
+    },
+    {
+      "company_name": "Scandi Standard",
+      "ticker": "SCST",
+      "yahoo_symbol": "SCST.ST",
+      "price_points": 249,
+      "doc_count": 520
+    },
+    {
+      "company_name": "Nederman",
+      "ticker": "NMAN",
+      "yahoo_symbol": "NMAN.ST",
+      "price_points": 249,
+      "doc_count": 505
+    },
+    {
+      "company_name": "Dometic",
+      "ticker": "DOM",
+      "yahoo_symbol": "DOM.ST",
+      "price_points": 249,
+      "doc_count": 490
+    },
+    {
+      "company_name": "Bj\u00f6rn Borg",
+      "ticker": "BORG",
+      "yahoo_symbol": "BORG.ST",
+      "price_points": 249,
+      "doc_count": 443
+    },
+    {
+      "company_name": "TradeDoubler",
+      "ticker": "TRAD",
+      "yahoo_symbol": "TRAD.ST",
+      "price_points": 249,
+      "doc_count": 413
+    },
+    {
+      "company_name": "Karnov",
+      "ticker": "KAR",
+      "yahoo_symbol": "KAR.ST",
+      "price_points": 249,
+      "doc_count": 408
+    },
+    {
+      "company_name": "Amhult 2",
+      "ticker": "AMH2 B",
+      "yahoo_symbol": "AMH2-B.ST",
+      "price_points": 248,
+      "doc_count": 400
+    },
+    {
+      "company_name": "VBG Group",
+      "ticker": "VBG B",
+      "yahoo_symbol": "VBG-B.ST",
+      "price_points": 249,
+      "doc_count": 396
+    },
+    {
+      "company_name": "XANO Industri",
+      "ticker": "XANO B",
+      "yahoo_symbol": "XANO-B.ST",
+      "price_points": 249,
+      "doc_count": 378
+    },
+    {
+      "company_name": "Handelsbanken A",
+      "ticker": "SHB A",
+      "yahoo_symbol": "SHB-A.ST",
+      "price_points": 249,
+      "doc_count": 378
+    },
+    {
+      "company_name": "CTT Systems",
+      "ticker": "CTT",
+      "yahoo_symbol": "CTT.ST",
+      "price_points": 249,
+      "doc_count": 374
+    },
+    {
+      "company_name": "QBank",
+      "ticker": "QBNK",
+      "yahoo_symbol": "QBNK.ST",
+      "price_points": 249,
+      "doc_count": 369
+    },
+    {
+      "company_name": "eWork",
+      "ticker": "EWRK",
+      "yahoo_symbol": "EWRK.ST",
+      "price_points": 249,
+      "doc_count": 368
+    },
+    {
+      "company_name": "Bure Equity",
+      "ticker": "BURE",
+      "yahoo_symbol": "BURE.ST",
+      "price_points": 249,
+      "doc_count": 367
+    },
+    {
+      "company_name": "PION Group",
+      "ticker": "PION B",
+      "yahoo_symbol": "PION-B.ST",
+      "price_points": 249,
+      "doc_count": 362
+    },
+    {
+      "company_name": "CellaVision",
+      "ticker": "CEVI",
+      "yahoo_symbol": "CEVI.ST",
+      "price_points": 249,
+      "doc_count": 357
+    },
+    {
+      "company_name": "John Mattson",
+      "ticker": "JOMA",
+      "yahoo_symbol": "JOMA.ST",
+      "price_points": 249,
+      "doc_count": 355
+    },
+    {
+      "company_name": "Dedicare",
+      "ticker": "DEDI",
+      "yahoo_symbol": "DEDI.ST",
+      "price_points": 249,
+      "doc_count": 355
+    },
+    {
+      "company_name": "OEM International",
+      "ticker": "OEM B",
+      "yahoo_symbol": "OEM-B.ST",
+      "price_points": 249,
+      "doc_count": 346
+    },
+    {
+      "company_name": "New Wave",
+      "ticker": "NEWA B",
+      "yahoo_symbol": "NEWA-B.ST",
+      "price_points": 249,
+      "doc_count": 343
+    },
+    {
+      "company_name": "SolidX",
+      "ticker": "SOLIDX",
+      "yahoo_symbol": "SOLIDX.ST",
+      "price_points": 249,
+      "doc_count": 342
+    },
+    {
+      "company_name": "Formpipe Software",
+      "ticker": "FPIP",
+      "yahoo_symbol": "FPIP.ST",
+      "price_points": 249,
+      "doc_count": 341
+    },
+    {
+      "company_name": "Thule",
+      "ticker": "THULE",
+      "yahoo_symbol": "THULE.ST",
+      "price_points": 249,
+      "doc_count": 335
+    },
+    {
+      "company_name": "BTS Group",
+      "ticker": "BTS B",
+      "yahoo_symbol": "BTS-B.ST",
+      "price_points": 249,
+      "doc_count": 334
+    },
+    {
+      "company_name": "Atrium Ljungberg",
+      "ticker": "ATRLJ B",
+      "yahoo_symbol": "ATRLJ-B.ST",
+      "price_points": 249,
+      "doc_count": 333
+    },
+    {
+      "company_name": "Lucara Diamond",
+      "ticker": "LUC",
+      "yahoo_symbol": "LUC.ST",
+      "price_points": 249,
+      "doc_count": 322
+    },
+    {
+      "company_name": "Fractal Gaming",
+      "ticker": "FRACTL",
+      "yahoo_symbol": "FRACTL.ST",
+      "price_points": 249,
+      "doc_count": 321
+    },
+    {
+      "company_name": "CDON",
+      "ticker": "CDON",
+      "yahoo_symbol": "CDON.ST",
+      "price_points": 249,
+      "doc_count": 318
+    },
+    {
+      "company_name": "Sedana Medical",
+      "ticker": "SEDANA",
+      "yahoo_symbol": "SEDANA.ST",
+      "price_points": 249,
+      "doc_count": 317
+    },
+    {
+      "company_name": "Boule Diagnostics",
+      "ticker": "BOUL",
+      "yahoo_symbol": "BOUL.ST",
+      "price_points": 249,
+      "doc_count": 312
+    },
+    {
+      "company_name": "FM Mattsson",
+      "ticker": "FMM B",
+      "yahoo_symbol": "FMM-B.ST",
+      "price_points": 249,
+      "doc_count": 309
+    },
+    {
+      "company_name": "Brinova Fastigheter",
+      "ticker": "BRIN B",
+      "yahoo_symbol": "BRIN-B.ST",
+      "price_points": 249,
+      "doc_count": 306
+    },
+    {
+      "company_name": "Kabe",
+      "ticker": "KABE B",
+      "yahoo_symbol": "KABE-B.ST",
+      "price_points": 249,
+      "doc_count": 300
+    },
+    {
+      "company_name": "Norion Bank",
+      "ticker": "NORION",
+      "yahoo_symbol": "NORION.ST",
+      "price_points": 249,
+      "doc_count": 300
+    },
+    {
+      "company_name": "Micro Systemation",
+      "ticker": "MSAB B",
+      "yahoo_symbol": "MSAB-B.ST",
+      "price_points": 249,
+      "doc_count": 299
+    },
+    {
+      "company_name": "Generic Sweden",
+      "ticker": "GENI",
+      "yahoo_symbol": "GENI.ST",
+      "price_points": 249,
+      "doc_count": 297
+    },
+    {
+      "company_name": "OrganoClick",
+      "ticker": "ORGC",
+      "yahoo_symbol": "ORGC.ST",
+      "price_points": 249,
+      "doc_count": 294
+    },
+    {
+      "company_name": "Elanders",
+      "ticker": "ELAN B",
+      "yahoo_symbol": "ELAN-B.ST",
+      "price_points": 249,
+      "doc_count": 293
+    },
+    {
+      "company_name": "Alimak",
+      "ticker": "ALIG",
+      "yahoo_symbol": "ALIG.ST",
+      "price_points": 249,
+      "doc_count": 293
+    },
+    {
+      "company_name": "G5 Entertainment",
+      "ticker": "G5EN",
+      "yahoo_symbol": "G5EN.ST",
+      "price_points": 249,
+      "doc_count": 292
+    },
+    {
+      "company_name": "Sleep Cycle",
+      "ticker": "SLEEP",
+      "yahoo_symbol": "SLEEP.ST",
+      "price_points": 249,
+      "doc_count": 289
+    },
+    {
+      "company_name": "HMS Networks",
+      "ticker": "HMS",
+      "yahoo_symbol": "HMS.ST",
+      "price_points": 249,
+      "doc_count": 289
+    },
+    {
+      "company_name": "HomeMaid",
+      "ticker": "HOME B",
+      "yahoo_symbol": "HOME-B.ST",
+      "price_points": 249,
+      "doc_count": 288
+    },
+    {
+      "company_name": "NOTE",
+      "ticker": "NOTE",
+      "yahoo_symbol": "NOTE.ST",
+      "price_points": 249,
+      "doc_count": 288
+    },
+    {
+      "company_name": "NFO Drives",
+      "ticker": "NFO",
+      "yahoo_symbol": "NFO.ST",
+      "price_points": 248,
+      "doc_count": 285
+    },
+    {
+      "company_name": "SaltX Technology",
+      "ticker": "SALT B",
+      "yahoo_symbol": "SALT-B.ST",
+      "price_points": 249,
+      "doc_count": 285
+    },
+    {
+      "company_name": "Nelly Group",
+      "ticker": "NELLY",
+      "yahoo_symbol": "NELLY.ST",
+      "price_points": 249,
+      "doc_count": 284
+    }
+  ]
+}
