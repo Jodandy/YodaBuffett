@@ -121,6 +121,24 @@ Building extensible platform for any financial analysis, not just specific featu
 - Predictive modeling and systemic risk analysis
 - Cross-company pattern detection and market intelligence
 
+🤖 **Technical Analysis ML System** - PRODUCTION READY ⭐ COMPLETE ML PIPELINE
+- **Time-Aware KNN Predictions**: Pre-computed neighbors with no look-ahead bias
+- **Plugin-Based Indicators**: RSI, SMA, EMA, Bollinger Bands, MACD, Volume analysis
+- **ML Strategy Framework**: Flexible architecture for technical/fundamental/ensemble strategies  
+- **Realistic Backtesting**: Transaction costs, position sizing, risk management constraints
+- **Production Database**: 729 labels across Nordic stocks, pre-computed neighbor tables
+- **Interpretable Results**: See exactly which historical patterns drive each prediction
+- **Documentation**: [docs/features/technical-analysis-ml.md](./docs/features/technical-analysis-ml.md)
+
+💼 **Realistic Portfolio Simulator** - PRODUCTION READY ⭐ PORTFOLIO MANAGEMENT
+- **Position Sizing**: 20% portfolio allocation per trade with 5 concurrent position maximum
+- **Risk Management**: Transaction costs (0.2% total), quality stock filtering, cash management
+- **Arbitration System**: Priority scoring for simultaneous signals, portfolio constraint enforcement
+- **Realistic Execution**: Next-day open entry, fixed holding periods, actual market data
+- **Performance Tracking**: Win rate, portfolio returns, transaction cost analysis
+- **Comprehensive Testing**: Validated against EMA 10 strategy showing -7.3% vs +509% unrealistic returns
+- **Documentation**: [docs/features/portfolio-management.md](./docs/features/portfolio-management.md)
+
 ## Documentation Structure
 
 | Need This? | Go Here |
@@ -129,6 +147,8 @@ Building extensible platform for any financial analysis, not just specific featu
 | **Development roadmap** | [docs/roadmap/README.md](./docs/roadmap/README.md) |
 | **Production progress** | [docs/roadmap/README.md](./docs/roadmap/README.md) |
 | **Market data ingestion system** | [docs/market_data_ingestion.md](./backend/docs/market_data_ingestion.md) |
+| **Technical analysis ML system** | [docs/features/technical-analysis-ml.md](./docs/features/technical-analysis-ml.md) |
+| **Portfolio management & realistic backtesting** | [docs/features/portfolio-management.md](./docs/features/portfolio-management.md) |
 | **Advanced analytics concepts** | [docs/features/advanced-analytics.md](./docs/features/advanced-analytics.md) |
 | **Temporal anomaly detection** | [docs/features/temporal-anomaly-detection.md](./docs/features/temporal-anomaly-detection.md) |
 | **Database/Data design** | [docs/architecture/data-architecture.md](./docs/architecture/data-architecture.md) |
@@ -267,6 +287,142 @@ python3 analyze_existing_embeddings.py --company "Volvo" --days 1000
 # Check available data ranges first
 python3 check_document_dates.py
 python3 check_embeddings_schema.py
+```
+
+## 🤖 **Quick Commands - Technical Analysis ML System (NEW)**
+
+### Setup and Database Creation
+```bash
+cd backend/
+
+# Create all technical analysis tables
+python3 create_ta_tables.py
+
+# Check table status
+python3 -c "
+import asyncio, asyncpg
+async def check():
+    conn = await asyncpg.connect('postgresql://yodabuffett:password@localhost:5432/yodabuffett')
+    for table in ['ml_models', 'ml_labels', 'knn_neighbors', 'strategies']:
+        count = await conn.fetchval(f'SELECT COUNT(*) FROM {table}')
+        print(f'{table}: {count} rows')
+    await conn.close()
+asyncio.run(check())
+"
+```
+
+### Generate Training Data
+```bash
+# Create ML labels from RSI patterns and future returns
+python3 create_rsi_labels.py
+# Output: ~729 labels across 10 Nordic stocks with 1d/5d/10d returns
+
+# Build time-aware KNN neighbors (no look-ahead bias)  
+python3 build_knn_neighbors.py
+# Output: Pre-computed neighbors for fast predictions
+```
+
+### Run Backtests & Portfolio Simulation
+```bash
+# Full KNN strategy backtest with realistic constraints
+python3 backtest_knn_strategy.py
+# Output: Performance metrics, Sharpe ratio, max drawdown, win rate
+
+# Test simple RSI strategy
+python3 test_rsi_strategy.py
+# Output: Signal generation and indicator calculations
+
+# REALISTIC PORTFOLIO SIMULATION (NEW)
+python3 realistic_portfolio_simulator.py
+# Output: Proper position sizing, portfolio returns, transaction costs
+
+# Multi-horizon indicator testing (comprehensive analysis)
+python3 multi_horizon_indicator_tester.py
+# Output: Fibonacci timeframe analysis, pattern matching across horizons
+
+# Isolated indicator testing (individual predictor analysis)
+python3 isolated_indicator_tester.py
+# Output: Pure KNN performance per indicator, 100+ companies
+
+# Adaptive exit strategy testing (dynamic holding periods)
+python3 isolated_indicator_adaptive_exit.py
+# Output: KNN-based entry and exit timing optimization
+```
+
+### Manual Analysis and Testing
+```bash
+# Check available training data
+python3 -c "
+import asyncio, asyncpg, json
+async def check_labels():
+    conn = await asyncpg.connect('postgresql://yodabuffett:password@localhost:5432/yodabuffett')
+    rows = await conn.fetch('SELECT metadata->>\"symbol\" as symbol, COUNT(*) as labels FROM ml_labels GROUP BY 1 ORDER BY 2 DESC')
+    for row in rows:
+        print(f'{row[\"symbol\"]}: {row[\"labels\"]} labels')
+    await conn.close()
+asyncio.run(check_labels())
+"
+
+# Check KNN neighbors status
+python3 -c "
+import asyncio, asyncpg
+async def check_neighbors():
+    conn = await asyncpg.connect('postgresql://yodabuffett:password@localhost:5432/yodabuffett')
+    count = await conn.fetchval('SELECT COUNT(*) FROM knn_neighbors')
+    avg_neighbors = await conn.fetchval('SELECT AVG(jsonb_array_length(neighbors)) FROM knn_neighbors')
+    print(f'KNN neighbor sets: {count}')
+    print(f'Average neighbors per set: {avg_neighbors:.1f}')
+    await conn.close()
+asyncio.run(check_neighbors())
+"
+
+# Test individual predictions
+python3 -c "
+# Example: Query specific KNN prediction
+import asyncio, asyncpg, json, hashlib
+async def test_prediction():
+    conn = await asyncpg.connect('postgresql://yodabuffett:password@localhost:5432/yodabuffett')
+    symbol = 'ERIC-B'
+    company_id = int(hashlib.md5(symbol.encode()).hexdigest()[:8], 16) % 1000000
+    row = await conn.fetchrow('SELECT * FROM knn_neighbors WHERE company_id = \$1 LIMIT 1', company_id)
+    if row:
+        neighbors = json.loads(row['neighbors'])
+        print(f'Sample prediction for {symbol}:')
+        print(f'Date: {row[\"prediction_date\"]}')
+        print(f'Neighbors: {len(neighbors)}')
+        print(f'Top neighbor: {neighbors[0][\"date\"]} (distance: {neighbors[0][\"distance\"]:.3f})')
+    await conn.close()
+asyncio.run(test_prediction())
+"
+```
+
+### Add New Indicators
+```bash
+# Template for adding custom indicators
+cat > services/technical_analysis/indicators/custom.py << 'EOF'
+from .base import TechnicalIndicator, IndicatorResult, DataType
+import pandas as pd
+
+class MyIndicator(TechnicalIndicator):
+    def __init__(self, period: int = 14):
+        super().__init__(
+            name=f"my_indicator_{period}",
+            description=f"Custom indicator ({period}-period)",
+            parameters={"period": period}
+        )
+        self.period = period
+    
+    async def calculate(self, company_id, market_data, start_date, end_date, timeframe):
+        # Your calculation logic here
+        values = {}  # {date: value}
+        return IndicatorResult(values, {"period": self.period})
+
+# Register it
+from services.technical_analysis.indicators.base import indicator_registry
+indicator_registry.register(MyIndicator())
+EOF
+
+echo "New indicator template created in services/technical_analysis/indicators/custom.py"
 ```
 
 ### Understanding Anomaly Output

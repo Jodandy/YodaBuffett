@@ -40,6 +40,37 @@ python3 workers/daily_document_pipeline.py
    └── Notifications & alerts
 ```
 
+### Technical Analysis & Portfolio Management
+```bash
+# Run complete portfolio simulation with position sizing
+cd backend
+python3 realistic_portfolio_simulator.py
+
+# Test individual indicators across many companies
+python3 isolated_indicator_tester.py
+
+# Multi-timeframe analysis using Fibonacci sequences
+python3 multi_horizon_indicator_tester.py
+
+# Adaptive exit strategy testing
+python3 isolated_indicator_adaptive_exit.py
+
+# Traditional KNN strategy backtest
+python3 backtest_knn_strategy.py
+
+# Check technical analysis database status
+python3 -c "
+import asyncio, asyncpg
+async def check():
+    conn = await asyncpg.connect('postgresql://yodabuffett:password@localhost:5432/yodabuffett')
+    for table in ['ml_models', 'ml_labels', 'knn_neighbors']:
+        count = await conn.fetchval(f'SELECT COUNT(*) FROM {table}')
+        print(f'{table}: {count} rows')
+    await conn.close()
+asyncio.run(check())
+"
+```
+
 ### View Anomaly Alerts
 ```bash
 # View recent anomalies from database (if using automatic storage)

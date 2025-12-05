@@ -1,0 +1,306 @@
+//@version=5
+strategy("EMA 10 KNN Multi-Horizon Strategy", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
+
+// === PARAMETERS ===
+k_neighbors = input.int(12, title="K Neighbors", minval=5, maxval=50)
+consensus_threshold = input.float(0.65, title="Consensus Threshold", minval=0.5, maxval=1.0, step=0.05)
+min_expected_return = input.float(0.01, title="Min Expected Return", minval=0.005, maxval=0.05, step=0.005)
+transaction_cost = input.float(0.002, title="Transaction Cost %", minval=0.001, maxval=0.01, step=0.001)
+exit_days = input.int(5, title="Exit After Days", minval=1, maxval=21)
+
+// Fibonacci horizons for multi-horizon analysis
+horizon_1d = input.bool(true, title="Use 1d Horizon")
+horizon_2d = input.bool(true, title="Use 2d Horizon")  
+horizon_3d = input.bool(true, title="Use 3d Horizon")
+horizon_5d = input.bool(true, title="Use 5d Horizon")
+horizon_8d = input.bool(true, title="Use 8d Horizon")
+horizon_13d = input.bool(true, title="Use 13d Horizon")
+horizon_21d = input.bool(false, title="Use 21d Horizon")
+
+// === CALCULATE EMA 10 RATIO ===
+ema10 = ta.ema(close, 10)
+price_to_ema_ratio = close / ema10
+
+// === HISTORICAL PATTERN STORAGE ===
+// Store historical ratios and future returns for pattern matching
+var array<float> hist_ratios = array.new<float>()
+var array<float> hist_returns_1d = array.new<float>()
+var array<float> hist_returns_2d = array.new<float>()
+var array<float> hist_returns_3d = array.new<float>()
+var array<float> hist_returns_5d = array.new<float>()
+var array<float> hist_returns_8d = array.new<float>()
+var array<float> hist_returns_13d = array.new<float>()
+var array<float> hist_returns_21d = array.new<float>()
+var array<string> hist_directions_1d = array.new<string>()
+var array<string> hist_directions_2d = array.new<string>()
+var array<string> hist_directions_3d = array.new<string>()
+var array<string> hist_directions_5d = array.new<string>()
+var array<string> hist_directions_8d = array.new<string>()
+var array<string> hist_directions_13d = array.new<string>()
+var array<string> hist_directions_21d = array.new<string>()
+
+// === CALCULATE FUTURE RETURNS (ONLY ON CONFIRMED BARS) ===
+if barstate.isconfirmed and not na(close[21])
+    // Calculate returns for all horizons
+    ret_1d = (close[1] / close - 1) - transaction_cost
+    ret_2d = (close[2] / close - 1) - transaction_cost  
+    ret_3d = (close[3] / close - 1) - transaction_cost
+    ret_5d = (close[5] / close - 1) - transaction_cost
+    ret_8d = (close[8] / close - 1) - transaction_cost
+    ret_13d = (close[13] / close - 1) - transaction_cost
+    ret_21d = (close[21] / close - 1) - transaction_cost
+    
+    // Classify directions (±2% threshold)
+    dir_1d = ret_1d > 0.02 ? "up" : ret_1d < -0.02 ? "down" : "neutral"
+    dir_2d = ret_2d > 0.02 ? "up" : ret_2d < -0.02 ? "down" : "neutral"
+    dir_3d = ret_3d > 0.02 ? "up" : ret_3d < -0.02 ? "down" : "neutral"
+    dir_5d = ret_5d > 0.02 ? "up" : ret_5d < -0.02 ? "down" : "neutral"
+    dir_8d = ret_8d > 0.02 ? "up" : ret_8d < -0.02 ? "down" : "neutral"
+    dir_13d = ret_13d > 0.02 ? "up" : ret_13d < -0.02 ? "down" : "neutral"
+    dir_21d = ret_21d > 0.02 ? "up" : ret_21d < -0.02 ? "down" : "neutral"
+    
+    // Store in historical arrays (limit size for performance)
+    array.push(hist_ratios, price_to_ema_ratio[21])
+    array.push(hist_returns_1d, ret_1d)
+    array.push(hist_returns_2d, ret_2d)
+    array.push(hist_returns_3d, ret_3d)
+    array.push(hist_returns_5d, ret_5d)
+    array.push(hist_returns_8d, ret_8d)
+    array.push(hist_returns_13d, ret_13d)
+    array.push(hist_returns_21d, ret_21d)
+    array.push(hist_directions_1d, dir_1d)
+    array.push(hist_directions_2d, dir_2d)
+    array.push(hist_directions_3d, dir_3d)
+    array.push(hist_directions_5d, dir_5d)
+    array.push(hist_directions_8d, dir_8d)
+    array.push(hist_directions_13d, dir_13d)
+    array.push(hist_directions_21d, dir_21d)
+    
+    // Keep arrays manageable size (last 500 bars)
+    if array.size(hist_ratios) > 500
+        array.shift(hist_ratios)
+        array.shift(hist_returns_1d)
+        array.shift(hist_returns_2d)
+        array.shift(hist_returns_3d)
+        array.shift(hist_returns_5d)
+        array.shift(hist_returns_8d)
+        array.shift(hist_returns_13d)
+        array.shift(hist_returns_21d)
+        array.shift(hist_directions_1d)
+        array.shift(hist_directions_2d)
+        array.shift(hist_directions_3d)
+        array.shift(hist_directions_5d)
+        array.shift(hist_directions_8d)
+        array.shift(hist_directions_13d)
+        array.shift(hist_directions_21d)
+
+// === KNN PATTERN MATCHING FUNCTION ===
+knn_predict() =>
+    if array.size(hist_ratios) < k_neighbors * 2
+        [false, "neutral", 0.0, 0.0]
+    else
+        // Find K nearest neighbors by ratio distance
+        var array<float> distances = array.new<float>()
+        var array<int> indices = array.new<int>()
+        
+        array.clear(distances)
+        array.clear(indices)
+        
+        current_ratio = price_to_ema_ratio
+        
+        // Calculate distances to all historical patterns
+        for i = 0 to array.size(hist_ratios) - 1
+            hist_ratio = array.get(hist_ratios, i)
+            distance = math.abs(current_ratio - hist_ratio)
+            array.push(distances, distance)
+            array.push(indices, i)
+        
+        // Sort by distance (simple bubble sort for K neighbors)
+        for i = 0 to k_neighbors - 1
+            for j = i + 1 to array.size(distances) - 1
+                if array.get(distances, j) < array.get(distances, i)
+                    // Swap distances
+                    temp_dist = array.get(distances, i)
+                    array.set(distances, i, array.get(distances, j))
+                    array.set(distances, j, temp_dist)
+                    // Swap indices
+                    temp_idx = array.get(indices, i)
+                    array.set(indices, i, array.get(indices, j))
+                    array.set(indices, j, temp_idx)
+        
+        // Multi-horizon consensus from K nearest neighbors
+        up_votes = 0.0
+        down_votes = 0.0
+        neutral_votes = 0.0
+        total_expected_return = 0.0
+        total_weight = 0.0
+        
+        // Horizon weights (Fibonacci timeframes)
+        weight_1d = horizon_1d ? 0.05 : 0.0
+        weight_2d = horizon_2d ? 0.10 : 0.0
+        weight_3d = horizon_3d ? 0.15 : 0.0
+        weight_5d = horizon_5d ? 0.25 : 0.0
+        weight_8d = horizon_8d ? 0.20 : 0.0
+        weight_13d = horizon_13d ? 0.15 : 0.0
+        weight_21d = horizon_21d ? 0.10 : 0.0
+        
+        for i = 0 to k_neighbors - 1
+            if i < array.size(indices)
+                idx = array.get(indices, i)
+                distance = array.get(distances, i)
+                neighbor_weight = 1 / (distance + 0.001)
+                
+                // Multi-horizon scoring for this neighbor
+                horizon_score_up = 0.0
+                horizon_score_down = 0.0
+                horizon_score_neutral = 0.0
+                weighted_return = 0.0
+                
+                // Check each horizon
+                if weight_1d > 0 and idx < array.size(hist_directions_1d)
+                    dir_1d = array.get(hist_directions_1d, idx)
+                    ret_1d = array.get(hist_returns_1d, idx)
+                    if dir_1d == "up"
+                        horizon_score_up += weight_1d
+                    else if dir_1d == "down"
+                        horizon_score_down += weight_1d
+                    else
+                        horizon_score_neutral += weight_1d
+                    weighted_return += ret_1d * weight_1d
+                
+                if weight_2d > 0 and idx < array.size(hist_directions_2d)
+                    dir_2d = array.get(hist_directions_2d, idx)
+                    ret_2d = array.get(hist_returns_2d, idx)
+                    if dir_2d == "up"
+                        horizon_score_up += weight_2d
+                    else if dir_2d == "down"
+                        horizon_score_down += weight_2d
+                    else
+                        horizon_score_neutral += weight_2d
+                    weighted_return += ret_2d * weight_2d
+                
+                if weight_3d > 0 and idx < array.size(hist_directions_3d)
+                    dir_3d = array.get(hist_directions_3d, idx)
+                    ret_3d = array.get(hist_returns_3d, idx)
+                    if dir_3d == "up"
+                        horizon_score_up += weight_3d
+                    else if dir_3d == "down"
+                        horizon_score_down += weight_3d
+                    else
+                        horizon_score_neutral += weight_3d
+                    weighted_return += ret_3d * weight_3d
+                
+                if weight_5d > 0 and idx < array.size(hist_directions_5d)
+                    dir_5d = array.get(hist_directions_5d, idx)
+                    ret_5d = array.get(hist_returns_5d, idx)
+                    if dir_5d == "up"
+                        horizon_score_up += weight_5d
+                    else if dir_5d == "down"
+                        horizon_score_down += weight_5d
+                    else
+                        horizon_score_neutral += weight_5d
+                    weighted_return += ret_5d * weight_5d
+                
+                if weight_8d > 0 and idx < array.size(hist_directions_8d)
+                    dir_8d = array.get(hist_directions_8d, idx)
+                    ret_8d = array.get(hist_returns_8d, idx)
+                    if dir_8d == "up"
+                        horizon_score_up += weight_8d
+                    else if dir_8d == "down"
+                        horizon_score_down += weight_8d
+                    else
+                        horizon_score_neutral += weight_8d
+                    weighted_return += ret_8d * weight_8d
+                
+                if weight_13d > 0 and idx < array.size(hist_directions_13d)
+                    dir_13d = array.get(hist_directions_13d, idx)
+                    ret_13d = array.get(hist_returns_13d, idx)
+                    if dir_13d == "up"
+                        horizon_score_up += weight_13d
+                    else if dir_13d == "down"
+                        horizon_score_down += weight_13d
+                    else
+                        horizon_score_neutral += weight_13d
+                    weighted_return += ret_13d * weight_13d
+                
+                if weight_21d > 0 and idx < array.size(hist_directions_21d)
+                    dir_21d = array.get(hist_directions_21d, idx)
+                    ret_21d = array.get(hist_returns_21d, idx)
+                    if dir_21d == "up"
+                        horizon_score_up += weight_21d
+                    else if dir_21d == "down"
+                        horizon_score_down += weight_21d
+                    else
+                        horizon_score_neutral += weight_21d
+                    weighted_return += ret_21d * weight_21d
+                
+                // Determine this neighbor's overall direction
+                if horizon_score_up > horizon_score_down and horizon_score_up > horizon_score_neutral
+                    up_votes += neighbor_weight
+                else if horizon_score_down > horizon_score_up and horizon_score_down > horizon_score_neutral
+                    down_votes += neighbor_weight
+                else
+                    neutral_votes += neighbor_weight
+                
+                total_expected_return += weighted_return * neighbor_weight
+                total_weight += neighbor_weight
+        
+        // Calculate final prediction
+        if total_weight > 0
+            up_confidence = up_votes / total_weight
+            down_confidence = down_votes / total_weight
+            expected_return = total_expected_return / total_weight
+            
+            prediction = up_confidence > down_confidence ? "up" : up_confidence < down_confidence ? "down" : "neutral"
+            confidence = up_confidence > down_confidence ? up_confidence : down_confidence
+            
+            // Buy signal criteria
+            buy_signal = prediction == "up" and confidence >= consensus_threshold and expected_return >= min_expected_return
+            
+            [buy_signal, prediction, confidence, expected_return]
+        else
+            [false, "neutral", 0.0, 0.0]
+
+// === EXECUTE STRATEGY ===
+[should_buy, prediction, confidence, expected_ret] = knn_predict()
+
+// Entry condition
+if should_buy and strategy.position_size == 0
+    strategy.entry("Long", strategy.long)
+    label.new(bar_index, low, "BUY\nEMA: " + str.tostring(price_to_ema_ratio, "#.###") + "\nConf: " + str.tostring(confidence, "#.##") + "\nExp: " + str.tostring(expected_ret, "#.##%"), 
+              color=color.green, style=label.style_label_up, size=size.small)
+
+// Exit condition (simplified - fixed number of days)
+if strategy.position_size > 0
+    bars_in_trade = bar_index - strategy.opentrades.entry_bar_index(strategy.opentrades - 1)
+    if bars_in_trade >= exit_days
+        strategy.close("Long")
+        label.new(bar_index, high, "SELL\nDays: " + str.tostring(bars_in_trade), 
+                  color=color.red, style=label.style_label_down, size=size.small)
+
+// === VISUALIZATION ===
+// Plot EMA 10
+plot(ema10, title="EMA 10", color=color.blue, linewidth=2)
+
+// Plot price to EMA ratio (scaled for visibility)
+hline(1.0, title="EMA Ratio = 1.0", color=color.gray, linestyle=hline.style_dashed)
+plot(price_to_ema_ratio, title="Price/EMA Ratio", color=color.orange, display=display.none)
+
+// Background color for buy signals
+bgcolor(should_buy ? color.new(color.green, 90) : na)
+
+// Display current values in table
+if barstate.islast
+    var table infoTable = table.new(position.top_right, 2, 6, bgcolor=color.white, border_width=1)
+    table.cell(infoTable, 0, 0, "Price/EMA", text_color=color.black)
+    table.cell(infoTable, 1, 0, str.tostring(price_to_ema_ratio, "#.###"), text_color=color.black)
+    table.cell(infoTable, 0, 1, "Prediction", text_color=color.black)
+    table.cell(infoTable, 1, 1, prediction, text_color=prediction == "up" ? color.green : prediction == "down" ? color.red : color.gray)
+    table.cell(infoTable, 0, 2, "Confidence", text_color=color.black)
+    table.cell(infoTable, 1, 2, str.tostring(confidence, "#.##"), text_color=color.black)
+    table.cell(infoTable, 0, 3, "Expected Ret", text_color=color.black)
+    table.cell(infoTable, 1, 3, str.tostring(expected_ret, "#.##%"), text_color=color.black)
+    table.cell(infoTable, 0, 4, "Historical Data", text_color=color.black)
+    table.cell(infoTable, 1, 4, str.tostring(array.size(hist_ratios)) + " bars", text_color=color.black)
+    table.cell(infoTable, 0, 5, "K Neighbors", text_color=color.black)
+    table.cell(infoTable, 1, 5, str.tostring(k_neighbors), text_color=color.black)

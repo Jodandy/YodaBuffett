@@ -171,15 +171,15 @@ class TemporalAnomalyStrategy(Strategy):
                 ed.company_name,
                 ed.form_type,
                 ed.year,
-                ed.extraction_date,
+                ed.filing_date,
                 ed.created_at
             FROM extracted_documents ed
             JOIN document_sections ds ON ed.id = ds.extracted_document_id  
             JOIN section_embeddings se ON ds.id = se.document_section_id
             WHERE se.embedding_model LIKE 'local/%'
-            AND ed.extraction_date >= $1
-            AND ed.extraction_date <= $2
-            ORDER BY ed.extraction_date DESC
+            AND ed.filing_date >= $1
+            AND ed.filing_date <= $2
+            ORDER BY ed.filing_date DESC
             LIMIT 50
         """, cutoff_date.date(), current_date.date())
         
@@ -380,7 +380,7 @@ class TemporalAnomalyStrategy(Strategy):
                 strategy_version=self.version,
                 metadata={
                     'company_name': company_name,
-                    'document_date': document['extraction_date'].isoformat() if document['extraction_date'] else None,
+                    'document_date': document['filing_date'].isoformat() if document['filing_date'] else None,
                     'anomaly_types': anomaly_types,
                     'num_anomalies': len(anomalies),
                     'strongest_anomaly': strongest_anomaly['section_type'],
