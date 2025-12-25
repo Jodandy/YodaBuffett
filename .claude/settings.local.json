@@ -20,7 +20,8 @@
       "Bash(psql:*)",
       "Bash(git add:*)",
       "Bash(PYTHONPATH=. python3:*)",
-      "mcp__ide__executeCode"
+      "mcp__ide__executeCode",
+      "Bash(pip3 list:*)"
     ],
     "deny": []
   }

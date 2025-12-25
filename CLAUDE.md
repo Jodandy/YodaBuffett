@@ -79,6 +79,16 @@ Building extensible platform for any financial analysis, not just specific featu
 - **Historical Backfill**: Complete price history for all tracked companies
 - **Database Integration**: Seamless storage with document intelligence system
 
+💰 **Historical Fundamentals System** - PRODUCTION COMPLETE ⭐ RICH DATASET
+- **370 Companies**: Complete fundamental data coverage from Yahoo Finance
+- **325,400 Daily Records**: 4+ years of historical fundamental ratios (2021-2025)
+- **Complete Financial Statements**: Income statements, balance sheets, cash flows for 370 companies
+- **Daily Calculated Metrics**: P/E, P/B, P/S, EV/EBITDA, debt ratios, current ratios
+- **Automated Collection**: Daily fundamentals worker with full backfill system
+- **3,810 Financial Statements**: Quarterly and annual data from Yahoo Finance
+- **Valuation Ready**: Powers multi-method fundamental value strategies and backtesting
+- **Documentation**: [docs/features/fundamentals-data-integration.md](./docs/features/fundamentals-data-integration.md)
+
 🌍 **Multi-Market Worker System** - PRODUCTION DEPLOYED  
 - **Specialized Workers**: Swedish, Norwegian, Danish, Finnish market ingestors
 - **Event-Driven Architecture**: Calendar-targeted collection with smart scheduling

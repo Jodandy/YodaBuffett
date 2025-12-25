@@ -27,6 +27,10 @@ python3 workers/daily_document_pipeline.py
 ### Daily Schedule (Automatic via LaunchAgents)
 ```
 🌅 03:00 AM - Daily Market Data Worker
+💰 03:30 AM - Daily Fundamentals Worker (NEW)
+   └── Yahoo Finance fundamentals collection
+   └── 100 symbols daily rotation
+   └── P/E, P/B, ROE, dividend data
 📄 07:00 AM - Document Discovery Worker (Morning)  
 📄 09:00 AM - Document Discovery Worker (Late)
 📥 10:00 AM - PDF Download Worker
@@ -38,6 +42,68 @@ python3 workers/daily_document_pipeline.py
    └── Document-level analysis
    └── Section-level analysis
    └── Notifications & alerts
+```
+
+### Fundamentals Data Management
+```bash
+# Historical fundamentals backfill (complete financial statements)
+cd backend
+python3 historical_fundamentals_backfill.py
+
+# Daily fundamentals collection (runs automatically at 3:30 AM)
+python3 -m workers.daily_fundamentals_worker --run-now
+
+# Dry run to see what would be collected
+python3 -m workers.daily_fundamentals_worker --dry-run
+
+# Check fundamentals automation status
+launchctl list | grep daily-fundamentals
+
+# View recent automation logs
+tail -30 /Users/jdandemar/Documents/YodaBuffett/logs/daily-fundamentals-worker.log
+
+# Check fundamentals database status
+python3 -c "
+import asyncio, asyncpg
+async def check():
+    conn = await asyncpg.connect('postgresql://yodabuffett:password@localhost:5432/yodabuffett')
+    tables = [
+        ('financial_statements', 'Financial statements'),
+        ('balance_sheet_data', 'Balance sheet records'), 
+        ('cash_flow_data', 'Cash flow records'),
+        ('historical_fundamentals_daily', 'Historical daily metrics'),
+        ('daily_fundamentals', 'Current daily fundamentals')
+    ]
+    for table, desc in tables:
+        count = await conn.fetchval(f'SELECT COUNT(*) FROM {table}')
+        symbols = await conn.fetchval(f'SELECT COUNT(DISTINCT symbol) FROM {table}')
+        print(f'{desc}: {count:,} records across {symbols} symbols')
+    await conn.close()
+asyncio.run(check())
+"
+
+# Test fundamental value strategy
+python3 fundamental_value_strategy_enhanced.py
+python3 fundamental_value_backtest.py
+
+# Analyze fundamental changes for specific company
+python3 -c "
+import asyncio
+from yahoo_fundamentals_daily_collector import YahooDailyFundamentalsCollector
+
+async def analyze():
+    collector = YahooDailyFundamentalsCollector()
+    await collector.setup()
+    
+    changes = await collector.get_fundamentals_changes('VOLV-B', 30)
+    print('Fundamental Changes (30 days) for VOLV-B:')
+    for metric, data in changes.items():
+        print(f'  {metric}: {data[\"earliest\"]:.2f} → {data[\"latest\"]:.2f} ({data[\"change_pct\"]:+.1f}%)')
+        
+    await collector.cleanup()
+
+asyncio.run(analyze())
+"
 ```
 
 ### Technical Analysis & Portfolio Management
@@ -1224,6 +1290,8 @@ YodaBuffett/
 - [ ] Check disk space: `df -h`
 - [ ] Review error logs: `tail -f logs/error.log`
 - [ ] Monitor API costs: OpenAI/Anthropic dashboards
+- [ ] **Check fundamentals automation**: `tail -30 logs/daily-fundamentals-worker.log`
+- [ ] **Check fundamentals data coverage**: Run fundamentals database status check
 - [ ] **Check document processing status**: `PYTHONPATH=backend python3 domains/document_intelligence/cli_stateful.py status`
 - [ ] **Process daily batch** (if actively processing): `PYTHONPATH=backend python3 domains/document_intelligence/cli_stateful.py process 100`
 - [ ] **Check section chunking status**: `python domains/document_intelligence/cli_section_chunking.py status`
@@ -1241,6 +1309,8 @@ YodaBuffett/
 - [ ] **Review automation logs**: Check week's worth of daily worker performance
 - [ ] **Monitor automation health**: `launchctl list | grep yodabuffett` (ensure all workers running)
 - [ ] **Archive automation logs**: `gzip logs/daily-*.log` (keep logs manageable)
+- [ ] **Check fundamentals collection**: Review daily fundamentals worker progress and data coverage
+- [ ] **Monitor fundamental data quality**: Check for missing P/E ratios, unusual values, data gaps
 - [ ] **Check PDF collection stats**: Count new PDFs downloaded this week
 - [ ] **Verify automation is working**: Manual spot check of recent document discovery
 
