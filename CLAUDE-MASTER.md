@@ -5,14 +5,14 @@ Next-generation financial research platform that powers multiple products on a u
 
 ## Quick Start
 ```bash
-# Start development
-docker-compose up
+# Start PostgreSQL (required)
+brew services start postgresql@15
 
-# Run tests
-npm test && pytest
+# Check daily workers are running
+launchctl list | grep yodabuffett
 
-# Deploy
-git push origin main
+# See full startup guide
+cat docs/operations/human-operator-guide.md
 ```
 
 ## Core Architecture
@@ -31,9 +31,9 @@ The system uses a **modular monolith** architecture for optimal development velo
 
 ### Technology Stack
 - **Backend**: Python (AI/ML), TypeScript/Node.js (APIs)
-- **Multi-Database**: PostgreSQL + TimescaleDB + Vector DB + ML Database + Redis
-- **Data Services**: Document processing, market data feeds, news APIs, web scraping
-- **Infrastructure**: Docker, K8s, Terraform
+- **Database**: PostgreSQL@15 (Homebrew) with pgvector extension
+- **Data Services**: Document processing, market data feeds, web scraping
+- **Infrastructure**: macOS LaunchAgents (daily automation), Docker configs available for future cloud deployment
 - **AI**: OpenAI/Anthropic APIs, local models
 
 ## HARD Architecture Principles

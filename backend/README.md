@@ -11,55 +11,26 @@ Production-ready modular monolith serving both Research and Nordic Ingestion ser
 
 ## Quick Start
 
-### Option 1: Docker Deployment (RECOMMENDED)
+### Prerequisites
+- **PostgreSQL@15** installed via Homebrew and running on `localhost:5432`
+- **Python 3.12** with venv
 
-#### Daily Event Worker (Production)
 ```bash
-cd backend/docker
-docker-compose up daily-event-scheduler -d
+# Ensure PostgreSQL is running
+brew services start postgresql@15
 
-# Check status
-docker ps | grep yodabuffett-daily-scheduler
-curl http://localhost:8085/health
-```
-
-#### Full Development Stack
-```bash
-cd backend/docker
-docker-compose up postgres worker-cli -d
-
-# Access CLI for development
-docker exec -it yodabuffett-worker-cli bash
-```
-
-### Option 2: Local Development
-
-#### 1. Install Dependencies
-```bash
+# Setup Python environment
 cd backend/
 python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# or: venv\Scripts\activate  # Windows
-
+source venv/bin/activate
 pip install -r requirements.txt
-```
 
-#### 2. Setup Environment
-```bash
+# Setup environment
 cp .env.example .env
-# Edit .env with your database credentials
-```
+# Edit .env — the default DATABASE_URL is:
+# postgresql://yodabuffett:password@localhost:5432/yodabuffett
 
-#### 3. Setup Database
-```bash
-# Start PostgreSQL (Docker example)
-docker run --name yodabuffett-db -e POSTGRES_PASSWORD=password -e POSTGRES_USER=yodabuffett -e POSTGRES_DB=yodabuffett -p 5432:5432 -d postgres:15
-
-# Or use your existing PostgreSQL instance
-```
-
-#### 4. Run the Service
-```bash
+# Run the service
 python main.py
 ```
 
@@ -230,24 +201,17 @@ mypy .
 
 ## Production Deployment
 
-### Docker
+The production system runs natively on macOS with Homebrew PostgreSQL and LaunchAgent-based daily automation. See `docs/operations/human-operator-guide.md` for full details.
 
-```bash
-docker build -t yodabuffett-backend .
-docker run -p 8000:8000 yodabuffett-backend
-```
+Docker configs exist in `backend/docker/` for future cloud deployment but are not currently used.
 
 ### Environment Variables
 
-Set these in production:
+Set these in `backend/.env`:
 
 ```bash
-DEBUG=False
-ENVIRONMENT=production
-DATABASE_URL=postgresql://...
-REDIS_URL=redis://...
-OPENAI_API_KEY=...
-GITHUB_TOKEN=...
+DATABASE_URL=postgresql://yodabuffett:password@localhost:5432/yodabuffett
+OPENAI_API_KEY=sk-...
 ```
 
 ## Monitoring

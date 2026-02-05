@@ -53,10 +53,10 @@ docker/
 └── .env.example              # Configuration template
 ```
 
-**Management Interfaces:**
-- **Web Dashboard**: http://localhost:8090/dashboard (Worker Manager UI)
-- **REST API**: http://localhost:8091/ (Programmatic control)
-- **CLI Container**: `docker exec -it yodabuffett-worker-cli bash`
+**Production Deployment:**
+Daily workers run via **macOS LaunchAgents** (not Docker). See `docs/operations/human-operator-guide.md` for operational details.
+
+Docker configs exist in `docker/` for future cloud deployment but are not actively used.
 
 ## 🚀 **Production Components Built**
 
@@ -89,48 +89,27 @@ python -m workers.daily_event_worker --dry-run          # Preview targets
 python -m workers.daily_event_worker --date 2025-01-15  # Specific date
 ```
 
-### ✅ **Daily Scheduler (PRODUCTION ACTIVE - DOCKER DEPLOYMENT)**
-**Fully automated Docker-based daily execution system:**
-- **Automatic execution**: Runs daily event worker at 6:00 AM via Docker container with built-in scheduler
-- **Service persistence**: Survives system restarts, auto-restarts on crash via Docker restart policies
-- **Zero manual intervention**: Set-and-forget operation with Docker orchestration
+### ✅ **Daily Scheduler (PRODUCTION ACTIVE - macOS LaunchAgents)**
+**Automated daily execution via native macOS scheduling:**
+- **Automatic execution**: 8 LaunchAgents run workers on schedule (3 AM - 12 PM)
+- **Service persistence**: Auto-loads on login, survives restarts
+- **Zero manual intervention**: Workers fire on schedule as long as PostgreSQL is running
 - **Intelligent targeting**: Only processes companies with upcoming financial events
-- **Portable deployment**: Same behavior on any Docker-capable server
 
 **Service Status:**
 ```bash
-# Check if scheduler container is running
-docker ps | grep yodabuffett-daily-scheduler
+# Check all workers
+launchctl list | grep yodabuffett
 
-# View scheduler logs
-docker logs yodabuffett-daily-scheduler --tail 50
+# View logs
+tail -50 ~/Documents/YodaBuffett/logs/daily-market-data-worker.log
+tail -50 ~/Documents/YodaBuffett/logs/daily-document-worker-morning.log
 
-# View worker execution results (inside container)
-docker exec yodabuffett-daily-scheduler ls -la /app/data/daily_worker_*.json
-
-# Check health endpoint
-curl http://localhost:8085/health
+# Manual trigger
+launchctl start com.yodabuffett.daily-market-data-worker
 ```
 
-**Service Management:**
-```bash
-# Start scheduler container
-docker-compose up daily-event-scheduler -d
-
-# Stop scheduler container
-docker-compose stop daily-event-scheduler
-
-# Restart scheduler container
-docker-compose restart daily-event-scheduler
-
-# Update configuration and recreate
-docker-compose up daily-event-scheduler -d --force-recreate
-
-# View container resource usage
-docker stats yodabuffett-daily-scheduler
-```
-
-**What happens daily at 6:00 AM:**
+**What happens daily:
 1. EventScheduler queries calendar events for next 3 days
 2. Identifies companies with earnings, reports, dividends, AGMs
 3. Calculates optimal scrape timing (day-of or day-after events)
@@ -168,28 +147,14 @@ docker stats yodabuffett-daily-scheduler
 2. `.env` files (development)  
 3. Sensible defaults (fallback)
 
-### ✅ **Docker Production Deployment**
-**Complete container orchestration:**
-- **Multi-stage Dockerfile**: Optimized for production size/security
-- **Docker Compose**: PostgreSQL + Daily Worker + Weekly Scanner + CLI
-- **Health checks**: Container health monitoring
-- **Volume management**: Persistent data and logs
-- **Resource limits**: Memory and CPU constraints
-- **Non-root user**: Security best practices
+### **Docker Deployment (Optional — Not Currently Used)**
+Docker configs exist in `docker/` for future cloud deployment. The current production system uses macOS LaunchAgents instead.
 
-**Deployment Commands:**
 ```bash
-# Start full system
+# Only if migrating to Docker (not currently needed)
 docker-compose -f docker/docker-compose.yml up -d
-
-# Start just the daily scheduler
-docker-compose -f docker/docker-compose.yml up daily-event-scheduler -d
-
-# Check status
 docker-compose -f docker/docker-compose.yml ps
-
-# View daily scheduler logs  
-docker-compose -f docker/docker-compose.yml logs -f daily-event-scheduler
+# Note: Docker PostgreSQL uses port 5433 to avoid conflict with native on 5432
 ```
 
 ### ✅ **Management CLI**
@@ -269,14 +234,16 @@ python scripts/manage_workers.py schedule --days 7
 
 ### **Development Setup:**
 ```bash
-# Copy configuration template
-cp docker/.env.example docker/.env
+# Ensure PostgreSQL is running
+brew services start postgresql@15
 
-# Start development services
-docker-compose -f docker/docker-compose.yml up postgres worker-cli
+# Activate virtual environment
+cd /Users/jdandemar/Documents/YodaBuffett/backend
+source venv/bin/activate
 
-# Run workers manually in CLI container
-docker exec -it yodabuffett-worker-cli python scripts/manage_workers.py daily-worker --dry-run
+# Run workers manually
+python -m workers.daily_event_worker --dry-run
+python -m workers.daily_market_data_worker --dry-run
 ```
 
 ## 📈 **Performance & Monitoring**
@@ -288,10 +255,9 @@ docker exec -it yodabuffett-worker-cli python scripts/manage_workers.py daily-wo
 - **Resource Usage**: <1GB RAM, <0.5 CPU cores per worker
 
 ### **Monitoring:**
-- **Health Checks**: Built-in HTTP endpoints for container monitoring
-- **Progress Tracking**: JSON result files with detailed metrics
-- **Structured Logs**: Production-ready logging for analysis
-- **Docker Health**: Container health status and restart policies
+- **LaunchAgent Status**: `launchctl list | grep yodabuffett`
+- **Progress Tracking**: JSON result files in `data/daily_worker_*.json`
+- **Structured Logs**: `~/Documents/YodaBuffett/logs/daily-*.log`
 
 ### **Results Analysis:**
 ```bash
@@ -302,7 +268,7 @@ python scripts/manage_workers.py analyze --days 7
 python scripts/manage_workers.py health-check
 
 # View recent logs
-python scripts/manage_workers.py docker --action logs --service daily-worker --tail 100
+tail -100 ~/Documents/YodaBuffett/logs/daily-market-data-worker.log
 ```
 
 ## 🚨 **Troubleshooting**
@@ -314,20 +280,15 @@ python scripts/manage_workers.py docker --action logs --service daily-worker --t
 - Verify scheduler look-ahead days configuration
 - Run schedule preview: `python scripts/manage_workers.py schedule`
 
-**Docker containers not starting:**
-- Check configuration: `python scripts/manage_workers.py health-check`
-- Verify environment variables in `.env` file
-- Check Docker logs: `python scripts/manage_workers.py docker --action logs --service daily-worker`
-
 **Database connection failures:**
-- Verify PostgreSQL is running and accessible
-- Check credentials in environment variables
-- Test connection from worker-cli container
+- Most common cause: PostgreSQL is not running. Start it: `brew services start postgresql@15`
+- Check credentials in `backend/.env`
+- Test connectivity: `/opt/homebrew/opt/postgresql@15/bin/pg_isready -h localhost -p 5432`
 
-**Excessive memory usage:**
-- Check batch sizes in worker configuration
-- Monitor with: `docker stats yodabuffett-daily-worker`
-- Adjust resource limits in docker-compose.yml
+**Workers not firing:**
+- Check LaunchAgent status: `launchctl list | grep yodabuffett`
+- Reload plist: `launchctl unload ~/Library/LaunchAgents/com.yodabuffett.daily-market-data-worker.plist && launchctl load ~/Library/LaunchAgents/com.yodabuffett.daily-market-data-worker.plist`
+- Fix all LaunchAgents: `python3 fix_launchagents.py`
 
 ### **Debugging Commands:**
 ```bash
@@ -335,13 +296,11 @@ python scripts/manage_workers.py docker --action logs --service daily-worker --t
 python workers/event_scheduler.py
 
 # Test configuration loading
-python workers/worker_config.py  
+python workers/worker_config.py
 
-# Check Docker services
-python scripts/manage_workers.py docker --action status
-
-# Interactive debugging
-docker exec -it yodabuffett-worker-cli bash
+# Run worker directly with output in terminal
+python -m workers.daily_event_worker --dry-run
+python -m workers.daily_market_data_worker --dry-run
 ```
 
 ## 🎯 **Integration Points**
@@ -361,17 +320,12 @@ docker exec -it yodabuffett-worker-cli bash
 
 ## 🎉 **Production Ready**
 
-This system is **production-ready** and can be deployed to keep Swedish financial data current with minimal manual intervention. It implements the exact strategy you outlined:
+This system is **production-active** on macOS with LaunchAgent-based daily automation:
 
 1. ✅ **Event-driven targeting** using calendar database
-2. ✅ **Daily worker** for scheduled financial events  
+2. ✅ **Daily worker** for scheduled financial events
 3. ✅ **Weekly surprise scanner** for unexpected news
-4. ✅ **Docker deployment** ready for your local machine
-5. ✅ **Production monitoring** with health checks and analysis
-6. ✅ **Comprehensive documentation** for operations and maintenance
+4. ✅ **macOS LaunchAgent automation** — 8 workers on daily schedule
+5. ✅ **Production monitoring** with logs and health checks
 
-**Next Steps:**
-1. Configure environment variables in `docker/.env`
-2. Deploy with: `python scripts/manage_workers.py docker --action start`  
-3. Monitor with: `python scripts/manage_workers.py health-check`
-4. Schedule daily runs or let Docker handle automatic restarts
+**Operational guide:** `docs/operations/human-operator-guide.md`

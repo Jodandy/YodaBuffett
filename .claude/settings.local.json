@@ -23,7 +23,9 @@
       "mcp__ide__executeCode",
       "Bash(pip3 list:*)",
       "Bash(/opt/homebrew/opt/postgresql@15/bin/pg_isready:*)",
-      "Bash(lsof:*)"
+      "Bash(lsof:*)",
+      "Bash(wc:*)",
+      "Bash(du:*)"
     ],
     "deny": []
   }
