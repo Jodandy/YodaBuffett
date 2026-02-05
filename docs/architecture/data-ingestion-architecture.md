@@ -1,5 +1,7 @@
 # YodaBuffett - Nordic Financial Data Ingestion
 
+> **NOTE: This describes planned/aspirational architecture. See [docs/operations/human-operator-guide.md](../operations/human-operator-guide.md) for the actual current infrastructure.**
+
 ## Overview
 Comprehensive data ingestion service for Nordic financial information. This is ONE of several ingestion services in the YodaBuffett ecosystem:
 

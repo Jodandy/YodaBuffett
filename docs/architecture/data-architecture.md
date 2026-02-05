@@ -1,5 +1,7 @@
 # YodaBuffett - Data Architecture
 
+> **NOTE: This describes planned/aspirational architecture. See [docs/operations/human-operator-guide.md](../operations/human-operator-guide.md) for the actual current infrastructure.**
+
 ## Database Strategy
 Polyglot persistence approach, optimizing each data type for its specific use case.
 

@@ -1,5 +1,7 @@
 # Multi-Database Architecture Design
 
+> **NOTE: This describes planned/aspirational architecture. See [docs/operations/human-operator-guide.md](../operations/human-operator-guide.md) for the actual current infrastructure.**
+
 ## Overview
 YodaBuffett employs a **polyglot persistence strategy** where each database technology is optimized for specific data types and access patterns. This approach maximizes performance while maintaining data consistency across the platform.
 

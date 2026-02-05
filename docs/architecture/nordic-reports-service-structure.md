@@ -1,5 +1,7 @@
 # Nordic Ingestion Service - File Structure
 
+> **NOTE: This describes planned/aspirational architecture. See [docs/operations/human-operator-guide.md](../operations/human-operator-guide.md) for the actual current infrastructure.**
+
 ## Current Implementation: Modular Monolith
 
 **Decision**: We implemented Nordic ingestion as a module within a monolithic backend service for faster development and simpler operations.

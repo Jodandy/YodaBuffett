@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Market Data Ingestion System provides comprehensive historical market data collection for all Nordic companies. It's designed to handle large-scale ingestion (787+ companies) with maximum historical coverage (up to 20+ years per company) and robust error handling.
+The Market Data Ingestion System provides comprehensive historical market data collection for all Nordic companies. It's designed to handle large-scale ingestion (1,606+ companies) with maximum historical coverage (up to 20+ years per company) and robust error handling.
 
 ## Architecture
 
@@ -19,7 +19,7 @@ backend/domains/market_data/
 For ease of use, production ingestion scripts are at the backend root:
 ```
 backend/
-├── ingest_787_fixed.py                # Original 787 companies ingestion
+├── ingest_787_fixed.py                # Original ingestion script (1,606 companies now)
 ├── ingest_all_max_history.py          # Maximum historical data ingestion
 ├── simple_price_ingestion.py          # Conservative testing approach
 ├── fix_tickers_from_company_list.py   # Swedish ticker mapping fixes
@@ -34,7 +34,7 @@ backend/
 **Purpose**: Get ALL available historical data for ALL companies - no skipping!
 
 **Features**:
-- Processes all 787 companies from `company_master` table
+- Processes all 1,606 companies from `company_master` table
 - Gets maximum available history (up to 20+ years per company)
 - No data limits or skipping based on existing data
 - Comprehensive error tracking and categorization
@@ -201,7 +201,7 @@ CREATE TABLE company_master (
 
 ### Expected Performance
 - **Processing Rate**: 30-60 companies per minute
-- **Total Ingestion Time**: 30-60 minutes for 787 companies
+- **Total Ingestion Time**: 30-60 minutes for 1,606 companies
 - **Data Volume**: 500,000+ to 1,000,000+ price points total
 - **Database Growth**: ~50-100MB for complete dataset
 

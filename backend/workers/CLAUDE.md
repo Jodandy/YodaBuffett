@@ -235,7 +235,7 @@ python scripts/manage_workers.py schedule --days 7
 ### **Development Setup:**
 ```bash
 # Ensure PostgreSQL is running
-brew services start postgresql@15
+docker start yodabuffett-db
 
 # Activate virtual environment
 cd /Users/jdandemar/Documents/YodaBuffett/backend
@@ -281,7 +281,7 @@ tail -100 ~/Documents/YodaBuffett/logs/daily-market-data-worker.log
 - Run schedule preview: `python scripts/manage_workers.py schedule`
 
 **Database connection failures:**
-- Most common cause: PostgreSQL is not running. Start it: `brew services start postgresql@15`
+- Most common cause: PostgreSQL is not running. Start it: `docker start yodabuffett-db`
 - Check credentials in `backend/.env`
 - Test connectivity: `/opt/homebrew/opt/postgresql@15/bin/pg_isready -h localhost -p 5432`
 

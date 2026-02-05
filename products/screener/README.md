@@ -164,7 +164,7 @@ python simple_db_test.py  # Test DB connection
 - **Database**: 5 tables with screener-specific features
 - **Services**: Screening, backtesting, metrics, query building
 - **API**: 20+ REST endpoints with comprehensive validation
-- **Data**: Leverages 325,400 fundamental records from YodaBuffett platform
+- **Data**: Leverages 1,369,413 fundamental records from YodaBuffett platform
 
 ### Frontend (React + TypeScript)
 - **Pages**: Screener, Backtest, Saved Queries
@@ -241,8 +241,8 @@ npm run build
 
 This screener leverages the comprehensive YodaBuffett financial data infrastructure:
 
-- **787 Nordic Companies**: Complete market coverage
-- **325,400 Fundamental Records**: 4+ years of daily data
+- **1,606 Nordic Companies**: Complete market coverage
+- **1,369,413 Fundamental Records**: 4+ years of daily data
 - **Point-in-Time Architecture**: No look-ahead bias
 - **Document Intelligence**: AI-powered financial analysis
 - **Market Data**: Real-time and historical price data

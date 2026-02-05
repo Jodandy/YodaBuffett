@@ -1,5 +1,7 @@
 # Vector-Based Prediction Architecture
 
+> **NOTE: This describes planned/aspirational architecture. See [docs/operations/human-operator-guide.md](../operations/human-operator-guide.md) for the actual current infrastructure.**
+
 ## 🏗️ Architectural Overview
 
 This document describes how vector-based predictive modeling integrates into the existing YodaBuffett architecture, leveraging the established domain structure and multi-database design.

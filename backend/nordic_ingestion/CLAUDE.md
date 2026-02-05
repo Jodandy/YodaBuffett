@@ -43,7 +43,7 @@ nordic_ingestion/
 - **Document Downloads**: Downloads & validates PDFs with retry logic
 - **Manual Fallback**: Creates GitHub issues when automation fails
 
-### ✅ **Real Company Data (5 Swedish Companies)**
+### ✅ **Real Company Data (1,606 Nordic Companies)**
 - **Volvo Group** (VOLV-B) - Heavy machinery/trucks
 - **H&M Hennes & Mauritz** (HM-B) - Fashion retail  
 - **Ericsson** (ERIC-B) - Telecommunications
@@ -171,7 +171,7 @@ COLLECTION_TIERS = {
 ### Expected Performance
 - **~85% automation** for document discovery
 - **3-5 second** document processing time
-- **5 Swedish companies** monitored continuously
+- **1,606 Nordic companies** monitored continuously
 - **Daily discovery** of new reports/press releases
 - **Hourly processing** of pending downloads
 

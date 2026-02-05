@@ -145,7 +145,6 @@ esac
 
 **Files Added**:
 - `backend/workers/management/worker_manager.py` - Complete management system
-- **Web Dashboard**: http://localhost:8090/dashboard
 - **REST API**: Full programmatic control
 
 **Management Features**:

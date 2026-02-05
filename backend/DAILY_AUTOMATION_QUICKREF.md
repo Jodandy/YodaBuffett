@@ -11,7 +11,7 @@ tail -50 ~/Documents/YodaBuffett/backend/logs/daily-*.log
 
 ## 📅 Daily Schedule
 ```
-03:00 AM 🌅 Market Data       → Updates stock prices for 787 companies
+03:00 AM 🌅 Market Data       → Updates stock prices for 1,606 companies
 07:00 AM 📄 Doc Discovery 1   → Finds new documents (event-driven)
 09:00 AM 📄 Doc Discovery 2   → Catches any stragglers
 10:00 AM 📥 PDF Download      → Downloads discovered PDFs

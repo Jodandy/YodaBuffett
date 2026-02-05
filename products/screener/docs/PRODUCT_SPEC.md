@@ -211,7 +211,7 @@ user_screens (id, user_id, query_id, is_favorite, tags)
 #### Integration with Existing Tables
 ```sql
 -- Leverage existing YodaBuffett infrastructure
-historical_fundamentals -- 325,400 records for fundamental metrics
+historical_fundamentals -- 1,369,413 records for fundamental metrics
 market_data_history     -- 500K-1M price points for technical metrics  
 companies              -- Company metadata
 ```

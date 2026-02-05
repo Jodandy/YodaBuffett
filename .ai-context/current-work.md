@@ -61,7 +61,7 @@ Building AI development workflow tools to enable seamless handoffs between AI as
 - **Code Standards**: AI-friendly naming and organization patterns
 
 ### Current Architecture Decisions Made
-- Multi-database architecture (PostgreSQL + Vector DB + ML Database + Redis)
+- PostgreSQL 15 (Docker) with pgvector extension
 - Domain-driven development approach  
 - AI-first development methodology with living documentation
 - Platform approach supporting multiple products on unified foundation

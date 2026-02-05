@@ -140,8 +140,15 @@ Extraction Tracking ← Priority Queuing ← Content Analysis ← Language Detec
 - **→ Analytics Domain**: Provides structured financial data for correlation analysis
 - **→ Market Data Domain**: Enriches documents with company metadata and market context
 
+### Testing Coverage (Current)
+- **Manual Testing**: Basic CLI testing with 3 Nordic documents (100% success rate)
+- **Integration Testing**: End-to-end PDF processing pipeline validated
+- **Unit Tests**: Not yet implemented (planned)
+- **Performance Tests**: Not yet implemented (planned)
+- **Quality Tests**: Not yet implemented (planned)
+
 ### Recent Changes (AI-Generated Log)
-- **2025-11-27**: 🚨 **BREAKTHROUGH** - Validated temporal anomaly detection with real financial events
+- **2025-11-27**: Validated temporal anomaly detection with real financial events
 - **2025-11-27**: Detected AAK balance sheet changes, AcadeMedia regulatory impacts, AddLife growth inflections
 - **2025-11-27**: Implemented production-ready local embedding system (FREE, sentence-transformers)
 - **2025-11-27**: Generated 11,000+ section embeddings with quality validation tools
@@ -152,19 +159,6 @@ Extraction Tracking ← Priority Queuing ← Content Analysis ← Language Detec
 - **2025-11-27**: Created debugging and monitoring tools for embedding quality control
 - **2025-11-13**: Implemented vector embedding pipeline with OpenAI text-embedding-3-small integration
 - **2025-11-13**: Generated 20 real embeddings with PostgreSQL + pgvector storage, validated production pipeline
-- **[Future updates will be added here by AI assistants]**
-- **→ Market Data Domain**: Validates extracted data against market information  
-- **← User Management**: Document access control and processing quotas
-- **← Shared Database**: Company mappings and document metadata storage
-
-### Testing Coverage (Current)
-- **Manual Testing**: Basic CLI testing with 3 Nordic documents (100% success rate)
-- **Integration Testing**: End-to-end PDF processing pipeline validated
-- **Unit Tests**: Not yet implemented (planned)
-- **Performance Tests**: Not yet implemented (planned)
-- **Quality Tests**: Not yet implemented (planned)
-
-### Recent Changes (AI-Generated Log)
 - **2025-11-13**: Eliminated redundant state tracking tables, integrated extraction tracking into `nordic_documents`
 - **2025-11-13**: Renamed `filings` → `extracted_documents` and `filing_chunks` → `extracted_document_chunks`
 - **2025-11-13**: Created `NordicExtractionService` for database-driven extraction management
@@ -173,6 +167,7 @@ Extraction Tracking ← Priority Queuing ← Content Analysis ← Language Detec
 - **2025-11-13**: Established proper foreign key relationships: nordic_documents → extracted_documents
 - **2025-11-13**: Updated repository classes to use new table names and column references
 - **2025-11-13**: Migrated from filesystem-based to database-driven batch processing architecture
+- **[Future updates will be added here by AI assistants]**
 
 ---
 

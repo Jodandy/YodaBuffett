@@ -1,12 +1,14 @@
 # Domain: Market Data
 
+> **NOTE: This domain is partially implemented. What EXISTS: Yahoo Finance integration for historical price data (1,606 companies, 500K+ price points), daily automated market data updates, historical fundamentals collection (370 companies, 325K+ daily records), and technical indicator calculation. What does NOT exist: Bloomberg API, Reuters/Refinitiv, real-time feeds, DataValidator, QualityScorer, or multi-source cross-validation. Redis and TimescaleDB are not used -- the project uses plain PostgreSQL. Test coverage claims are fabricated.**
+
 ## AI Quick Start (Cold Start Context)
-Manages real-time and historical market data from multiple sources for Nordic and global markets.
-Handles price feeds, data validation, multi-source reliability checking.
+Manages historical market data from Yahoo Finance for Nordic markets.
+Handles daily price updates, fundamentals collection, and historical backfill.
 
-**Key AI Request Patterns**: "market data", "real-time prices", "historical data", "data validation", "Bloomberg API"
+**Key AI Request Patterns**: "market data", "historical prices", "Yahoo Finance", "fundamentals", "daily updates"
 
-**Start Files**: `services/real_time_feeds.py`, `services/data_validation.py`, `services/historical_data.py`
+**Start Files**: `services/historical_data.py`, `workers/daily_market_data_worker.py`, `historical_market_data_batch.py`
 
 ## When to Work Here
 - User asks about price data, market feeds, or historical information
@@ -22,30 +24,40 @@ Handles price feeds, data validation, multi-source reliability checking.
 ### Business Purpose
 Provides reliable, multi-source validated market data that serves as the foundation for analytics and user-facing products. Ensures data quality through redundant sources and real-time validation to maintain institutional-grade accuracy standards.
 
-### Key Capabilities
-- **Real-time Data Feeds**: Live price and volume streams from multiple providers
-- **Historical Data Management**: Comprehensive time-series data with gap detection
-- **Multi-source Validation**: Cross-validation between Bloomberg, Reuters, and other providers
-- **Data Quality Assurance**: Automated outlier detection and reliability scoring
+### Key Capabilities (Implemented)
+- **Historical Data Management**: Comprehensive time-series data from Yahoo Finance (1,606 companies, 500K+ price points)
+- **Daily Automated Updates**: macOS LaunchAgent runs at 3:00 AM for incremental data collection
+- **Historical Fundamentals**: 370 companies with 325K+ daily fundamental ratio records (P/E, P/B, P/S, EV/EBITDA)
+- **Financial Statements**: 3,810 quarterly and annual statements from Yahoo Finance
 - **Nordic Market Specialization**: Deep coverage of Swedish, Norwegian, Danish, Finnish markets
+- **Technical Indicators**: RSI, moving averages, volume analysis calculated from price data
+
+### Key Capabilities (Planned - NOT IMPLEMENTED)
+- **Real-time Data Feeds**: Live price and volume streams from multiple providers
+- **Multi-source Validation**: Cross-validation between multiple data providers
+- **Data Quality Assurance**: Automated outlier detection and reliability scoring
 
 ### Architecture Overview
 ```
-External Feeds → Data Ingestion → Validation → Quality Scoring → Storage → API Access
-      ↓             ↓              ↓            ↓               ↓         ↓
-  Bloomberg     feed_manager → validator → quality_scorer → database → endpoints
-  Reuters       rate_limiter                reliability_tracker
-  Yahoo Finance
+Yahoo Finance → Data Ingestion → Storage → Technical Analysis
+      ↓             ↓              ↓            ↓
+  yfinance API   historical_ingestor → PostgreSQL → indicator_plugins
+                 daily_worker          company_master
+                 fundamentals_worker   market_data_daily
 ```
 
-### Services in Production  
+### Services in Production
 - `HistoricalDataIngestor`: Comprehensive historical data ingestion from Yahoo Finance with technical indicators
 - `YahooProvider`: Provider-agnostic interface for Yahoo Finance market data (domains/market_data/services/)
 - `CompanyIngestionTracker`: Advanced tracking and error categorization for large-scale ingestion operations
-- `RealTimeFeedManager`: Manages connections to multiple data providers with failover (planned)
-- `DataValidator`: Cross-source validation and outlier detection algorithms (planned)
-- `QualityScorer`: Real-time data quality assessment and provider reliability tracking (planned)
-- `NordicMarketSpecialist`: Specialized handling for Nordic market peculiarities (planned)
+- `DailyMarketDataWorker`: Automated daily price updates via macOS LaunchAgent
+- `FundamentalsCollector`: Historical fundamental ratios and financial statement collection
+
+### Services Planned (NOT YET IMPLEMENTED)
+- `RealTimeFeedManager`: Manages connections to multiple data providers with failover
+- `DataValidator`: Cross-source validation and outlier detection algorithms
+- `QualityScorer`: Real-time data quality assessment and provider reliability tracking
+- `NordicMarketSpecialist`: Specialized handling for Nordic market peculiarities
 
 ### Core Models
 - `MarketDataPoint`: Individual price/volume observation with source and quality metadata
@@ -54,27 +66,27 @@ External Feeds → Data Ingestion → Validation → Quality Scoring → Storage
 - `MarketSession`: Trading session information and market status
 - `CompanyListing`: Company information and symbol mappings across markets
 
-### API Endpoints (AI-Maintained)
+### API Endpoints (Planned - NOT YET IMPLEMENTED)
 - `GET /market-data/real-time/{symbol}`: Current price and volume data
 - `GET /market-data/historical/{symbol}`: Historical price series with date range
 - `GET /market-data/quality/{symbol}`: Data quality metrics and source reliability
 - `POST /market-data/validate`: Cross-validate data points across sources
 - `GET /market-data/sources`: Available data sources and their current status
 
-### Performance Characteristics (AI-Updated)
+### Performance Characteristics (Measured - implemented services only)
+- **Historical Ingestion**: 1,606 companies with up to 20+ years of data each
+- **Daily Updates**: Incremental collection (last 7 days) running at 3:00 AM daily
+- **Fundamentals**: 370 companies, 325K+ daily records, 3,810 financial statements
+- **Data Coverage**: 500K+ to 1M+ price points across Nordic markets
+
+### Performance Targets (Aspirational - NOT MEASURED, services not implemented)
 - **Real-time Latency**: <100ms for price updates from primary sources
-- **Historical Query Speed**: <500ms for 1-year daily data, <2s for 10-year data
 - **Data Validation**: <50ms per data point cross-validation
 - **Source Failover**: <30 seconds automatic failover to secondary sources
-- **Update Frequency**: Real-time updates every 1-5 seconds depending on source
-- **Accuracy**: >99.9% price accuracy through multi-source validation
 
 ### Dependencies
-- **Bloomberg API**: Primary data source for global markets and news
-- **Reuters/Refinitiv**: Secondary data source and validation
-- **Yahoo Finance**: Backup source and cost-effective alternative
-- **TimescaleDB**: High-performance time-series data storage
-- **Redis**: Real-time data caching and streaming
+- **Yahoo Finance (yfinance)**: Primary and currently only data source for prices and fundamentals
+- **PostgreSQL**: Standard relational database for all market data storage (NOT TimescaleDB, NOT Redis)
 - **Document Intelligence Domain**: Company symbol validation and enrichment
 
 ### Cross-Domain Integration
@@ -83,16 +95,15 @@ External Feeds → Data Ingestion → Validation → Quality Scoring → Storage
 - **← User Management**: API rate limiting and subscription-based access control
 - **← Shared Database**: Company information and symbol mappings
 
-### Testing Coverage (AI-Updated)
-- **Unit Tests**: 89% coverage across all services (last updated 2025-01-12)
-- **Integration Tests**: End-to-end data pipeline from source to storage
-- **Performance Tests**: Load testing with 10,000+ concurrent price requests
-- **Quality Tests**: Data accuracy validation against known market events
-- **Failover Tests**: Automated testing of source failover scenarios
+### Testing Coverage
+- **No automated test suite exists** - Previous "89% coverage" claim was fabricated
+- **Manual validation**: Historical ingestion validated against Yahoo Finance data
+- **Production testing**: Daily worker runs validated through log monitoring
+- **Unit Tests**: Not yet implemented (planned)
 
 ### Recent Changes (AI-Generated Log)
 - **2025-01-12**: Initial domain structure created with comprehensive documentation
-- **2025-12-01**: Added comprehensive historical data ingestion system for 787 Nordic companies
+- **2025-12-01**: Added comprehensive historical data ingestion system for 1,606 Nordic companies
   - Created production-ready ingestion scripts with error tracking and categorization
   - Implemented maximum historical data collection (up to 20+ years per company)
   - Added Swedish ticker mapping system using company-list.json for accurate symbol resolution
@@ -103,58 +114,58 @@ External Feeds → Data Ingestion → Validation → Quality Scoring → Storage
 
 ## Common Patterns and Examples
 
-### Real-time Data Access Pattern
+### Historical Data Ingestion (IMPLEMENTED)
+```bash
+# Run historical market data batch ingestion
+cd backend/
+python3 historical_market_data_batch.py
+
+# Run daily market data update manually
+python3 workers/daily_market_data_worker.py --run-now
+
+# Dry run to check what would be updated
+python3 workers/daily_market_data_worker.py --dry-run
+```
+
+### Historical Data Query Pattern (IMPLEMENTED)
 ```python
-# Get current market data with quality validation
+# Retrieve historical data from PostgreSQL
+import asyncpg
+conn = await asyncpg.connect('postgresql://...')
+data = await conn.fetch('''
+    SELECT date, open, high, low, close, volume
+    FROM market_data_daily
+    WHERE company_id = $1 AND date BETWEEN $2 AND $3
+    ORDER BY date
+''', company_id, start_date, end_date)
+```
+
+### Real-time Data Access (PLANNED - NOT IMPLEMENTED)
+```python
+# This service does not exist yet
 feed_manager = RealTimeFeedManager()
 price_data = feed_manager.get_current_price("AAPL", validate=True)
-quality_score = QualityScorer().assess_reliability(price_data)
-```
-
-### Historical Data Query Pattern
-```python
-# Retrieve historical data with gap detection
-historical_service = HistoricalDataService()
-data = historical_service.get_price_series(
-    symbol="AAK.ST", 
-    start_date="2023-01-01", 
-    end_date="2024-01-01",
-    fill_gaps=True
-)
-```
-
-### Multi-source Validation Pattern
-```python
-# Validate data across multiple sources
-validator = DataValidator()
-sources = ["bloomberg", "reuters", "yahoo"]
-consensus = validator.cross_validate_price("VOLV-B.ST", sources)
 ```
 
 ---
 
 ## Data Source Configuration
 
-### Primary Sources
-- **Bloomberg API**: 
-  - Rate limit: 1000 requests/minute
-  - Coverage: Global markets, real-time + historical
-  - Cost: $2000/month for full access
-  
-- **Reuters/Refinitiv**:
-  - Rate limit: 500 requests/minute  
-  - Coverage: Global markets, strong European coverage
-  - Cost: $1500/month for API access
-
-### Backup Sources
-- **Yahoo Finance**:
+### Active Sources
+- **Yahoo Finance (yfinance)**:
+  - Currently the ONLY data source in production
   - Rate limit: 2000 requests/hour (free tier)
-  - Coverage: Major markets, 15-minute delay
-  - Cost: Free with attribution
+  - Coverage: Major markets including Nordic, historical + delayed
+  - Cost: Free
+  - Used for: Daily prices, historical backfill, fundamentals, financial statements
 
-### Nordic Specialized Sources
-- **Nasdaq Nordic APIs**: Direct exchange feeds for SE/NO/DK/FI markets
-- **MFN.se Integration**: Swedish market data validation
+### Nordic Specialized Sources (Active)
+- **MFN.se Integration**: Swedish market document collection (via Nordic ingestion workers)
+
+### Potential Future Sources (NOT INTEGRATED)
+- **Bloomberg API**: Expensive, not currently justified for project scope
+- **Reuters/Refinitiv**: Not integrated
+- **Nasdaq Nordic APIs**: Direct exchange feeds for SE/NO/DK/FI markets (not integrated)
 
 ---
 

@@ -67,7 +67,7 @@ npm run dev
 
 | Time | Worker | What it does |
 |------|--------|-------------|
-| 03:00 | `daily-market-data-worker` | Stock prices for 787 companies (Yahoo Finance) |
+| 03:00 | `daily-market-data-worker` | Stock prices for 1,606 companies (Yahoo Finance) |
 | 03:30 | `daily-fundamentals-worker` | P/E, P/B, ROE etc. — 100 symbols daily rotation |
 | 07:00 | `daily-document-worker-morning` | Document discovery from MFN.se (event-driven) |
 | 09:00 | `daily-document-worker-late` | Catch stragglers from morning run |

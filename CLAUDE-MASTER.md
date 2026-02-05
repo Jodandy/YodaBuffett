@@ -30,7 +30,7 @@ The system uses a **modular monolith** architecture for optimal development velo
 7. **Research Service** (`/backend/research-service/`) - RAG-based Q&A system
 
 ### Technology Stack
-- **Backend**: Python (AI/ML), TypeScript/Node.js (APIs)
+- **Backend**: Python (AI/ML, APIs, workers)
 - **Database**: PostgreSQL 15 (Docker container `yodabuffett-db`) with pgvector extension
 - **Data Services**: Document processing, market data feeds, web scraping
 - **Infrastructure**: macOS LaunchAgents (daily automation), Docker configs available for future cloud deployment

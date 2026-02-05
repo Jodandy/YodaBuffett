@@ -347,7 +347,7 @@ async def backfill_symbol_complete(symbol: str, calculate_daily_metrics: bool = 
 
 ### ✅ **Historical Fundamentals System** - PRODUCTION COMPLETE
 - **370 Companies**: Complete fundamental data coverage from Yahoo Finance
-- **325,400 Daily Records**: 4+ years of historical fundamental ratios (2021-2025)
+- **1,369,413 Daily Records**: 4+ years of historical fundamental ratios (2021-2025)
 - **Financial Statements**: Quarterly and annual income statements, balance sheets, cash flows
 - **Calculated Metrics**: Daily P/E, P/B, P/S, EV/EBITDA using price data + latest financials
 - **No Look-Ahead Bias**: Historical metrics use only data available at each specific date
@@ -364,7 +364,7 @@ async def backfill_symbol_complete(symbol: str, calculate_daily_metrics: bool = 
 Financial statements: 4,891 records (quarterly + annual)
 Balance sheet records: 4,847 records 
 Cash flow records: 4,801 records
-Historical daily metrics: 325,400 records
+Historical daily metrics: 1,369,413 records
 Daily fundamentals: Growing daily (100 symbols × daily collection)
 ```
 

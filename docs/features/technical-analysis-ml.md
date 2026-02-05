@@ -225,7 +225,7 @@ indicator_registry.register(NewIndicator())
 
 ### **Limited Market Data:**
 - Currently tested on 10 Nordic stocks
-- Needs expansion to full 787 company dataset
+- Needs expansion to full 1,606 company dataset
 
 ### **Single Strategy:**
 - Only RSI-based KNN implemented
@@ -235,7 +235,7 @@ indicator_registry.register(NewIndicator())
 
 ### **Immediate:**
 1. Fix company_id schema mismatch
-2. Expand to full Nordic market (787 companies)
+2. Expand to full Nordic market (1,606 companies)
 3. Add more technical indicators (Stochastic, Williams %R, etc.)
 
 ### **Medium-term:**

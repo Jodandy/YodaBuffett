@@ -32,7 +32,6 @@ pytest tests/
 - **SQLAlchemy**: Database ORM
 - **Pydantic**: Data validation and serialization
 - **PostgreSQL**: Leverages existing YodaBuffett database
-- **Redis**: Caching for performance
 
 ## API Endpoints
 

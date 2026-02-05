@@ -119,7 +119,7 @@ See [docs/features/technical-analysis-ml.md](../../../docs/features/technical-an
 
 ⚠️ **Minor Limitations**:
 - Company ID schema mismatch (using hash workaround)
-- Limited to 10 stocks (can expand to full 787 Nordic companies)
+- Limited to 10 stocks (can expand to full 1,606 Nordic companies)
 - Single KNN model (framework supports multiple models)
 
 This is a complete, production-ready foundation for ML-based technical analysis with realistic trading constraints.

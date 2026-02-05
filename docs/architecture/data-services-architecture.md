@@ -1,5 +1,7 @@
 # Data Services Architecture
 
+> **NOTE: This describes planned/aspirational architecture. See [docs/operations/human-operator-guide.md](../operations/human-operator-guide.md) for the actual current infrastructure.**
+
 ## Overview
 YodaBuffett uses a **service-separated, multi-source data architecture** designed for institutional-grade reliability, flexibility, and performance. Each data type flows through specialized services optimized for their specific requirements.
 

@@ -153,7 +153,7 @@ products/screener/
 The screener product integrates with the existing YodaBuffett platform:
 
 ### Database Integration
-- Leverages existing `historical_fundamentals` table (325,400 records)
+- Leverages existing `historical_fundamentals` table (1,369,413 records)
 - Uses existing `market_data_history` for price data
 - Extends existing `companies` table for metadata
 - Creates new screener-specific tables for saved searches and backtests
@@ -162,7 +162,6 @@ The screener product integrates with the existing YodaBuffett platform:
 - Uses platform's authentication system
 - Leverages existing data ingestion pipelines
 - Integrates with platform monitoring and logging
-- Shares Redis cache for performance optimization
 
 ### API Gateway Integration
 ```
@@ -187,8 +186,7 @@ Platform API Gateway
 Production Environment
 ├── screener-backend/       # Screener API service
 ├── screener-frontend/      # Screener web app
-├── shared-database/        # Shared with main platform
-└── shared-cache/          # Shared Redis instance
+└── shared-database/        # Shared with main platform
 ```
 
 This structure keeps the screener product modular while leveraging the existing platform infrastructure efficiently.

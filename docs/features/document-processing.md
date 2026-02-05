@@ -1,7 +1,7 @@
 # Document Processing System - Production Ready
 
 ## Overview
-Production-ready document processing system with robust pause/resume capabilities for 47,931 Nordic financial documents. Built with hexagonal architecture and stateful processing controls.
+Production-ready document processing system with robust pause/resume capabilities for 419,516 Nordic financial documents. Built with hexagonal architecture and stateful processing controls.
 
 ## Quick Start
 
@@ -40,7 +40,7 @@ PYTHONPATH=. python3 domains/document_intelligence/cli_stateful.py discover 50
 #### 1. DocumentDiscoveryService
 - **Purpose**: Catalogs all PDFs without processing them
 - **Features**: 
-  - Processes 47,931 PDFs in ~60 seconds 
+  - 419,516 documents catalogued
   - Extracts metadata from file paths
   - Assigns processing priorities
   - Creates batch sessions for tracking
@@ -143,10 +143,10 @@ PostgreSQL tables partitioned by region for scaling:
 ## Performance Characteristics
 
 ### Current Performance (Production Tested)
-- **Document Discovery**: 780 documents/second (47,931 PDFs in ~60 seconds)
+- **Document Discovery**: 419,516 documents catalogued
 - **Text Extraction**: 2-5 seconds per document with content analysis
 - **Memory Usage**: Processes in chunks of 100 to prevent memory issues
-- **Storage**: ~2GB estimated for all 47,931 extracted documents
+- **Storage**: ~2GB estimated for all 419,516 extracted documents
 - **Error Recovery**: Robust state tracking enables resume from any point
 - **Processing Priority**: High-priority documents (30,342) ready for immediate processing
 
@@ -234,7 +234,7 @@ WHERE processing_status = 'failed';
 ## Integration Points
 
 ### Input Sources
-- **PDF Files**: `/backend/data/companies/SE/` (47,931 documents)
+- **PDF Files**: `/backend/data/companies/SE/` (419,516 documents)
 - **File Structure**: `{Country}/{Letter}/{Company}/{Year}/{Type}/filename.pdf`
 - **Document Types**: annual_report, quarterly_report, press_release, governance
 

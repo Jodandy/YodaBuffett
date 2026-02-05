@@ -6,8 +6,8 @@
 Extensible platform for institutional-grade financial research. AI-assisted analysis, predictive modeling, and advanced backtesting capabilities.
 
 ## Architecture at a Glance
-- **Microservices**: API Gateway, Research, Data Ingestion, Strategy, Prediction, User services
-- **Stack**: Python (AI/ML), TypeScript/Node.js (APIs), PostgreSQL + Vector DB
+- **Architecture**: Modular monolith with domain-based organization
+- **Stack**: Python, PostgreSQL 15 (Docker) with pgvector, macOS LaunchAgents
 - **AI**: Research acceleration, data analysis, ensemble predictions
 
 ## Current Focus
@@ -20,7 +20,7 @@ Building extensible platform for any financial analysis, not just specific featu
 - Foundation learnings: [mvp1-report-analysis/MVP1_LEARNINGS.md](./mvp1-report-analysis/MVP1_LEARNINGS.md)
 
 🚀 **Nordic Financial Data Platform** - PRODUCTION READY
-- Complete Swedish market document collection (47,931 documents)
+- Complete Swedish market document collection (419,516 documents)
 - **SMART PRIORITIZATION**: Annual & quarterly reports first (30,342 priority documents)
 - **INTELLIGENT RETRY SYSTEM**: Case-insensitive matching + suffix pattern testing
 - **ORGANIZED STORAGE**: `data/companies/SE/{A-Z}/{Company}/{Year}/{Type}/`
@@ -30,7 +30,7 @@ Building extensible platform for any financial analysis, not just specific featu
 - Management CLI, API integration, and operational monitoring
 
 📄 **Document Processing Pipeline** - PRODUCTION READY
-- **47,931 PDFs Catalogued**: Complete text extraction infrastructure with pause/resume
+- **419,516 PDFs Catalogued**: Complete text extraction infrastructure with pause/resume
 - **1,827 Documents Extracted**: Text extraction complete with PostgreSQL storage
 - **Robust State Management**: Independent processing state tracking with batch control
 - **Priority-Based Processing**: Annual reports (Priority 1) → Quarterly (Priority 2) → Other documents
@@ -52,7 +52,7 @@ Building extensible platform for any financial analysis, not just specific featu
 🧠 **Vector Embedding System** - PRODUCTION ACTIVE (Legacy)
 - **OpenAI Integration**: Real embeddings using `openai/text-embedding-3-small` model
 - **PostgreSQL + pgvector**: 1536-dimensional vectors stored with semantic search capability
-- **20 Documents Embedded**: Testing completed, production pipeline validated
+- **Production Embeddings**: Pipeline validated with OpenAI and local models
 - **Cost Efficient**: ~$0.026 per 1,000 documents, estimated $47 for full corpus
 - **Provider Flexible**: Architecture supports OpenAI, Claude, local models with explicit tracking
 - **Performance**: ~1 second per document including API calls and database storage
@@ -71,7 +71,7 @@ Building extensible platform for any financial analysis, not just specific featu
 - **Historical Catch-Up**: Comprehensive catch-up system for missed periods
 
 📈 **Market Data Integration** - PRODUCTION ACTIVE
-- **787 Companies**: Complete Nordic market coverage with Yahoo Finance integration  
+- **1,606 Companies**: Complete Nordic market coverage with Yahoo Finance integration  
 - **Automated Daily Updates**: Native macOS scheduling runs at 3:00 AM daily
 - **Incremental Collection**: Only fetches recent data (last 7 days) for efficiency
 - **Provider Agnostic**: Architecture supports multiple data sources (Yahoo, Alpha Vantage, etc.)
@@ -81,7 +81,7 @@ Building extensible platform for any financial analysis, not just specific featu
 
 💰 **Historical Fundamentals System** - PRODUCTION COMPLETE ⭐ RICH DATASET
 - **370 Companies**: Complete fundamental data coverage from Yahoo Finance
-- **325,400 Daily Records**: 4+ years of historical fundamental ratios (2021-2025)
+- **1,369,413 Daily Records**: 4+ years of historical fundamental ratios (2021-2025)
 - **Complete Financial Statements**: Income statements, balance sheets, cash flows for 370 companies
 - **Daily Calculated Metrics**: P/E, P/B, P/S, EV/EBITDA, debt ratios, current ratios
 - **Automated Collection**: Daily fundamentals worker with full backfill system
@@ -117,11 +117,11 @@ Building extensible platform for any financial analysis, not just specific featu
 - Real-time deviation detection from historical communication patterns
 
 📈 **Historical Market Data System** - PRODUCTION READY
-- **Comprehensive Data Ingestion**: 787 Nordic companies with up to 20+ years of historical data each
+- **Comprehensive Data Ingestion**: 1,606 Nordic companies with up to 20+ years of historical data each
 - **Maximum Coverage**: 500,000+ to 1,000,000+ price points total for temporal anomaly validation
 - **Swedish Ticker Intelligence**: Automated mapping using authoritative company-list.json with fuzzy matching
 - **Robust Error Handling**: Categorized failure tracking with targeted recovery procedures
-- **Provider-Agnostic Architecture**: Yahoo Finance integration with Bloomberg/Reuters expansion ready
+- **Provider-Agnostic Architecture**: Yahoo Finance integration, expandable to additional providers
 - **Database Integration**: Seamless integration with company_master table and foreign key handling
 - **Documentation**: [docs/market_data_ingestion.md](./backend/docs/market_data_ingestion.md)
 
@@ -525,7 +525,7 @@ python3 analyze_download_results.py
 # Activate virtual environment first
 source venv/bin/activate
 
-# Catalog all 47,931 PDFs without processing them
+# Catalog all 419,516 PDFs without processing them
 PYTHONPATH=. python3 domains/document_intelligence/cli_stateful.py discover
 
 # Process documents in controllable batches with pause/resume
@@ -570,8 +570,7 @@ docker-compose --profile ingestors up    # All Nordic markets
 docker-compose --profile management up   # Web dashboard + API
 
 # Management interfaces
-# Web Dashboard: http://localhost:8090/dashboard
-# REST API: http://localhost:8091/
+# Worker management (Docker configs in backend/docker/, not actively used)
 # CLI Access: docker exec -it yodabuffett-worker-cli bash
 
 # Schedule & monitoring

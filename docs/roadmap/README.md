@@ -4,14 +4,14 @@
 This tracks the evolution from document collection to a multi-product financial intelligence platform competing with Bloomberg, FactSet, and Refinitiv through superior UX/UI, competitive pricing, and institutional-grade reliability.
 
 ## Current Status: Data Foundation Ready
-47,931 Nordic documents collected and organized. Ready to build multi-database platform for multiple products targeting different user segments.
+419,516 Nordic documents collected and organized. Ready to build multi-database platform for multiple products targeting different user segments.
 
 ## Production Features
 
 ### 🚧 **Foundation: Document Intelligence Platform (IN PROGRESS)**
 **Achievement**: Nordic market document collection and basic text extraction
 **Status**: Text extraction pipeline working, advanced analytics in development  
-**Data**: 47,931+ financial documents collected, text extraction functional
+**Data**: 419,516+ financial documents collected, text extraction functional
 
 See: [Document Intelligence](./mvp1-report-analysis.md)
 
@@ -34,11 +34,11 @@ See: [Document Intelligence](./mvp1-report-analysis.md)
 **Timeline**: 0-3 months *(75% COMPLETE)*
 
 **Components**:
-- ✅ **PostgreSQL + TimescaleDB**: Core financial data, time-series, ML tables
+- ✅ **PostgreSQL 15 (Docker) with pgvector**: Core financial data, time-series, ML tables
 - ✅ **Vector Database**: Document embeddings, semantic search working  
 - ✅ **ML Database**: KNN tables, feature stores, model outputs implemented
-- 🚧 **Redis**: Caching, real-time data, session management
-- ✅ **Data Pipeline**: 47K documents → structured, queryable data
+- ❌ **Redis**: Not currently used - caching, real-time data, session management planned for future
+- ✅ **Data Pipeline**: 419K documents → structured, queryable data
 
 **Success Criteria**:
 - Sub-200ms API response times

@@ -1,5 +1,7 @@
 # YodaBuffett: AI Assistant Quick Start Guide
 
+> **NOTE: This describes planned/aspirational architecture. See [docs/operations/human-operator-guide.md](docs/operations/human-operator-guide.md) for the actual current infrastructure.**
+
 ## For AI Assistants: How to Understand This Project from Scratch
 
 You've been asked to work on YodaBuffett - a next-generation financial intelligence platform. This guide gets you productive within 3 minutes from a completely cold start.

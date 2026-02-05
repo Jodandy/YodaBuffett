@@ -1,12 +1,14 @@
 # Domain: Analytics
 
-## AI Quick Start (Cold Start Context)  
-Cross-company analysis, pattern detection, and predictive modeling using the 47K Nordic document corpus.
-Finds hidden correlations, supply chain dependencies, and investment signals.
+> **NOTE: This domain is partially implemented. What EXISTS: temporal anomaly detection (validated with real financial events), KNN-based technical analysis with pre-computed neighbors, realistic portfolio simulation with backtesting, and plugin-based technical indicators (RSI, SMA, EMA, Bollinger, MACD). What does NOT exist: CorrelationAnalyzer, PatternDetector, RiskModeler, TrendAnalyzer, SignalGenerator, and most API endpoints listed below. Test coverage claims are fabricated. TimescaleDB is not used -- the project uses plain PostgreSQL with pgvector.**
 
-**Key AI Request Patterns**: "analytics", "correlations", "patterns", "predictions", "risk analysis", "cross-company"
+## AI Quick Start (Cold Start Context)
+Cross-company analysis, pattern detection, and predictive modeling using the 419K+ Nordic document corpus.
+Temporal anomaly detection and KNN technical analysis are production-ready. Other analytics services are planned.
 
-**Start Files**: `services/correlation_analysis.py`, `services/pattern_detection.py`, `services/risk_modeling.py`
+**Key AI Request Patterns**: "analytics", "temporal anomalies", "KNN predictions", "backtesting", "technical analysis", "correlations", "patterns"
+
+**Start Files**: `test_temporal_patterns.py`, `backtest_knn_strategy.py`, `realistic_portfolio_simulator.py`, `services/technical_analysis/`
 
 ## When to Work Here
 - User asks for company correlations, market patterns, or cross-company analysis
@@ -41,6 +43,12 @@ Multi-Source Data → Feature Engineering → ML Models → Pattern Detection �
 ```
 
 ### Services in Production
+- `TemporalAnomalyDetection`: Company-specific temporal pattern baselines with anomaly scoring (validated with real events)
+- `KNNPredictor`: Time-aware KNN predictions with pre-computed neighbors and no look-ahead bias
+- `PortfolioSimulator`: Realistic portfolio simulation with position sizing, transaction costs, and risk management
+- `TechnicalIndicators`: Plugin-based indicators (RSI, SMA, EMA, Bollinger Bands, MACD, Volume analysis)
+
+### Services Planned (NOT YET IMPLEMENTED)
 - `CorrelationAnalyzer`: Multi-dimensional company similarity using financial metrics + document embeddings
 - `PatternDetector`: Identifies recurring themes and hidden connections across company reports
 - `RiskModeler`: Builds ensemble risk models combining multiple data sources and timeframes
@@ -60,10 +68,10 @@ Multi-Source Data → Feature Engineering → ML Models → Pattern Detection �
 - `MarketSignal`: Actionable investment insights with timing and confidence
 - `AnalyticsReport`: Comprehensive analysis combining multiple analytical outputs
 
-### API Endpoints (AI-Maintained)
+### API Endpoints (Planned - NOT YET IMPLEMENTED)
 - `GET /analytics/correlations/{company_id}`: Company correlation matrix with similar companies
 - `POST /analytics/patterns/detect`: Run pattern detection across specified document sets
-- `GET /analytics/risk/{company_id}`: Comprehensive risk assessment with component scores  
+- `GET /analytics/risk/{company_id}`: Comprehensive risk assessment with component scores
 - `POST /analytics/signals/generate`: Generate investment signals based on current analysis
 - `GET /analytics/trends/{company_id}`: Historical trend analysis with forward projections
 
@@ -75,20 +83,21 @@ Multi-Source Data → Feature Engineering → ML Models → Pattern Detection �
 - `GET /analytics/models/{model_name}/performance`: Model performance metrics and backtesting results
 - `POST /analytics/models/retrain`: Trigger model retraining with new data
 
-### Performance Characteristics (AI-Updated)
+### Performance Characteristics (Measured for implemented services only)
+- **KNN Prediction**: Pre-computed neighbors for fast lookup, ~729 labels across Nordic stocks
+- **Technical Indicators**: Plugin-based calculation across 100+ companies
+- **Backtesting**: Realistic portfolio simulation with transaction costs (0.2%), position sizing (20% per trade)
+- **Temporal Anomaly Detection**: Section and document-level analysis with 11,000+ embeddings
+
+### Performance Targets (Aspirational - NOT MEASURED, services not implemented)
 - **Cross-Company Correlation**: <30 seconds for 500 Nordic companies
-- **Pattern Detection**: <2 minutes across full document corpus (47K+ docs)
+- **Pattern Detection**: <2 minutes across full document corpus
 - **Risk Assessment**: <10 seconds per company with confidence intervals
-- **Signal Generation**: <5 seconds for multi-factor investment signals
-- **Memory Usage**: ~2GB for full Nordic market correlation analysis
-- **Accuracy**: 78% prediction accuracy for quarterly earnings direction (>65% target)
 
 ### Dependencies
-- **ML Database**: Pre-computed KNN distances, feature stores, model outputs
-- **Vector Database**: Document embeddings for semantic analysis and pattern matching
-- **Document Intelligence Domain**: Structured financial data and text analysis
-- **Market Data Domain**: Real-time price validation and historical performance data
-- **TimescaleDB**: Time-series financial metrics for trend analysis
+- **PostgreSQL + pgvector**: Pre-computed KNN distances, embeddings, model outputs (NOT TimescaleDB)
+- **Document Intelligence Domain**: Structured financial data, section embeddings, and text analysis
+- **Market Data Domain**: Historical price data from Yahoo Finance for backtesting and indicator calculation
 
 ### Cross-Domain Integration
 - **← Document Intelligence**: Consumes structured financial data and document embeddings
@@ -96,12 +105,11 @@ Multi-Source Data → Feature Engineering → ML Models → Pattern Detection �
 - **→ User Management**: Provides analytics for user dashboards and subscription tiers
 - **← Shared Database**: Company information and cross-domain data relationships
 
-### Testing Coverage (AI-Updated)
-- **Unit Tests**: 85% coverage across all services (last updated 2025-01-12)
-- **Integration Tests**: End-to-end correlation and pattern detection pipelines
-- **Performance Tests**: Load testing with 1000+ concurrent correlation requests
-- **Quality Tests**: Prediction accuracy validation against historical market events
-- **Backtesting**: Historical performance validation of signals and risk models
+### Testing Coverage
+- **No automated test suite exists** - Previous "85% coverage" claim was fabricated
+- **Manual validation**: Temporal anomaly detection validated against known financial events (AAK, AcadeMedia, AddLife)
+- **Backtesting validation**: KNN strategy and portfolio simulator tested with historical market data
+- **Unit Tests**: Not yet implemented (planned)
 
 ### Recent Changes (AI-Generated Log)
 - **2025-11-13**: Documented sectional embeddings architecture for targeted financial section analysis (balance sheet, income statement, etc.)
@@ -115,9 +123,25 @@ Multi-Source Data → Feature Engineering → ML Models → Pattern Detection �
 
 ## Common Patterns and Examples
 
-### Company Correlation Analysis Pattern
+### Temporal Anomaly Detection (IMPLEMENTED)
+```bash
+# Run temporal anomaly detection on existing embeddings
+cd backend/
+python3 analyze_existing_embeddings.py --days 500 --sort score
+python3 analyze_existing_embeddings.py --company "AAK" --days 500
+```
+
+### KNN Backtesting (IMPLEMENTED)
+```bash
+# Run KNN strategy backtest with realistic portfolio constraints
+cd backend/
+python3 backtest_knn_strategy.py
+python3 realistic_portfolio_simulator.py
+```
+
+### Company Correlation Analysis (PLANNED - NOT IMPLEMENTED)
 ```python
-# Calculate multi-dimensional company similarities
+# This service does not exist yet
 analyzer = CorrelationAnalyzer()
 correlations = analyzer.calculate_similarity_matrix(
     companies=nordic_companies,
@@ -126,49 +150,30 @@ correlations = analyzer.calculate_similarity_matrix(
 )
 ```
 
-### Pattern Detection Pattern
-```python
-# Detect supply chain vulnerabilities across companies
-detector = PatternDetector()
-patterns = detector.detect_supply_chain_patterns(
-    document_corpus=recent_reports,
-    pattern_type="supply_chain_risk",
-    confidence_threshold=0.7
-)
-```
-
-### Investment Signal Generation Pattern
-```python
-# Generate actionable investment signals
-signal_gen = SignalGenerator()
-signals = signal_gen.generate_signals(
-    analysis_types=["correlation", "pattern", "risk"],
-    market_context=current_market_data,
-    confidence_threshold=0.8
-)
-```
-
 ---
 
 ## Machine Learning Infrastructure
 
 ### Model Types in Production
+- **KNN Technical Analysis**: Time-aware K-nearest-neighbors with pre-computed neighbors, RSI-based labels
+- **Temporal Anomaly Detection**: Embedding similarity-based anomaly scoring for company communication shifts
+- **Portfolio Simulation**: Realistic backtesting with position sizing, transaction costs, and arbitration
+
+### Model Types Planned (NOT YET IMPLEMENTED)
 - **Correlation Models**: Financial similarity, textual similarity, combined similarity
 - **Pattern Detection Models**: Supply chain analysis, talent flow detection, market theme extraction
 - **Risk Models**: Systematic risk, credit risk, operational risk scoring
 - **Prediction Models**: Earnings direction, price volatility, sector rotation
 
-### Feature Engineering Pipeline
-- **Financial Features**: Ratios, growth rates, profitability metrics, debt analysis
-- **Textual Features**: Sentiment scores, topic modeling, language complexity analysis
-- **Market Features**: Price momentum, volatility patterns, relative performance
-- **Temporal Features**: Seasonality, trend analysis, cyclical patterns
+### Feature Engineering (Partial)
+- **Technical Features (Implemented)**: RSI, SMA, EMA, Bollinger Bands, MACD, Volume analysis
+- **Financial Features (Planned)**: Ratios, growth rates, profitability metrics, debt analysis
+- **Textual Features (Planned)**: Sentiment scores, topic modeling, language complexity analysis
+- **Market Features (Partial)**: Price momentum from historical data, volatility patterns
 
 ### Model Performance Tracking
-- **Correlation Accuracy**: Measured against known market relationships
-- **Pattern Detection Precision**: Validated against manual expert analysis
-- **Risk Model Calibration**: Backtested against historical market stress events
-- **Signal Performance**: Tracked against actual market outcomes
+- **KNN Backtesting**: Validated with realistic portfolio simulation (EMA 10 showing -7.3% realistic vs +509% unrealistic)
+- **Temporal Anomaly Detection**: Validated against known financial events (AAK, AcadeMedia, AddLife)
 
 ---
 

@@ -106,7 +106,7 @@ export COHERE_API_KEY=co-...
 - **Model**: text-embedding-3-small (1536D)
 
 ### Full Collection Estimates
-- **47,931 documents** → ~2,396,550 sections (estimated based on 50 sections/doc average)
+- **419,516 documents** → ~20,975,800 sections (estimated based on 50 sections/doc average)
 - **OpenAI cost**: ~$719 for all section embeddings (based on updated section count)
 - **Current Status**: 50 documents processed with 2,039 sections created
 - **85% cheaper** than mechanical chunks due to intelligent section boundaries

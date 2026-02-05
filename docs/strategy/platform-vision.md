@@ -1,5 +1,7 @@
 # Platform Strategy: Multiple Products, One Foundation
 
+> **NOTE: This describes planned/aspirational architecture. See [docs/operations/human-operator-guide.md](../operations/human-operator-guide.md) for the actual current infrastructure.**
+
 ## Executive Summary
 YodaBuffett is a multi-product financial intelligence platform that powers everything from professional Bloomberg competitors to retail investment tools. Built on a unified multi-database architecture with flexible data ingestion, the platform enables custom hypothesis testing while maintaining superior UX/UI and competitive pricing.
 

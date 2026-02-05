@@ -287,7 +287,7 @@ curl http://localhost:8000/api/v1/nordic/stats
 - **Manual Fallback**: Creates GitHub issues when automation fails
 
 ### ✅ **Real Company Data**
-- **5 Swedish Companies**: Volvo, H&M, Ericsson, Atlas Copco, Sandvik
+- **1,606 Nordic Companies**: Complete Nordic market coverage
 - **Configured RSS Feeds**: Real company RSS URLs 
 - **Calendar Sources**: Actual IR calendar pages
 - **Production Ready**: Handles rate limiting, errors, validation

@@ -1,12 +1,14 @@
 # Domain: User Management
 
+> **NOTE: This domain is entirely planned/aspirational. NONE of the services, endpoints, models, or infrastructure described below exist yet. There is no auth service, no subscription system, no API key management, no rate limiting, and no billing integration. Redis is not used anywhere in the project. All test coverage claims are fabricated. See [docs/operations/human-operator-guide.md](../../../docs/operations/human-operator-guide.md) for actual infrastructure.**
+
 ## AI Quick Start (Cold Start Context)
-Handles authentication, authorization, multi-tenant support, and subscription management.
-Manages API access control, user dashboards, and billing for multiple product tiers.
+**PLANNED** - Intended to handle authentication, authorization, multi-tenant support, and subscription management.
+None of these services have been implemented.
 
 **Key AI Request Patterns**: "authentication", "user access", "subscriptions", "API limits", "billing", "multi-tenant"
 
-**Start Files**: `services/auth_service.py`, `services/subscription_service.py`, `services/api_access_service.py`
+**Start Files**: None exist yet. Planned: `services/auth_service.py`, `services/subscription_service.py`, `services/api_access_service.py`
 
 ## When to Work Here
 - User asks about login issues, access control, or permission problems
@@ -37,7 +39,7 @@ login_flow → auth_service → permission_check → rate_limiter → api_gatewa
 jwt_tokens   user_store     role_manager       usage_tracker  audit_log     billing
 ```
 
-### Services in Production
+### Services Planned (NOT YET IMPLEMENTED)
 - `AuthenticationService`: JWT-based authentication with secure password handling
 - `AuthorizationService`: Role-based permissions and feature access control
 - `SubscriptionService`: Billing integration and subscription lifecycle management
@@ -51,27 +53,23 @@ jwt_tokens   user_store     role_manager       usage_tracker  audit_log     bill
 - `ApiKey`: API access credentials with rate limits and usage tracking
 - `Permission`: Granular access control for features and data domains
 
-### API Endpoints (AI-Maintained)
+### API Endpoints (Planned - NOT YET IMPLEMENTED)
 - `POST /auth/login`: User authentication with JWT token generation
 - `POST /auth/refresh`: JWT token refresh and session management
 - `GET /users/{id}/profile`: User profile information and subscription status
 - `POST /organizations/{id}/invite`: Invite users to organization with role assignment
 - `GET /subscriptions/{id}/usage`: Current usage statistics and billing information
 
-### Performance Characteristics (AI-Updated)
+### Performance Targets (Aspirational - NOT MEASURED, nothing is implemented)
 - **Authentication**: <200ms for login with JWT generation
 - **Authorization Check**: <50ms for permission validation
 - **Rate Limiting**: <10ms for API rate limit checking
 - **User Dashboard Load**: <500ms for complete user profile and analytics
-- **Multi-tenant Isolation**: 99.9% data isolation guarantee
-- **Concurrent Users**: Supports 10,000+ simultaneous authenticated users
 
-### Dependencies
-- **Redis**: Session management, rate limiting counters, and authentication caching
-- **PostgreSQL**: User data, organization structure, and subscription information
-- **Payment Gateway**: Stripe integration for subscription billing
-- **Email Service**: User notifications, password reset, and organization invites
-- **All Other Domains**: Authentication and authorization for domain-specific features
+### Dependencies (Planned - NOT YET IN USE)
+- **PostgreSQL**: User data, organization structure, and subscription information (PostgreSQL is used by other domains but no user tables exist)
+- **Payment Gateway**: Stripe integration for subscription billing (not integrated)
+- **Email Service**: User notifications, password reset, and organization invites (not integrated)
 
 ### Cross-Domain Integration
 - **→ All Domains**: Provides authentication and authorization for all API endpoints
@@ -79,12 +77,8 @@ jwt_tokens   user_store     role_manager       usage_tracker  audit_log     bill
 - **← Document Intelligence**: Document processing quotas based on subscription tier
 - **← Market Data**: API access limits and data source access based on subscription
 
-### Testing Coverage (AI-Updated)
-- **Unit Tests**: 94% coverage across all services (last updated 2025-01-12)
-- **Integration Tests**: End-to-end authentication and authorization flows
-- **Security Tests**: Penetration testing and vulnerability scanning
-- **Performance Tests**: Load testing with 10,000+ concurrent authentication requests
-- **Multi-tenant Tests**: Data isolation validation across organization boundaries
+### Testing Coverage
+- **No tests exist** - This domain has not been implemented. All previous coverage claims were fabricated.
 
 ### Recent Changes (AI-Generated Log)
 - **2025-01-12**: Initial domain structure created with comprehensive documentation

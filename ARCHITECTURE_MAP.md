@@ -1,5 +1,7 @@
 # YodaBuffett: System Architecture Map
 
+> **NOTE: This describes planned/aspirational architecture. See [docs/operations/human-operator-guide.md](docs/operations/human-operator-guide.md) for the actual current infrastructure.**
+
 <!-- AI: This file should be updated whenever domain relationships or data flows change -->
 <!-- AI: Update domain count in "System Overview" when new domains added -->
 <!-- AI: Update data flow diagram when new services or databases added -->
