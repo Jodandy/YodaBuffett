@@ -21,7 +21,9 @@
       "Bash(git add:*)",
       "Bash(PYTHONPATH=. python3:*)",
       "mcp__ide__executeCode",
-      "Bash(pip3 list:*)"
+      "Bash(pip3 list:*)",
+      "Bash(/opt/homebrew/opt/postgresql@15/bin/pg_isready:*)",
+      "Bash(lsof:*)"
     ],
     "deny": []
   }

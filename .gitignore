@@ -104,3 +104,9 @@ batch_*.py
 *_results_*.json
 *_20*.json
 *_20*.log
+products/screener/frontend/node_modules/.vite/deps/chunk-2PMNUQTO.js
+
+*/node_modules/*
+products/screener/frontend/node_modules/*
+products/screener/frontend/node_modules*
+

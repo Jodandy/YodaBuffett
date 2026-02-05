@@ -3,6 +3,53 @@
 ## Overview
 Everything a human operator needs to run, manage, and maintain the YodaBuffett system.
 
+## System Startup (After Reboot / Cold Start)
+
+The YodaBuffett platform runs **natively on macOS** — no Docker required. PostgreSQL must be running for anything to work.
+
+### Step 1: Start PostgreSQL
+```bash
+# Start the database (required before anything else)
+brew services start postgresql@15
+
+# Verify it's running
+brew services list | grep postgresql
+# Expected: postgresql@15 started
+
+# Test database connectivity
+/opt/homebrew/opt/postgresql@15/bin/pg_isready -h localhost -p 5432
+# Expected: localhost:5432 - accepting connections
+```
+
+### Step 2: Verify Daily Workers
+```bash
+# LaunchAgents auto-load on login, check they're registered
+launchctl list | grep yodabuffett
+
+# If any show exit code != 0, they failed (likely because PostgreSQL was off)
+# Force an immediate retry of any worker:
+launchctl start com.yodabuffett.daily-market-data-worker
+```
+
+### Step 3 (Optional): Start Screener App
+```bash
+# Backend
+cd /Users/jdandemar/Documents/YodaBuffett/products/screener/backend
+source /Users/jdandemar/Documents/YodaBuffett/backend/venv/bin/activate
+python start_simple.py
+# → http://localhost:8000
+
+# Frontend (new terminal)
+cd /Users/jdandemar/Documents/YodaBuffett/products/screener/frontend
+npm run dev
+# → http://localhost:3000
+```
+
+### What About Docker?
+Docker is **not required** for the current production setup. It exists in `backend/docker/` as an optional deployment path for multi-market workers and future cloud deployment. The core system (database, daily workers, screener) all run natively on macOS.
+
+---
+
 ## Quick Start Commands
 
 ### Daily Automation Status (macOS LaunchAgents - ACTIVE)
@@ -156,33 +203,18 @@ python3 analyze_existing_embeddings.py --days 500
 python3 analyze_existing_embeddings.py --company "AAK" --days 500
 ```
 
-### System Startup (Full Stack)
+### Docker Startup (Optional — Not Required for Production)
+Docker is available in `backend/docker/` for multi-market worker orchestration and future cloud deployment. It is **not used** by the current production system.
+
 ```bash
-# Start everything
-docker-compose up -d
+# Only if you want to run Docker-based workers (optional)
+cd /Users/jdandemar/Documents/YodaBuffett/backend/docker
+docker-compose up -d                    # Start all Docker services
+docker-compose ps                       # View service status
+docker-compose logs -f                  # View logs
+docker-compose down                     # Stop everything
 
-# View all services status
-docker-compose ps
-
-# View logs for all services
-docker-compose logs -f
-
-# Stop everything
-docker-compose down
-```
-
-### Development Mode
-```bash
-# Backend only (for frontend development)
-docker-compose up -d database redis vector-db
-cd backend && python -m uvicorn main:app --reload --port 8000
-
-# Frontend only (for backend development)  
-cd frontend && npm run dev
-
-# Single service development
-docker-compose up -d database redis
-cd backend/research-service && python main.py
+# Note: Docker PostgreSQL uses port 5433 to avoid conflict with native PostgreSQL on 5432
 ```
 
 ### MVP 1 Specific (Report Analysis)
@@ -1643,3 +1675,120 @@ python3 save_mfn_html_simple.py
   - Enable "Less secure app access" or use App Password
   - Check inbox regularly for report notifications
   - Configure email parsing pipeline to extract PDFs
+
+## 🎯 YodaBuffett Screener Pro
+
+### Overview
+Professional stock screening application with point-in-time backtesting, leveraging the YodaBuffett financial data infrastructure.
+
+### Starting the Screener
+
+#### Prerequisites
+- PostgreSQL must be running with YodaBuffett database
+- Virtual environment activated
+- Node.js 18+ installed
+
+#### Step 1: Start Backend API
+```bash
+# Activate virtual environment
+cd /Users/jdandemar/Documents/YodaBuffett/backend
+source venv/bin/activate
+
+# Navigate to screener backend
+cd /Users/jdandemar/Documents/YodaBuffett/products/screener/backend
+
+# Test database connection
+python simple_db_test.py
+# Should show: ✅ Database connection successful!
+
+# Start the backend server
+python start_simple.py
+# Backend available at: http://localhost:8000
+# API docs at: http://localhost:8000/docs
+```
+
+#### Step 2: Start Frontend (New Terminal)
+```bash
+# Navigate to frontend
+cd /Users/jdandemar/Documents/YodaBuffett/products/screener/frontend
+
+# Install dependencies (first time only)
+npm install
+
+# Start development server
+npm run dev
+# Frontend available at: http://localhost:3000
+```
+
+### Available Features
+
+**31 Comprehensive Metrics:**
+- Fundamental: P/E, P/B, P/S, EV/EBITDA, ROE, ROA, margins, growth
+- Technical: RSI, moving averages, volatility, volume
+- Market: Market cap, enterprise value, dividend yield
+
+**Screening Capabilities:**
+- Complex AND/OR conditions
+- Relative comparisons (P/E < Industry P/E)
+- Historical point-in-time screening
+- Forward returns (1W/1M/3M/6M/1Y/2Y)
+
+**Data Coverage:**
+- 1,585+ screening-ready companies
+- 1.3M+ fundamental records
+- 4.8M+ price data points
+
+### Quick Screener Commands
+
+```bash
+# Check data quality
+cd /Users/jdandemar/Documents/YodaBuffett/products/screener/backend
+python run_data_population.py
+
+# Test API endpoints
+curl http://localhost:8000/health/detailed
+curl http://localhost:8000/api/v1/metrics/available
+
+# Simple screening query
+curl -X POST "http://localhost:8000/api/v1/screener/screen" \
+-H "Content-Type: application/json" \
+-d '{
+  "groups": [{
+    "conditions": [
+      {"metric": "pe_ratio", "operator": "lt", "value": 20},
+      {"metric": "roe", "operator": "gt", "value": 15}
+    ]
+  }],
+  "displayColumns": ["pe_ratio", "roe", "market_cap"]
+}'
+```
+
+### Building for Production
+
+```bash
+# Frontend build
+cd /Users/jdandemar/Documents/YodaBuffett/products/screener/frontend
+npm run build
+# Output in dist/ folder
+
+# Deploy options in frontend/README.md
+```
+
+### Troubleshooting Screener
+
+**Backend Issues:**
+- Check PostgreSQL is running
+- Verify .env file exists with correct DATABASE_URL
+- Ensure virtual environment is activated
+- Check logs for SQLAlchemy errors
+
+**Frontend Issues:**
+- Clear npm cache: `npm cache clean --force`
+- Fix permissions: `sudo chown -R $(whoami) ~/.npm`
+- Check backend is running on port 8000
+- Verify Node.js version >= 18
+
+**Common Errors:**
+- "Not an executable object" - Fixed by adding text() wrapper
+- "EACCES" npm errors - Fix with chown command above
+- JSX syntax errors - Already fixed in codebase
