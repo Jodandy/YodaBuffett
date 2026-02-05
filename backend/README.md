@@ -12,12 +12,12 @@ Production-ready modular monolith serving both Research and Nordic Ingestion ser
 ## Quick Start
 
 ### Prerequisites
-- **PostgreSQL@15** installed via Homebrew and running on `localhost:5432`
+- **Docker** running with the `yodabuffett-db` PostgreSQL container on `localhost:5432`
 - **Python 3.12** with venv
 
 ```bash
-# Ensure PostgreSQL is running
-brew services start postgresql@15
+# Ensure PostgreSQL container is running
+docker start yodabuffett-db
 
 # Setup Python environment
 cd backend/
@@ -201,9 +201,7 @@ mypy .
 
 ## Production Deployment
 
-The production system runs natively on macOS with Homebrew PostgreSQL and LaunchAgent-based daily automation. See `docs/operations/human-operator-guide.md` for full details.
-
-Docker configs exist in `backend/docker/` for future cloud deployment but are not currently used.
+The production system runs on macOS with PostgreSQL in Docker (`yodabuffett-db` container on port 5432) and LaunchAgent-based daily automation. See `docs/operations/human-operator-guide.md` for full details.
 
 ### Environment Variables
 

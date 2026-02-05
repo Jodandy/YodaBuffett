@@ -5,8 +5,8 @@ Next-generation financial research platform that powers multiple products on a u
 
 ## Quick Start
 ```bash
-# Start PostgreSQL (required)
-brew services start postgresql@15
+# Start PostgreSQL (Docker container, required)
+docker start yodabuffett-db
 
 # Check daily workers are running
 launchctl list | grep yodabuffett
@@ -31,7 +31,7 @@ The system uses a **modular monolith** architecture for optimal development velo
 
 ### Technology Stack
 - **Backend**: Python (AI/ML), TypeScript/Node.js (APIs)
-- **Database**: PostgreSQL@15 (Homebrew) with pgvector extension
+- **Database**: PostgreSQL 15 (Docker container `yodabuffett-db`) with pgvector extension
 - **Data Services**: Document processing, market data feeds, web scraping
 - **Infrastructure**: macOS LaunchAgents (daily automation), Docker configs available for future cloud deployment
 - **AI**: OpenAI/Anthropic APIs, local models

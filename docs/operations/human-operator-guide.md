@@ -2,15 +2,15 @@
 
 ## Infrastructure Overview
 
-The platform runs **natively on macOS** with three components:
-
 | Component | Technology | Details |
 |-----------|-----------|---------|
-| **Database** | PostgreSQL@15 (Homebrew) | `localhost:5432`, database `yodabuffett` |
+| **Database** | PostgreSQL 15 (Docker container) | `localhost:5432`, database `yodabuffett`, container: `yodabuffett-db` |
 | **Daily Automation** | macOS LaunchAgents | 8 scheduled workers in `~/Library/LaunchAgents/` |
 | **Python Runtime** | venv | `/Users/jdandemar/Documents/YodaBuffett/backend/venv/` |
 
-**Docker is not required.** Docker configs exist in `backend/docker/` as an optional future deployment path, but the production system does not use them. The PostgreSQL database, all daily workers, and the screener app all run natively.
+**Docker is required for the database.** PostgreSQL runs in a standalone Docker container (`yodabuffett-db`) on port 5432. Daily workers and the screener app run natively on macOS.
+
+**Important:** Do NOT start Homebrew PostgreSQL (`brew services start postgresql@15`) — it will grab port 5432 and block the Docker database.
 
 **Connection string:** `postgresql://yodabuffett:password@localhost:5432/yodabuffett`
 **Config file:** `backend/.env`
@@ -19,17 +19,20 @@ The platform runs **natively on macOS** with three components:
 
 ## Cold Start (After Reboot)
 
-### Step 1: Start PostgreSQL
+### Step 1: Start PostgreSQL (Docker)
 ```bash
-brew services start postgresql@15
+# Start the database container
+docker start yodabuffett-db
 
-# Verify
-brew services list | grep postgresql
-# Expected: postgresql@15 started
+# Verify it's running
+docker ps | grep yodabuffett-db
+# Expected: yodabuffett-db ... Up ... 0.0.0.0:5432->5432/tcp
 
-# Or check directly
-/opt/homebrew/opt/postgresql@15/bin/pg_isready -h localhost -p 5432
-# Expected: localhost:5432 - accepting connections
+# Test connectivity
+PGPASSWORD=password psql -U yodabuffett -h localhost -p 5432 -d yodabuffett -c "SELECT 1"
+
+# IMPORTANT: Do NOT start Homebrew PostgreSQL — it will conflict on port 5432
+# If you accidentally started it: brew services stop postgresql@15
 ```
 
 ### Step 2: Verify Daily Workers
@@ -303,19 +306,21 @@ npm run build
 # Check if something else is on port 5432
 lsof -i :5432
 
-# Start via Homebrew
-brew services start postgresql@15
-
-# Check logs
-tail -50 /opt/homebrew/var/log/postgresql@15.log
-
-# If data directory is corrupted
+# If Homebrew PostgreSQL grabbed the port, stop it first
 brew services stop postgresql@15
-/opt/homebrew/opt/postgresql@15/bin/pg_resetwal /opt/homebrew/var/postgresql@15
+
+# Start the Docker container
+docker start yodabuffett-db
+
+# Check container logs
+docker logs yodabuffett-db --tail 50
+
+# Verify data volume still exists
+docker volume ls | grep postgres
 ```
 
 ### Workers failing
-Most common cause: **PostgreSQL is not running.** Start it first.
+Most common cause: **PostgreSQL container is not running.** Start it first: `docker start yodabuffett-db`
 
 ```bash
 # Check error logs for the specific worker
@@ -348,7 +353,7 @@ tar -czf archive_$(date +%Y%m%d).tar.gz daily-*.log
 
 ### Database backup
 ```bash
-/opt/homebrew/opt/postgresql@15/bin/pg_dump -U yodabuffett yodabuffett > backup_$(date +%Y%m%d).sql
+docker exec yodabuffett-db pg_dump -U yodabuffett yodabuffett > backup_$(date +%Y%m%d).sql
 ```
 
 ---
@@ -380,17 +385,33 @@ ANTHROPIC_API_KEY=sk-ant-...  # For analysis (optional)
 
 ---
 
-## Docker (Optional)
+## Docker
 
-Docker is **not used** by the current production setup. Configs exist in `backend/docker/` for future cloud deployment.
+### What runs in Docker
+- **PostgreSQL** — container `yodabuffett-db`, port 5432. This is the production database.
 
+### What does NOT run in Docker
+- Daily workers (macOS LaunchAgents)
+- Screener app (native Python/Node)
+- All Python scripts
+
+### Docker commands
 ```bash
-# If you ever want to use Docker workers (not currently needed)
-cd /Users/jdandemar/Documents/YodaBuffett/backend/docker
-docker-compose up -d
-docker-compose ps
-docker-compose logs -f
-docker-compose down
+# Start database
+docker start yodabuffett-db
 
-# Note: Docker PostgreSQL uses port 5433 to avoid conflict with native on 5432
+# Stop database
+docker stop yodabuffett-db
+
+# Check database container
+docker ps | grep yodabuffett-db
+
+# View database logs
+docker logs yodabuffett-db --tail 50
+
+# Database shell
+docker exec -it yodabuffett-db psql -U yodabuffett -d yodabuffett
 ```
+
+### Additional Docker configs
+Worker orchestration configs exist in `backend/docker/docker-compose.yml` for future cloud deployment but are not actively used. The compose file defines a separate PostgreSQL service on port 5433 — this is NOT the production database.

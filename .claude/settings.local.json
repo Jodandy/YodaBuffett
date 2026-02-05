@@ -25,7 +25,10 @@
       "Bash(/opt/homebrew/opt/postgresql@15/bin/pg_isready:*)",
       "Bash(lsof:*)",
       "Bash(wc:*)",
-      "Bash(du:*)"
+      "Bash(du:*)",
+      "Bash(docker inspect:*)",
+      "Bash(/opt/homebrew/opt/postgresql@15/bin/psql:*)",
+      "Bash(PGPASSWORD=password /opt/homebrew/opt/postgresql@15/bin/psql:*)"
     ],
     "deny": []
   }
