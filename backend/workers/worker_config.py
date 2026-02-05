@@ -239,11 +239,11 @@ EXAMPLE_ENV_VARS = {
     "LOG_LEVEL": "INFO",
     "WORKER_NAME": "daily-event-worker",
     
-    "DB_HOST": "postgres.example.com",
-    "DB_PORT": "5432", 
+    "DB_HOST": "localhost",
+    "DB_PORT": "5432",
     "DB_NAME": "yodabuffett",
-    "DB_USER": "worker_user",
-    "DB_PASSWORD": "secure_password",
+    "DB_USER": "yodabuffett",
+    "DB_PASSWORD": "password",
     
     "SCHEDULER_LOOK_AHEAD_DAYS": "3",
     "SCHEDULER_LOOK_BACK_DAYS": "1",

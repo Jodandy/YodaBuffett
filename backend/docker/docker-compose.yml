@@ -9,7 +9,7 @@ services:
     environment:
       POSTGRES_DB: yodabuffett
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-dev_password}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -44,7 +44,7 @@ services:
       DB_PORT: 5432
       DB_NAME: yodabuffett
       DB_USER: postgres
-      DB_PASSWORD: ${DB_PASSWORD:-dev_password}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
       
       # Scheduler Configuration
       USE_CALENDAR_TARGETING: ${USE_CALENDAR_TARGETING:-true}
@@ -117,7 +117,7 @@ services:
       DB_PORT: 5432
       DB_NAME: yodabuffett
       DB_USER: postgres
-      DB_PASSWORD: ${DB_PASSWORD:-dev_password}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
       
       # Scheduler Configuration
       USE_CALENDAR_TARGETING: ${USE_CALENDAR_TARGETING:-true}
@@ -176,7 +176,7 @@ services:
       DB_PORT: 5432
       DB_NAME: yodabuffett
       DB_USER: postgres
-      DB_PASSWORD: ${DB_PASSWORD:-dev_password}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
       
       # Monitoring Configuration
       MONITOR_INTERVAL_HOURS: 24
@@ -223,7 +223,7 @@ services:
       DB_PORT: 5432
       DB_NAME: yodabuffett
       DB_USER: postgres
-      DB_PASSWORD: ${DB_PASSWORD:-dev_password}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
       
       # Scanner Configuration
       WEEKLY_SAMPLE_SIZE: ${WEEKLY_SAMPLE_SIZE:-50}
@@ -278,7 +278,7 @@ services:
       DB_PORT: 5432
       DB_NAME: yodabuffett
       DB_USER: postgres
-      DB_PASSWORD: ${DB_PASSWORD:-dev_password}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
       
       # Market Data Configuration
       COLLECTION_INTERVAL_MINUTES: ${PRICE_COLLECTION_INTERVAL:-5}
@@ -328,7 +328,7 @@ services:
       DB_PORT: 5432
       DB_NAME: yodabuffett
       DB_USER: postgres
-      DB_PASSWORD: ${DB_PASSWORD:-dev_password}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
       
       # Cleanup Configuration
       RETENTION_DAYS: ${DATA_RETENTION_DAYS:-365}
@@ -377,7 +377,7 @@ services:
       DB_PORT: 5432
       DB_NAME: yodabuffett
       DB_USER: postgres
-      DB_PASSWORD: ${DB_PASSWORD:-dev_password}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
       
       # Management Configuration
       SCHEDULER_ENABLED: ${ENABLE_SCHEDULER:-true}
@@ -430,7 +430,7 @@ services:
       DB_PORT: 5432
       DB_NAME: yodabuffett
       DB_USER: yoda
-      DB_PASSWORD: buffett123
+      DB_PASSWORD: password
       
       # Scheduler Configuration
       DAILY_RUN_TIME: ${DAILY_RUN_TIME:-06:00}
@@ -493,7 +493,7 @@ services:
       DB_PORT: 5432
       DB_NAME: yodabuffett
       DB_USER: yoda
-      DB_PASSWORD: buffett123
+      DB_PASSWORD: password
       
       # Market Data Scheduler Configuration
       DAILY_RUN_TIME: ${MARKET_DATA_RUN_TIME:-06:30}
@@ -554,7 +554,7 @@ services:
       DB_PORT: 5432
       DB_NAME: yodabuffett
       DB_USER: postgres
-      DB_PASSWORD: ${DB_PASSWORD:-dev_password}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
       
       # All worker types available for testing
       AVAILABLE_WORKERS: "all"

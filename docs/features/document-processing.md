@@ -12,7 +12,7 @@ cd backend
 source venv/bin/activate
 
 # Verify database connection
-psql postgresql://yoda:buffett123@localhost:5432/yodabuffett
+psql postgresql://yodabuffett:password@localhost:5432/yodabuffett
 
 # Create processing state tables (run once)
 PYTHONPATH=. python3 domains/document_intelligence/database_processing_state.py
@@ -215,7 +215,7 @@ PYTHONPATH=. python3 domains/document_intelligence/cli_stateful.py status
 ### Troubleshooting Commands
 ```bash
 # Reset stuck processing status
-psql postgresql://yoda:buffett123@localhost:5432/yodabuffett
+psql postgresql://yodabuffett:password@localhost:5432/yodabuffett
 UPDATE document_processing_state 
 SET processing_status = 'discovered' 
 WHERE processing_status = 'processing' 
@@ -260,7 +260,7 @@ WHERE processing_status = 'failed';
 ### Manual Recovery
 ```bash
 # View failed documents
-psql postgresql://yoda:buffett123@localhost:5432/yodabuffett
+psql postgresql://yodabuffett:password@localhost:5432/yodabuffett
 SELECT company_name, document_type, last_error, attempt_count 
 FROM document_processing_state 
 WHERE processing_status = 'failed' 

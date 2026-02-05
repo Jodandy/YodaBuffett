@@ -203,7 +203,7 @@ python scripts/manage_workers.py health-check             # System diagnostics
 WORKER_MODE=production
 LOG_LEVEL=INFO
 DB_HOST=postgres.production.com
-DB_PASSWORD=secure_production_password
+DB_PASSWORD=password
 LOOK_AHEAD_DAYS=3
 RATE_DELAY=2.0
 WEEKLY_SAMPLE_SIZE=50

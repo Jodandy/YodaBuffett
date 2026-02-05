@@ -167,8 +167,8 @@ class WorkerManager:
                 "DB_HOST": os.environ.get("DB_HOST", "postgres"),
                 "DB_PORT": os.environ.get("DB_PORT", "5432"),
                 "DB_NAME": os.environ.get("DB_NAME", "yodabuffett"),
-                "DB_USER": os.environ.get("DB_USER", "postgres"),
-                "DB_PASSWORD": os.environ.get("DB_PASSWORD", "dev_password"),
+                "DB_USER": os.environ.get("DB_USER", "yodabuffett"),
+                "DB_PASSWORD": os.environ.get("DB_PASSWORD", "password"),
                 
                 # Worker-specific config
                 "DATA_VOLUME_PATH": "/app/data",

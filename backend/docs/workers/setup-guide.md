@@ -39,7 +39,7 @@ nano docker/.env
 **Minimal required changes in `.env`:**
 ```bash
 # Set a secure database password
-DB_PASSWORD=your_secure_password_here
+DB_PASSWORD=password
 
 # Update user agent with your info
 USER_AGENT=YodaBuffett-Worker/1.0 (+https://github.com/yourusername/yodabuffett)
@@ -82,8 +82,8 @@ python scripts/manage_workers.py analyze --days 1
 DB_HOST=postgres                    # Use 'localhost' if running PostgreSQL separately
 DB_PORT=5432
 DB_NAME=yodabuffett
-DB_USER=postgres
-DB_PASSWORD=your_secure_password    # REQUIRED - set a strong password
+DB_USER=yodabuffett
+DB_PASSWORD=password
 
 # Database URL is auto-generated from above settings
 ```
@@ -137,8 +137,8 @@ brew install postgresql                         # macOS
 
 # Create database
 sudo -u postgres createdb yodabuffett
-sudo -u postgres psql -c "CREATE USER yoda WITH PASSWORD 'your_password';"
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE yodabuffett TO yoda;"
+sudo -u postgres psql -c "CREATE USER yodabuffett WITH PASSWORD 'password';"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE yodabuffett TO yodabuffett;"
 
 # Run migrations
 cd backend
@@ -162,7 +162,7 @@ pip install -r requirements.txt
 # Set environment variables
 export WORKER_MODE=production
 export DB_HOST=localhost
-export DB_PASSWORD=your_password
+export DB_PASSWORD=password
 export LOG_LEVEL=INFO
 # ... (other variables from .env.example)
 ```
