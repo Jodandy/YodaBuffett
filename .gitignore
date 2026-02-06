@@ -106,7 +106,14 @@ batch_*.py
 *_20*.log
 products/screener/frontend/node_modules/.vite/deps/chunk-2PMNUQTO.js
 
-*/node_modules/*
-products/screener/frontend/node_modules/*
-products/screener/frontend/node_modules*
+# Node modules everywhere
+*/node_modules/
+**/node_modules/
+
+# Products monorepo
+products/node_modules/
+products/packages/*/dist/
+products/apps/*/dist/
+products/apps/*/node_modules/
+pnpm-lock.yaml
 
