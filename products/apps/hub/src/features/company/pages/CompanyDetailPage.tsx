@@ -14,6 +14,24 @@ import { MetricGrid } from '../components/MetricCard'
 import { CompanyTabs } from '../components/CompanyTabs'
 import type { CompanyTab, PriceTimeRange } from '../types'
 
+/**
+ * Format period label with statement type indicator
+ * e.g., "2024-12-31 (FY)" for annual, "2024-09-30 (Q3)" for quarterly
+ */
+function formatPeriodLabel(periodDate: string, statementType: string, fiscalQuarter?: number | null): string {
+  if (statementType === 'annual') {
+    return `${periodDate} (FY)`
+  }
+  // For quarterly, use fiscal quarter if available, otherwise derive from month
+  if (fiscalQuarter) {
+    return `${periodDate} (Q${fiscalQuarter})`
+  }
+  // Fallback: derive quarter from month
+  const month = new Date(periodDate).getMonth() + 1
+  const quarter = Math.ceil(month / 3)
+  return `${periodDate} (Q${quarter})`
+}
+
 export default function CompanyDetailPage() {
   const { symbol } = useParams<{ symbol: string }>()
   const [activeTab, setActiveTab] = useState<CompanyTab>('overview')
@@ -154,7 +172,7 @@ export default function CompanyDetailPage() {
                             <th className="text-left py-2 text-muted-foreground font-medium">Metric</th>
                             {financials.incomeStatements.slice(0, 5).map((stmt, i) => (
                               <th key={i} className="text-right py-2 text-muted-foreground font-medium">
-                                {stmt.periodDate}
+                                {formatPeriodLabel(stmt.periodDate, stmt.statementType, stmt.fiscalQuarter)}
                               </th>
                             ))}
                           </tr>
@@ -217,7 +235,7 @@ export default function CompanyDetailPage() {
                             <th className="text-left py-2 text-muted-foreground font-medium">Metric</th>
                             {financials.balanceSheets.slice(0, 5).map((stmt, i) => (
                               <th key={i} className="text-right py-2 text-muted-foreground font-medium">
-                                {stmt.periodDate}
+                                {formatPeriodLabel(stmt.periodDate, stmt.statementType)}
                               </th>
                             ))}
                           </tr>
@@ -280,7 +298,7 @@ export default function CompanyDetailPage() {
                             <th className="text-left py-2 text-muted-foreground font-medium">Metric</th>
                             {financials.cashFlowStatements.slice(0, 5).map((stmt, i) => (
                               <th key={i} className="text-right py-2 text-muted-foreground font-medium">
-                                {stmt.periodDate}
+                                {formatPeriodLabel(stmt.periodDate, stmt.statementType)}
                               </th>
                             ))}
                           </tr>
