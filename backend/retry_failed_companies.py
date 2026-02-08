@@ -361,37 +361,104 @@ class SmartRetrySystem:
         
         print(f"\n💾 Full results saved to: retry_results_{self.session_id}.json")
 
+async def get_companies_with_zero_documents() -> List[Dict]:
+    """Query company_master for companies with 0 documents in nordic_documents"""
+    import asyncpg
+
+    print("🔍 Querying company_master for companies with 0 documents...")
+
+    conn = await asyncpg.connect('postgresql://yodabuffett:password@localhost:5432/yodabuffett')
+
+    try:
+        # Get companies from company_master that have no documents in nordic_documents
+        query = """
+        SELECT
+            cm.id,
+            cm.company_name as name,
+            cm.primary_ticker as ticker,
+            cm.country,
+            COALESCE(doc_counts.doc_count, 0) as doc_count
+        FROM company_master cm
+        LEFT JOIN (
+            SELECT company_id, COUNT(*) as doc_count
+            FROM nordic_documents
+            GROUP BY company_id
+        ) doc_counts ON cm.id = doc_counts.company_id
+        WHERE cm.country IN ('SE', 'Sverige', 'Sweden')
+          AND (doc_counts.doc_count IS NULL OR doc_counts.doc_count = 0)
+        ORDER BY cm.company_name
+        """
+
+        rows = await conn.fetch(query)
+
+        failed_companies = []
+        for row in rows:
+            # Generate slug from company name
+            from nordic_ingestion.common.company_mappings import get_mfn_slug
+            slug = get_mfn_slug(row['name'])
+
+            failed_companies.append({
+                'slug': slug,
+                'name': row['name'],
+                'ticker': row['ticker'],
+                'original_items_found': 0,
+                'original_error': None,
+                'documents_stored': 0
+            })
+
+        print(f"📋 Found {len(failed_companies)} companies with 0 documents")
+        return failed_companies
+
+    finally:
+        await conn.close()
+
+
 async def main():
     """Main retry execution"""
-    
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Retry failed company document collection')
+    parser.add_argument('--file', '-f', type=str, help='Historical ingestion JSON file to load failed companies from')
+    parser.add_argument('--from-db', action='store_true', help='Query company_master for companies with 0 documents')
+    parser.add_argument('--limit', '-n', type=int, default=20, help='Max companies to retry (default: 20)')
+    parser.add_argument('--all', action='store_true', help='Retry all failed companies (no limit)')
+    args = parser.parse_args()
+
     # Initialize retry system
     retry_system = SmartRetrySystem()
-    
-    # Load failed companies from historical data
-    historical_file = "historical_ingestion_20250828_232443.json"
-    failed_companies = retry_system.load_failed_companies(historical_file)
-    
+
+    # Load failed companies
+    if args.from_db:
+        failed_companies = await get_companies_with_zero_documents()
+    elif args.file:
+        failed_companies = retry_system.load_failed_companies(args.file)
+    else:
+        # Default: try from database
+        print("No source specified, querying database for companies with 0 documents...")
+        failed_companies = await get_companies_with_zero_documents()
+
     if not failed_companies:
         print("❌ No failed companies found to retry")
         return
-    
-    # Ask user how many to process
+
+    # Determine how many to process
     total_failed = len(failed_companies)
     print(f"\nFound {total_failed} companies that need retry.")
-    
-    try:
-        max_retry = input(f"How many to retry? (1-{total_failed}, press Enter for 20): ").strip()
-        max_retry = int(max_retry) if max_retry else 20
-        max_retry = min(max_retry, total_failed)
-    except:
-        max_retry = 20
-    
+
+    if args.all:
+        max_retry = total_failed
+    else:
+        max_retry = min(args.limit, total_failed)
+
+    print(f"Will retry {max_retry} companies.")
+
     # Run retry batch
     await retry_system.run_retry_batch(failed_companies, max_retry)
-    
+
     # Save final results and show summary
     retry_system.save_progress()
     retry_system.print_summary()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

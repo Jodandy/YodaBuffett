@@ -7,6 +7,7 @@ import {
   BellIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  FunnelIcon,
 } from '@heroicons/react/24/outline'
 
 interface SidebarProps {
@@ -16,6 +17,7 @@ interface SidebarProps {
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
+  { name: 'Screener', href: '/screener', icon: FunnelIcon },
   { name: 'Portfolios', href: '/portfolios', icon: BriefcaseIcon },
   { name: 'Watchlist', href: '/watchlist', icon: EyeIcon, disabled: true },
   { name: 'Alerts', href: '/alerts', icon: BellIcon, disabled: true },

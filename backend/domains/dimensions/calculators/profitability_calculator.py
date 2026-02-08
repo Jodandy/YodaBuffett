@@ -213,6 +213,7 @@ class ProfitabilityCalculator(BaseDimensionCalculator):
             WHERE symbol = $1
             AND period_date <= $2
             AND period_date >= $3
+            AND statement_type = 'annual'
             ORDER BY period_date DESC
         """, symbol, score_date, start_date)
 
@@ -363,6 +364,7 @@ class ProfitabilityCalculator(BaseDimensionCalculator):
                 WHERE cm.sector = $1
                 AND fs.period_date <= $2
                 AND fs.total_revenue > 0
+                AND fs.statement_type = 'annual'
                 ORDER BY fs.symbol, fs.period_date DESC
             )
             SELECT metric_value FROM latest_financials

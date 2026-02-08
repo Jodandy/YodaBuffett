@@ -159,6 +159,55 @@ Ranked fat pitches with quality tiers
 
 ---
 
+## 📈 Market Data API
+
+REST endpoints for price history, financial statements, documents, and calendar events.
+
+### Architecture
+
+```
+domains/market_data/
+├── schemas.py    # Pydantic response models
+├── router.py     # FastAPI endpoints
+└── __init__.py
+```
+
+### API Endpoints
+
+```
+GET /market-data/prices/{symbol}?days=365      # OHLCV price history
+GET /market-data/financials/{symbol}           # Income, balance sheet, cash flow
+GET /market-data/documents/{symbol}            # Company documents (reports, filings)
+GET /market-data/events/{symbol}               # Calendar events (earnings, dividends, AGMs)
+```
+
+### Data Sources
+
+| Endpoint | Tables | Notes |
+|----------|--------|-------|
+| prices | `daily_price_data` | Direct symbol lookup |
+| financials | `financial_statements`, `balance_sheet_data`, `cash_flow_data` | Direct symbol lookup |
+| documents | `nordic_documents` via `nordic_companies` | Swedish coverage primarily |
+| events | `nordic_calendar_events` via `nordic_companies` | Swedish coverage primarily |
+
+### Usage Example
+
+```bash
+# Price history (30 days)
+curl "http://localhost:8000/api/v1/market-data/prices/ERIC-B?days=30"
+
+# Financial statements
+curl "http://localhost:8000/api/v1/market-data/financials/ERIC-B"
+
+# Documents (annual reports, quarterly reports, etc.)
+curl "http://localhost:8000/api/v1/market-data/documents/AAK?limit=20"
+
+# Calendar events
+curl "http://localhost:8000/api/v1/market-data/events/AAK"
+```
+
+---
+
 ## 📊 Dimension Scoring System
 
 14 dimension calculators that score companies 0-100 on various metrics.

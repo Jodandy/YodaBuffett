@@ -14,6 +14,7 @@ from nordic_ingestion.api.router import router as nordic_router
 from domains.portfolio.router import router as portfolio_router
 from domains.screener.router import router as screener_router
 from domains.fat_pitch.router import router as fat_pitch_router
+from domains.market_data.router import router as market_data_router
 from shared.database import init_database
 from shared.monitoring import setup_monitoring
 from shared.config import settings
@@ -38,6 +39,7 @@ async def lifespan(app: FastAPI):
     logging.info("✅ Nordic Ingestion Service: Ready")
     logging.info("✅ Screener Service: Ready")
     logging.info("✅ Fat Pitch Service: Ready")
+    logging.info("✅ Market Data Service: Ready")
     
     yield
     
@@ -83,7 +85,8 @@ async def health_check():
             "research": "up",
             "nordic_ingestion": "up",
             "screener": "up",
-            "fat_pitch": "up"
+            "fat_pitch": "up",
+            "market_data": "up"
         },
         "version": "1.0.0"
     }
@@ -118,6 +121,12 @@ app.include_router(
     tags=["Fat Pitch Service"]
 )
 
+app.include_router(
+    market_data_router,
+    prefix="/api/v1/market-data",
+    tags=["Market Data Service"]
+)
+
 # Root endpoint
 @app.get("/")
 async def root():
@@ -128,7 +137,8 @@ async def root():
             "Nordic Ingestion Service - /api/v1/nordic",
             "Portfolio Service - /api/v1/portfolios",
             "Screener Service - /api/v1/screener, /api/v1/metrics, /api/v1/backtest",
-            "Fat Pitch Service - /api/v1/fat-pitch"
+            "Fat Pitch Service - /api/v1/fat-pitch",
+            "Market Data Service - /api/v1/market-data"
         ],
         "docs": "/docs"
     }

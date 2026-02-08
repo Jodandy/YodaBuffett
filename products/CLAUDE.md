@@ -453,6 +453,8 @@ apps/hub/src/
 ├── app/shell/           # HubShell, Sidebar, TopBar, MainContent
 ├── features/
 │   ├── dashboard/       # Home page
+│   ├── screener/        # Fat Pitch screener grid
+│   ├── company/         # Company detail page (/company/:symbol)
 │   ├── portfolio/       # Multi-portfolio tracker
 │   ├── watchlist/       # (planned)
 │   └── alerts/          # (planned)
@@ -463,3 +465,28 @@ apps/hub/src/
 **Feature Module Pattern:**
 Each feature is self-contained with its own pages, components, hooks, api, and types.
 Features import from `shared/` but never from each other.
+
+### Company Detail Feature
+
+Route: `/company/:symbol` (e.g., `/company/ERIC-B`)
+
+```
+features/company/
+├── api.ts                    # API functions for all company endpoints
+├── hooks/useCompanyDetail.ts # React Query hooks
+├── types/index.ts            # TypeScript types
+├── components/
+│   ├── CompanyHeader.tsx     # Name, symbol, stage badge, tier stars
+│   ├── DimensionGrid.tsx     # All 14 dimension scores with bars
+│   ├── PriceChart.tsx        # Interactive price chart (recharts)
+│   ├── MetricCard.tsx        # Reusable metric display
+│   └── CompanyTabs.tsx       # Tab navigation
+└── pages/
+    └── CompanyDetailPage.tsx # Main page with 4 tabs
+```
+
+**Tabs:**
+- **Overview**: Price chart, key metrics, dimension scores, pitch summary
+- **Financials**: Income statement, balance sheet, cash flow tables
+- **Documents**: Annual reports, quarterly reports, press releases (Swedish companies)
+- **Events**: Earnings dates, dividends, AGMs (Swedish companies)

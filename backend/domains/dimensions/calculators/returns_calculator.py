@@ -227,6 +227,7 @@ class ReturnsCalculator(BaseDimensionCalculator):
             WHERE symbol = $1
             AND period_date <= $2
             AND period_date >= $3
+            AND statement_type = 'annual'
             ORDER BY period_date DESC
         """, symbol, score_date, start_date)
 
@@ -254,6 +255,7 @@ class ReturnsCalculator(BaseDimensionCalculator):
             WHERE symbol = $1
             AND period_date <= $2
             AND period_date >= $3
+            AND statement_type = 'annual'
             ORDER BY period_date DESC
         """, symbol, score_date, start_date)
 
@@ -554,7 +556,7 @@ class ReturnsCalculator(BaseDimensionCalculator):
     ) -> List[float]:
         """Get latest metric values for all companies in sector."""
 
-        # Different queries for different metrics
+        # Different queries for different metrics (using annual data only)
         if metric_name == "roe":
             query = """
                 WITH latest_data AS (
@@ -567,6 +569,7 @@ class ReturnsCalculator(BaseDimensionCalculator):
                     WHERE cm.sector = $1
                     AND fs.period_date <= $2
                     AND bs.total_equity > 0
+                    AND fs.statement_type = 'annual'
                     ORDER BY fs.symbol, fs.period_date DESC
                 )
                 SELECT metric_value FROM latest_data
@@ -585,6 +588,7 @@ class ReturnsCalculator(BaseDimensionCalculator):
                     WHERE cm.sector = $1
                     AND fs.period_date <= $2
                     AND bs.total_assets > 0
+                    AND fs.statement_type = 'annual'
                     ORDER BY fs.symbol, fs.period_date DESC
                 )
                 SELECT metric_value FROM latest_data
@@ -604,6 +608,7 @@ class ReturnsCalculator(BaseDimensionCalculator):
                     WHERE cm.sector = $1
                     AND fs.period_date <= $2
                     AND bs.total_equity > 0
+                    AND fs.statement_type = 'annual'
                     ORDER BY fs.symbol, fs.period_date DESC
                 )
                 SELECT metric_value FROM latest_data

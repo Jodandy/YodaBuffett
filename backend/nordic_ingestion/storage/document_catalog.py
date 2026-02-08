@@ -7,7 +7,7 @@ import json
 from datetime import datetime, date
 from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, and_
+from sqlalchemy import select, update, and_, text, func, or_
 from nordic_ingestion.common.company_mappings import COMPANY_SLUG_TO_NAME
 
 from shared.database import AsyncSessionLocal
@@ -262,98 +262,125 @@ class DocumentCatalogStorage:
             return "general_communication"
     
     async def _find_company_by_name(
-        self, 
-        db: AsyncSession, 
+        self,
+        db: AsyncSession,
         company_name: str
     ) -> Optional[NordicCompany]:
-        """Find company by name with comprehensive fuzzy matching"""
-        
-        from sqlalchemy import func, or_
-        import re
-        
+        """
+        Find company by name with comprehensive fuzzy matching.
+
+        IMPORTANT: This searches company_master (source of truth) and returns
+        a NordicCompany-like object with the correct company_id for storage.
+        Handles stock class suffixes (A, B, Pref) by searching for base company.
+        """
         print(f"🔍 Looking for company: '{company_name}'")
-        
-        # 1. Direct name match first (case-insensitive)
-        result = await db.execute(
-            select(NordicCompany).where(func.lower(NordicCompany.name) == func.lower(company_name))
-            .order_by(NordicCompany.created_at)  # Pick the first created
-            .limit(1)  # Handle multi-listed companies like Better Collective
-        )
-        company = result.scalar_one_or_none()
-        if company:
-            print(f"✅ Direct match found: {company.name}")
-            return company
-            
-        # 2. Expanded hardcoded mappings for known tricky cases
-        # Use centralized mappings for consistency
+
+        # Strip stock class suffixes to find base company
+        base_name = company_name
+        stock_class_suffixes = [" Pref B", " Pref A", " Pref", " SDB", " A", " B", " C", " D"]
+        for suffix in stock_class_suffixes:
+            if base_name.endswith(suffix):
+                base_name = base_name[:-len(suffix)].strip()
+                print(f"📊 Stripped stock class: '{company_name}' → '{base_name}'")
+                break
+
+        # Search in company_master (source of truth) using raw SQL for flexibility
+        search_names = [company_name, base_name] if base_name != company_name else [company_name]
+
+        for search_name in search_names:
+            # 1. Try exact match first
+            result = await db.execute(
+                text("""
+                    SELECT id, company_name as name, primary_ticker as ticker, country
+                    FROM company_master
+                    WHERE LOWER(company_name) = LOWER(:name)
+                    LIMIT 1
+                """),
+                {"name": search_name}
+            )
+            row = result.fetchone()
+            if row:
+                print(f"✅ Direct match in company_master: {row.name}")
+                return self._row_to_company(row)
+
+        # 2. Try pattern matching (company name contains search term)
+        for search_name in search_names:
+            result = await db.execute(
+                text("""
+                    SELECT id, company_name as name, primary_ticker as ticker, country
+                    FROM company_master
+                    WHERE LOWER(company_name) LIKE LOWER(:pattern)
+                    ORDER BY LENGTH(company_name)
+                    LIMIT 5
+                """),
+                {"pattern": f"%{search_name}%"}
+            )
+            rows = result.fetchall()
+            if rows:
+                # Pick the best match - prefer exact base name match, then shortest
+                for row in rows:
+                    row_base = row.name
+                    for suffix in stock_class_suffixes:
+                        if row_base.endswith(suffix):
+                            row_base = row_base[:-len(suffix)].strip()
+                            break
+                    if row_base.lower() == base_name.lower():
+                        print(f"✅ Base name match in company_master: {row.name}")
+                        return self._row_to_company(row)
+
+                # Otherwise pick shortest (most specific)
+                best = rows[0]
+                print(f"✅ Pattern match in company_master: {best.name}")
+                return self._row_to_company(best)
+
+        # 3. Try centralized slug mappings
         name_variations = COMPANY_SLUG_TO_NAME
-        
-        company_name_lower = company_name.lower()
+        company_name_lower = company_name.lower().replace(' ', '-')
+
         if company_name_lower in name_variations:
             target_name = name_variations[company_name_lower]
             result = await db.execute(
-                select(NordicCompany).where(func.lower(NordicCompany.name) == func.lower(target_name))
+                text("""
+                    SELECT id, company_name as name, primary_ticker as ticker, country
+                    FROM company_master
+                    WHERE LOWER(company_name) = LOWER(:name)
+                    LIMIT 1
+                """),
+                {"name": target_name}
             )
-            company = result.scalar_one_or_none()
-            if company:
-                print(f"✅ Hardcoded mapping found: {company.name}")
-                return company
-        
-        # 2.5. Try converting spaces to hyphens for slug format
-        # e.g., "Atlas Copco" → "atlas-copco"
-        if ' ' in company_name and company_name_lower not in name_variations:
-            slug_version = company_name.lower().replace(' ', '-')
-            if slug_version in name_variations:
-                target_name = name_variations[slug_version]
-                print(f"🔍 Trying slug version: {slug_version} → {target_name}")
-                
-                result = await db.execute(
-                    select(NordicCompany).where(
-                        func.lower(NordicCompany.name) == func.lower(target_name)
-                    )
-                )
-                company = result.scalar_one_or_none()
-                if company:
-                    print(f"✅ Found via slug mapping: {company.name}")
-                    return company
-        
-        # 3. Normalize MFN name and search with pattern matching
-        normalized_name = self._normalize_company_name(company_name)
-        print(f"🔄 Normalized name: '{normalized_name}'")
-        
-        # Try exact match on normalized name
+            row = result.fetchone()
+            if row:
+                print(f"✅ Slug mapping match: {row.name}")
+                return self._row_to_company(row)
+
+        # 4. Fallback to nordic_companies (legacy)
         result = await db.execute(
-            select(NordicCompany).where(func.lower(NordicCompany.name) == func.lower(normalized_name))
+            select(NordicCompany).where(
+                or_(
+                    func.lower(NordicCompany.name) == func.lower(company_name),
+                    func.lower(NordicCompany.name) == func.lower(base_name),
+                    func.lower(NordicCompany.name).contains(base_name.lower())
+                )
+            ).order_by(func.length(NordicCompany.name)).limit(1)
         )
         company = result.scalar_one_or_none()
         if company:
-            print(f"✅ Normalized match found: {company.name}")
+            print(f"⚠️ Fallback to nordic_companies: {company.name}")
             return company
-        
-        # 4. Flexible pattern matching - search for companies containing key terms
-        search_terms = self._extract_search_terms(company_name)
-        print(f"🔍 Search terms: {search_terms}")
-        
-        if search_terms:
-            # Build a query that searches for any of the search terms
-            conditions = []
-            for term in search_terms:
-                conditions.append(func.lower(NordicCompany.name).contains(term.lower()))
-            
-            result = await db.execute(
-                select(NordicCompany).where(or_(*conditions))
-            )
-            companies = result.scalars().all()
-            
-            if companies:
-                print(f"✅ Pattern matches found: {len(companies)} companies")
-                # Return the best match (shortest name = most specific)
-                best_match = min(companies, key=lambda c: len(c.name))
-                print(f"✅ Best match selected: {best_match.name}")
-                return best_match
-        
+
         print(f"❌ No match found for '{company_name}'")
         return None
+
+    def _row_to_company(self, row) -> NordicCompany:
+        """Convert a company_master row to a NordicCompany-like object for storage"""
+        # Create a minimal NordicCompany object with the company_master ID
+        company = NordicCompany(
+            id=row.id,
+            name=row.name,
+            ticker=row.ticker if hasattr(row, 'ticker') else None,
+            country=row.country if hasattr(row, 'country') else 'SE'
+        )
+        return company
         
     def _normalize_company_name(self, name: str) -> str:
         """Normalize MFN company name to database format"""

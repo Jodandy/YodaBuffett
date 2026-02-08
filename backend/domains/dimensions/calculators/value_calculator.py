@@ -252,7 +252,7 @@ class ValueCalculator(BaseDimensionCalculator):
         symbol: str,
         score_date: date
     ) -> Optional[Dict]:
-        """Get most recent financial statement."""
+        """Get most recent annual financial statement."""
         row = await self.db_conn.fetchrow("""
             SELECT
                 period_date,
@@ -261,6 +261,7 @@ class ValueCalculator(BaseDimensionCalculator):
                 ebitda
             FROM financial_statements
             WHERE symbol = $1 AND period_date <= $2
+            AND statement_type = 'annual'
             ORDER BY period_date DESC
             LIMIT 1
         """, symbol, score_date)
@@ -271,7 +272,7 @@ class ValueCalculator(BaseDimensionCalculator):
         symbol: str,
         score_date: date
     ) -> Optional[Dict]:
-        """Get most recent balance sheet."""
+        """Get most recent annual balance sheet."""
         row = await self.db_conn.fetchrow("""
             SELECT
                 period_date,
@@ -282,6 +283,7 @@ class ValueCalculator(BaseDimensionCalculator):
                 cash_and_equivalents
             FROM balance_sheet_data
             WHERE symbol = $1 AND period_date <= $2
+            AND statement_type = 'annual'
             ORDER BY period_date DESC
             LIMIT 1
         """, symbol, score_date)
@@ -339,10 +341,10 @@ class ValueCalculator(BaseDimensionCalculator):
 
             market_cap = float(price_at_period) * float(shares)
 
-            # P/E ratio
+            # P/E ratio (using annual data, no annualization needed)
             net_income = fin.get("net_income")
             if net_income and net_income > 0:  # Only positive earnings
-                pe = market_cap / (float(net_income) * 4)  # Annualize if quarterly
+                pe = market_cap / float(net_income)
                 if 0 < pe < 100:
                     metrics["pe_ratio"].append((period, pe))
 
@@ -354,20 +356,20 @@ class ValueCalculator(BaseDimensionCalculator):
                     if 0 < pb < 20:
                         metrics["pb_ratio"].append((period, pb))
 
-            # P/S ratio
+            # P/S ratio (using annual data, no annualization needed)
             revenue = fin.get("total_revenue")
             if revenue and revenue > 0:
-                ps = market_cap / (float(revenue) * 4)  # Annualize
+                ps = market_cap / float(revenue)
                 if 0 < ps < 50:
                     metrics["ps_ratio"].append((period, ps))
 
-            # EV/EBITDA
+            # EV/EBITDA (using annual data, no annualization needed)
             ebitda = fin.get("ebitda")
             if ebitda and ebitda > 0 and bs:
                 debt = bs.get("total_debt") or 0
                 cash = bs.get("cash_and_equivalents") or 0
                 ev = market_cap + float(debt) - float(cash)
-                ev_ebitda = ev / (float(ebitda) * 4)  # Annualize
+                ev_ebitda = ev / float(ebitda)
                 if 0 < ev_ebitda < 50:
                     metrics["ev_ebitda"].append((period, ev_ebitda))
 
@@ -401,13 +403,14 @@ class ValueCalculator(BaseDimensionCalculator):
         score_date: date,
         years: int = 3
     ) -> List[Dict]:
-        """Get historical financial statements."""
+        """Get historical annual financial statements."""
         start_date = score_date - timedelta(days=years * 365)
         rows = await self.db_conn.fetch("""
             SELECT period_date, total_revenue, net_income, ebitda
             FROM financial_statements
             WHERE symbol = $1
             AND period_date BETWEEN $2 AND $3
+            AND statement_type = 'annual'
             ORDER BY period_date DESC
         """, symbol, start_date, score_date)
         return [dict(row) for row in rows]
@@ -418,13 +421,14 @@ class ValueCalculator(BaseDimensionCalculator):
         score_date: date,
         years: int = 3
     ) -> List[Dict]:
-        """Get historical balance sheets."""
+        """Get historical annual balance sheets."""
         start_date = score_date - timedelta(days=years * 365)
         rows = await self.db_conn.fetch("""
             SELECT period_date, total_equity, total_debt, shares_outstanding, cash_and_equivalents
             FROM balance_sheet_data
             WHERE symbol = $1
             AND period_date BETWEEN $2 AND $3
+            AND statement_type = 'annual'
             ORDER BY period_date DESC
         """, symbol, start_date, score_date)
         return [dict(row) for row in rows]

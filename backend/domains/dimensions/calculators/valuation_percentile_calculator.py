@@ -283,6 +283,7 @@ class ValuationPercentileCalculator(BaseDimensionCalculator):
             SELECT total_revenue, net_income, ebitda
             FROM financial_statements
             WHERE symbol = $1 AND period_date <= $2
+            AND statement_type = 'annual'
             ORDER BY period_date DESC LIMIT 1
         """, symbol, score_date)
         return dict(row) if row else None
@@ -292,6 +293,7 @@ class ValuationPercentileCalculator(BaseDimensionCalculator):
             SELECT total_equity, total_debt, cash_and_equivalents, shares_outstanding
             FROM balance_sheet_data
             WHERE symbol = $1 AND period_date <= $2
+            AND statement_type = 'annual'
             ORDER BY period_date DESC LIMIT 1
         """, symbol, score_date)
         return dict(row) if row else None
@@ -317,13 +319,14 @@ class ValuationPercentileCalculator(BaseDimensionCalculator):
         if not prices:
             return []
 
-        # Get all financial periods
+        # Get all annual financial periods
         financials = await self.db_conn.fetch("""
             SELECT period_date, total_revenue, net_income, ebitda
             FROM financial_statements
             WHERE symbol = $1
             AND period_date <= $2
             AND period_date >= $2 - INTERVAL '%s years'
+            AND statement_type = 'annual'
             ORDER BY period_date
         """ % years, fin_symbol, score_date)
 
@@ -333,6 +336,7 @@ class ValuationPercentileCalculator(BaseDimensionCalculator):
             WHERE symbol = $1
             AND period_date <= $2
             AND period_date >= $2 - INTERVAL '%s years'
+            AND statement_type = 'annual'
             ORDER BY period_date
         """ % years, fin_symbol, score_date)
 

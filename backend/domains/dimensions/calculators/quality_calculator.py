@@ -237,7 +237,7 @@ class QualityCalculator(BaseDimensionCalculator):
         if not symbol:
             return {}
 
-        # Fetch latest financial statement and balance sheet
+        # Fetch latest annual financial statement and balance sheet
         row = await self.db_conn.fetchrow("""
             WITH latest_financials AS (
                 SELECT
@@ -248,6 +248,7 @@ class QualityCalculator(BaseDimensionCalculator):
                 FROM financial_statements fs
                 WHERE fs.symbol = $1
                 AND fs.period_date <= $2
+                AND fs.statement_type = 'annual'
                 ORDER BY fs.period_date DESC
                 LIMIT 1
             ),
@@ -261,6 +262,7 @@ class QualityCalculator(BaseDimensionCalculator):
                 FROM balance_sheet_data bs
                 WHERE bs.symbol = $1
                 AND bs.period_date <= $2
+                AND bs.statement_type = 'annual'
                 ORDER BY bs.period_date DESC
                 LIMIT 1
             )
@@ -325,6 +327,7 @@ class QualityCalculator(BaseDimensionCalculator):
                     fs.operating_income
                 FROM financial_statements fs
                 WHERE fs.period_date <= $1
+                AND fs.statement_type = 'annual'
                 ORDER BY fs.symbol, fs.period_date DESC
             ),
             latest_balance AS (
@@ -336,6 +339,7 @@ class QualityCalculator(BaseDimensionCalculator):
                     bs.current_liabilities
                 FROM balance_sheet_data bs
                 WHERE bs.period_date <= $1
+                AND bs.statement_type = 'annual'
                 ORDER BY bs.symbol, bs.period_date DESC
             )
             SELECT

@@ -253,6 +253,35 @@ COMPANY_SLUG_TO_NAME = {
     "clean-motion": "Clean Motion",
     "clean-oil-technology": "Clean Oil Technology",
     
+    # Companies with A/B stock classes where MFN uses base name
+    "transferator": "Transferator A",
+
+    # Major companies with very different MFN slugs
+    "boliden": "Boliden AB",
+    "sca": "Svenska Cellulosa Aktiebolaget SCA",
+    "telia": "Telia Company",
+    "intrum": "Intrum",
+    "lindab": "Lindab",
+    "loomis": "Loomis",
+    "vitec": "Vitec Software",
+    "sagax": "Sagax A",
+    "sensys-gatso": "Sensys Gatso",
+    "platzer": "Platzer Fastigheter",
+    "dios": "Diös Fastigheter",
+    "corem": "Corem Property A",
+    "samhallsbyggnadsbolaget": "Samhällsbyggnadsbolag B",
+    "sbb": "Samhällsbyggnadsbolag B",
+    "fastpartner": "Fastpartner A",
+    "wastbygg": "Wästbygg",
+    "xspray": "Xspray Pharma",
+    "checkin-com": "checkin.com",
+    "iar-systems": "I.A.R Systems",
+    "industrivarden": "Industrivärden C",
+    "nilorngruppen": "Nilörngruppen",
+    "kopparbergs": "Kopparbergs",
+    "bactiguard": "Bactiguard",
+    "arise": "Arise Windpower",
+
     # Number prefixes
     "2curex": "2cureX",
     "24storage": "24Storage",
@@ -339,14 +368,35 @@ def get_mfn_slug(company_name: str) -> str:
     # Direct lookup
     if company_name in COMPANY_NAME_TO_SLUG:
         return COMPANY_NAME_TO_SLUG[company_name]
-    
-    # Try normalized version
-    normalized = company_name.lower().replace(' ', '-')
+
+    # FIRST: Strip stock class suffixes from original name BEFORE normalization
+    # These are share classes, not part of the company name on MFN
+    base_name = company_name
+
+    # Stock class suffixes (must check longer ones first)
+    stock_class_suffixes = [
+        " Pref B", " Pref A", " Pref",  # Preference shares
+        " SDB",  # Swedish Depositary Receipts (foreign companies)
+        " A", " B", " C", " D",  # Stock classes
+    ]
+    for suffix in stock_class_suffixes:
+        if base_name.endswith(suffix):
+            base_name = base_name[:-len(suffix)].strip()
+            break  # Only strip one suffix
+
+    # Check if the base name (without stock class) has a direct mapping
+    if base_name in COMPANY_NAME_TO_SLUG:
+        return COMPANY_NAME_TO_SLUG[base_name]
+
+    # Normalize: lowercase, spaces to hyphens, & to and
+    normalized = base_name.lower().replace(' ', '-')
     normalized = normalized.replace('&', 'and')
-    
-    # Remove common suffixes
-    for suffix in [" ab", " ltd", " asa", " publ", " group", " holding"]:
+
+    # Remove common corporate suffixes (now properly hyphenated)
+    corporate_suffixes = ["-ab", "-ltd", "-asa", "-publ", "-group", "-holding"]
+    for suffix in corporate_suffixes:
         if normalized.endswith(suffix):
             normalized = normalized[:-len(suffix)]
-    
+            break
+
     return normalized

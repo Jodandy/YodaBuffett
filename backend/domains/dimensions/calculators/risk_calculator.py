@@ -503,7 +503,7 @@ class RiskCalculator(BaseDimensionCalculator):
             return None
 
     async def _get_leverage(self, company_id: str, score_date: date) -> Optional[Dict]:
-        """Get debt-to-equity ratio from balance sheet data."""
+        """Get debt-to-equity ratio from annual balance sheet data."""
 
         query = """
         SELECT bs.total_debt, bs.total_equity, bs.total_assets
@@ -511,6 +511,7 @@ class RiskCalculator(BaseDimensionCalculator):
         JOIN company_master cm ON bs.symbol = cm.primary_ticker
         WHERE cm.id = $1
         AND bs.period_date <= $2
+        AND bs.statement_type = 'annual'
         ORDER BY bs.period_date DESC
         LIMIT 1
         """
@@ -566,6 +567,7 @@ class RiskCalculator(BaseDimensionCalculator):
         JOIN company_master cm ON bs.symbol = cm.primary_ticker
         WHERE cm.id = $1
         AND bs.period_date <= $2
+        AND bs.statement_type = 'annual'
         ORDER BY bs.period_date DESC
         LIMIT 1
         """
@@ -618,6 +620,7 @@ class RiskCalculator(BaseDimensionCalculator):
         JOIN company_master cm ON bs.symbol = cm.primary_ticker
         WHERE cm.id = $1
         AND bs.period_date <= $2
+        AND bs.statement_type = 'annual'
         ORDER BY bs.period_date DESC
         LIMIT 1
         """
@@ -672,6 +675,7 @@ class RiskCalculator(BaseDimensionCalculator):
             JOIN company_master cm ON bs.symbol = cm.primary_ticker
             WHERE cm.id = $1
             AND bs.period_date <= $2
+            AND bs.statement_type = 'annual'
             ORDER BY bs.period_date DESC
             LIMIT 2
         ),
@@ -683,6 +687,7 @@ class RiskCalculator(BaseDimensionCalculator):
             JOIN company_master cm ON fs.symbol = cm.primary_ticker
             WHERE cm.id = $1
             AND fs.period_date <= $2
+            AND fs.statement_type = 'annual'
             ORDER BY fs.period_date DESC
             LIMIT 2
         )
@@ -704,9 +709,8 @@ class RiskCalculator(BaseDimensionCalculator):
             prior_ar = float(row["prior_ar"]) if row["prior_ar"] else None
             prior_revenue = float(row["prior_revenue"]) if row["prior_revenue"] else None
 
-            # Days Sales Outstanding (annualized revenue assumption)
-            annual_revenue = current_revenue * 4  # Assuming quarterly data
-            dso = (current_ar / annual_revenue) * 365 if annual_revenue > 0 else None
+            # Days Sales Outstanding (using annual revenue, no annualization needed)
+            dso = (current_ar / current_revenue) * 365 if current_revenue > 0 else None
 
             # AR to revenue growth ratio
             ar_to_revenue_growth_ratio = None

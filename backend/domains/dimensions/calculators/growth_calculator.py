@@ -234,6 +234,7 @@ class GrowthCalculator(BaseDimensionCalculator):
             WHERE symbol = $1
             AND period_date <= $2
             AND period_date >= $3
+            AND statement_type = 'annual'
             ORDER BY period_date DESC
         """, symbol, score_date, start_date)
 
@@ -258,6 +259,7 @@ class GrowthCalculator(BaseDimensionCalculator):
             WHERE symbol = $1
             AND period_date <= $2
             AND period_date >= $3
+            AND statement_type = 'annual'
             ORDER BY period_date DESC
         """, symbol, score_date, start_date)
 
@@ -586,7 +588,7 @@ class GrowthCalculator(BaseDimensionCalculator):
     ) -> List[float]:
         """Get latest growth values for sector peers."""
 
-        # Calculate YoY revenue growth for peers
+        # Calculate YoY revenue growth for peers (using annual data only)
         if metric_name == "revenue_growth":
             query = """
                 WITH latest_two_years AS (
@@ -594,12 +596,13 @@ class GrowthCalculator(BaseDimensionCalculator):
                         fs.symbol,
                         fs.period_date,
                         fs.total_revenue,
-                        LAG(fs.total_revenue, 4) OVER (PARTITION BY fs.symbol ORDER BY fs.period_date) as prior_revenue
+                        LAG(fs.total_revenue, 1) OVER (PARTITION BY fs.symbol ORDER BY fs.period_date) as prior_revenue
                     FROM financial_statements fs
                     JOIN company_master cm ON fs.symbol = cm.primary_ticker
                     WHERE cm.sector = $1
                     AND fs.period_date <= $2
                     AND fs.total_revenue > 0
+                    AND fs.statement_type = 'annual'
                 ),
                 latest_growth AS (
                     SELECT DISTINCT ON (symbol)
@@ -619,12 +622,13 @@ class GrowthCalculator(BaseDimensionCalculator):
                         fs.symbol,
                         fs.period_date,
                         fs.net_income,
-                        LAG(fs.net_income, 4) OVER (PARTITION BY fs.symbol ORDER BY fs.period_date) as prior_income
+                        LAG(fs.net_income, 1) OVER (PARTITION BY fs.symbol ORDER BY fs.period_date) as prior_income
                     FROM financial_statements fs
                     JOIN company_master cm ON fs.symbol = cm.primary_ticker
                     WHERE cm.sector = $1
                     AND fs.period_date <= $2
                     AND fs.net_income IS NOT NULL
+                    AND fs.statement_type = 'annual'
                 ),
                 latest_growth AS (
                     SELECT DISTINCT ON (symbol)

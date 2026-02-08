@@ -170,67 +170,72 @@ class PDFDownloadBatch:
         """Load documents that need to be downloaded based on filters"""
         try:
             async with AsyncSessionLocal() as db:
-                # Build query with filters
-                query = select(
-                    NordicDocument.id,
-                    NordicDocument.title,
-                    NordicDocument.document_type,
-                    NordicDocument.publish_date,
-                    NordicDocument.storage_path,
-                    NordicDocument.metadata_,
-                    NordicDocument.processing_status,
-                    NordicCompany.name.label('company_name'),
-                    NordicCompany.ticker
-                ).join(NordicCompany).where(
-                    # Only get catalogued documents (not yet downloaded)
-                    NordicDocument.processing_status == "catalogued"
-                )
-                
+                from sqlalchemy import text
+
+                # Use raw SQL to join with company_master (source of truth)
+                # Documents may have company_id from either nordic_companies or company_master
+                base_query = """
+                    SELECT
+                        nd.id,
+                        nd.title,
+                        nd.document_type,
+                        nd.publish_date,
+                        nd.storage_path,
+                        nd.metadata as metadata_,
+                        nd.processing_status,
+                        COALESCE(cm.company_name, nc.name) as company_name,
+                        COALESCE(cm.primary_ticker, nc.ticker) as ticker
+                    FROM nordic_documents nd
+                    LEFT JOIN company_master cm ON nd.company_id = cm.id
+                    LEFT JOIN nordic_companies nc ON nd.company_id = nc.id
+                    WHERE nd.processing_status = 'catalogued'
+                """
+
+                conditions = []
+                params = {}
+
                 # Apply document type filter
                 if self.reports_only:
-                    query = query.where(
-                        or_(
-                            NordicDocument.document_type == "annual_report",
-                            NordicDocument.document_type == "quarterly_report"
-                        )
-                    )
-                
-                # Apply year filter (only if specified)
+                    conditions.append("nd.document_type IN ('annual_report', 'quarterly_report')")
+
+                # Apply year filter
                 if self.target_year:
-                    query = query.where(
-                        or_(
-                            # Filter by publish_date year
-                            NordicDocument.publish_date.between(
-                                date(self.target_year, 1, 1),
-                                date(self.target_year, 12, 31)
-                            ),
-                            # Fallback: filter by document title containing year
-                            NordicDocument.title.contains(str(self.target_year))
-                        )
-                    )
-                
+                    conditions.append("""
+                        (nd.publish_date BETWEEN :year_start AND :year_end
+                         OR nd.title LIKE :year_pattern)
+                    """)
+                    params['year_start'] = f"{self.target_year}-01-01"
+                    params['year_end'] = f"{self.target_year}-12-31"
+                    params['year_pattern'] = f"%{self.target_year}%"
+
                 # Apply company filter
                 if self.target_company:
-                    query = query.where(
-                        or_(
-                            NordicCompany.name.ilike(f"%{self.target_company}%"),
-                            NordicCompany.ticker.ilike(f"%{self.target_company}%")
-                        )
-                    )
-                
-                # Order by company and date for systematic processing
-                query = query.order_by(NordicCompany.name, NordicDocument.publish_date.desc())
-                
-                result = await db.execute(query)
+                    conditions.append("""
+                        (COALESCE(cm.company_name, nc.name) ILIKE :company_pattern
+                         OR COALESCE(cm.primary_ticker, nc.ticker) ILIKE :company_pattern)
+                    """)
+                    params['company_pattern'] = f"%{self.target_company}%"
+
+                # Build final query
+                if conditions:
+                    base_query += " AND " + " AND ".join(conditions)
+
+                base_query += " ORDER BY COALESCE(cm.company_name, nc.name), nd.publish_date DESC"
+
+                result = await db.execute(text(base_query), params)
                 documents = result.fetchall()
-                
+
                 self.logger.info(f"📊 Found {len(documents)} documents to download")
-                
+
                 # Convert to dictionaries
                 docs_to_download = []
                 for doc in documents:
-                    # Extract PDF URL from metadata
-                    pdf_url = doc.metadata_.get('pdf_url') if doc.metadata_ else None
+                    # Extract PDF URL from metadata (handle both dict and JSON string)
+                    metadata = doc.metadata_
+                    if isinstance(metadata, str):
+                        import json
+                        metadata = json.loads(metadata)
+                    pdf_url = metadata.get('pdf_url') if metadata else None
                     if not pdf_url:
                         continue
                     

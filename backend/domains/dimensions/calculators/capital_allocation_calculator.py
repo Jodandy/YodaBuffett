@@ -366,6 +366,7 @@ class CapitalAllocationCalculator(BaseDimensionCalculator):
             FROM financial_statements
             WHERE symbol = $1 AND period_date <= $2
             AND period_date >= $2 - INTERVAL '%s years'
+            AND statement_type = 'annual'
             ORDER BY period_date DESC
         """ % years, symbol, score_date)
         return [dict(r) for r in rows]
@@ -377,6 +378,7 @@ class CapitalAllocationCalculator(BaseDimensionCalculator):
             FROM cash_flow_data
             WHERE symbol = $1 AND period_date <= $2
             AND period_date >= $2 - INTERVAL '%s years'
+            AND statement_type = 'annual'
             ORDER BY period_date DESC
         """ % years, symbol, score_date)
         return [dict(r) for r in rows]
@@ -387,6 +389,7 @@ class CapitalAllocationCalculator(BaseDimensionCalculator):
             FROM balance_sheet_data
             WHERE symbol = $1 AND period_date <= $2
             AND period_date >= $2 - INTERVAL '%s years'
+            AND statement_type = 'annual'
             ORDER BY period_date DESC
         """ % years, symbol, score_date)
         return [dict(r) for r in rows]

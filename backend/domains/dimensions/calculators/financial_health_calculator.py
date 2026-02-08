@@ -231,6 +231,7 @@ class FinancialHealthCalculator(BaseDimensionCalculator):
             WHERE symbol = $1
             AND period_date <= $2
             AND period_date >= $3
+            AND statement_type = 'annual'
             ORDER BY period_date DESC
         """, symbol, score_date, start_date)
 
@@ -258,6 +259,7 @@ class FinancialHealthCalculator(BaseDimensionCalculator):
             WHERE symbol = $1
             AND period_date <= $2
             AND period_date >= $3
+            AND statement_type = 'annual'
             ORDER BY period_date DESC
         """, symbol, score_date, start_date)
 
@@ -545,6 +547,7 @@ class FinancialHealthCalculator(BaseDimensionCalculator):
                 JOIN company_master cm ON bs.symbol = cm.primary_ticker
                 WHERE cm.sector = $1
                 AND bs.period_date <= $2
+                AND bs.statement_type = 'annual'
                 ORDER BY bs.symbol, bs.period_date DESC
             )
             SELECT metric_value FROM latest_data
