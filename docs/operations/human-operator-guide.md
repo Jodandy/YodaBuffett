@@ -204,11 +204,13 @@ source venv/bin/activate
 # Historical document catch-up (missed periods)
 python3 historical_document_catchup.py --days-back 7
 
-# Historical market data backfill
-python3 historical_market_data_batch.py
+# Historical price data backfill (max history, up to 20+ years)
+python3 ingest_all_max_history.py                # All companies
+python3 ingest_all_max_history.py --only-missing # Only gaps
 
-# Historical fundamentals backfill
-python3 historical_fundamentals_backfill.py
+# Historical fundamentals backfill (statements, balance sheets, cash flows)
+python3 historical_fundamentals_backfill.py                # All companies
+python3 historical_fundamentals_backfill.py --only-missing # Only gaps
 
 # PDF downloads (manual batch)
 python3 pdf_download_batch.py --year 2025 --delay 10        # Priority reports only
@@ -334,6 +336,41 @@ cd /Users/jdandemar/Documents/YodaBuffett/backend
 source venv/bin/activate
 python3 -m workers.daily_market_data_worker --dry-run
 ```
+
+### Backfill failures
+
+Backfill scripts save detailed results to JSON files for later review.
+
+```bash
+cd /Users/jdandemar/Documents/YodaBuffett/backend
+
+# Check fundamentals backfill results
+ls -la data/fundamentals_backfill_*.json
+cat data/fundamentals_backfill_*.json | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+print(f'Successful: {len(data[\"successful\"])}')
+print(f'Skipped (no Yahoo data): {len(data[\"skipped_no_data\"])}')
+print(f'Failed: {len(data[\"failed\"])}')"
+
+# Check price data backfill results
+ls -la max_history_ingestion_*.json
+cat max_history_ingestion_*.json | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+print(f'Successful: {len(data[\"success\"])}')
+print(f'Wrong tickers: {len(data[\"failed_wrong_ticker\"])}')
+print(f'DB errors: {len(data[\"failed_database_error\"])}')"
+
+# List companies that need manual ticker resolution
+cat max_history_ingestion_*.json | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for item in data['failed_wrong_ticker']:
+    print(f'{item[\"primary_ticker\"]:12} -> {item[\"yahoo_symbol\"]}')"
+```
+
+Most failures are small-cap or delisted companies without Yahoo Finance coverage - this is expected.
 
 ### Disk space
 ```bash

@@ -104,6 +104,11 @@ batch_*.py
 *_results_*.json
 *_20*.json
 *_20*.log
+
+# Backtest exports (generated files)
+fat_pitch_*.xlsx
+fat_pitch_*.png
+~$*.xlsx
 products/screener/frontend/node_modules/.vite/deps/chunk-2PMNUQTO.js
 
 # Node modules everywhere

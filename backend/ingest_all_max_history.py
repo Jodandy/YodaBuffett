@@ -168,9 +168,15 @@ async def store_max_price_data(conn, company_info: dict, yahoo_symbol: str) -> D
         first_date = None
         last_date = None
         
+        today = date.today()
+
         for date_idx, row in hist.iterrows():
+            # Skip today's data - only store confirmed closing prices
+            if date_idx.date() >= today:
+                continue
+
             # Skip rows with NaN values
-            if (row['Open'] != row['Open'] or row['Close'] != row['Close'] or 
+            if (row['Open'] != row['Open'] or row['Close'] != row['Close'] or
                 row['High'] != row['High'] or row['Low'] != row['Low']):
                 continue
                 
@@ -227,40 +233,77 @@ async def store_max_price_data(conn, company_info: dict, yahoo_symbol: str) -> D
         result['error_type'] = 'fetch_error'
         return result
 
-async def ingest_all_max_history():
-    """Ingest ALL available historical data for ALL companies - no skipping!"""
-    
+async def ingest_all_max_history(only_missing: bool = False, limit: int = None):
+    """Ingest ALL available historical data for companies.
+
+    Args:
+        only_missing: If True, only process companies without existing price data
+        limit: Max number of companies to process
+    """
+
     DATABASE_URL = 'postgresql://yodabuffett:password@localhost:5432/yodabuffett'
     conn = await asyncpg.connect(DATABASE_URL)
-    
+
     tracker = CompanyIngestionTracker()
-    
+
     try:
-        # Get ALL companies from company_master
-        companies = await conn.fetch("""
-            SELECT 
-                id,
-                company_name,
-                primary_ticker,
-                yahoo_symbol,
-                document_count,
-                symbol_confidence,
-                data_quality_score,
-                country
-            FROM company_master
-            WHERE primary_ticker IS NOT NULL  
-            AND yahoo_symbol IS NOT NULL
-            ORDER BY 
-                document_count DESC NULLS LAST,
-                data_quality_score DESC
-        """)
+        # Build query based on mode
+        if only_missing:
+            query = """
+                SELECT
+                    cm.id,
+                    cm.company_name,
+                    cm.primary_ticker,
+                    cm.yahoo_symbol,
+                    cm.document_count,
+                    cm.symbol_confidence,
+                    cm.data_quality_score,
+                    cm.country
+                FROM company_master cm
+                WHERE cm.primary_ticker IS NOT NULL
+                AND cm.yahoo_symbol IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1 FROM daily_price_data dp
+                    WHERE dp.symbol = cm.primary_ticker
+                )
+                ORDER BY
+                    cm.document_count DESC NULLS LAST,
+                    cm.data_quality_score DESC
+            """
+        else:
+            query = """
+                SELECT
+                    id,
+                    company_name,
+                    primary_ticker,
+                    yahoo_symbol,
+                    document_count,
+                    symbol_confidence,
+                    data_quality_score,
+                    country
+                FROM company_master
+                WHERE primary_ticker IS NOT NULL
+                AND yahoo_symbol IS NOT NULL
+                ORDER BY
+                    document_count DESC NULLS LAST,
+                    data_quality_score DESC
+            """
+
+        if limit:
+            query += f" LIMIT {limit}"
+
+        companies = await conn.fetch(query)
         
         tracker.results['total_companies'] = len(companies)
         tracker.results['stats']['start_time'] = datetime.now().isoformat()
-        
-        print(f"🚀 MAXIMUM HISTORICAL DATA INGESTION")
-        print(f"📊 Processing ALL {len(companies)} companies with ALL available historical data")
-        print(f"🎯 No skipping - getting complete dataset for every company!")
+
+        mode = "MISSING ONLY" if only_missing else "FULL REFRESH"
+        print(f"🚀 MAXIMUM HISTORICAL DATA INGESTION - {mode}")
+        print(f"📊 Processing {len(companies)} companies with ALL available historical data")
+        if only_missing:
+            print(f"🎯 Only companies without existing price data")
+        else:
+            print(f"🎯 Full refresh - getting complete dataset for every company!")
         print("=" * 100)
         
         start_time = time.time()
@@ -402,9 +445,21 @@ async def ingest_all_max_history():
     return tracker.results
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Backfill historical price data from Yahoo Finance')
+    parser.add_argument('--only-missing', action='store_true',
+                        help='Only process companies without existing price data')
+    parser.add_argument('--limit', type=int, default=None,
+                        help='Limit number of companies to process')
+    args = parser.parse_args()
+
     print("🌟 MAXIMUM HISTORICAL DATA INGESTION FOR ALL COMPANIES")
     print("Gets ALL available historical data (up to 20+ years) for every single company")
-    print("No skipping - comprehensive dataset for temporal anomaly analysis")
+    if args.only_missing:
+        print("Mode: MISSING ONLY - filling gaps in price data coverage")
+    else:
+        print("Mode: FULL REFRESH - comprehensive dataset for all companies")
     print("=" * 100)
-    
-    asyncio.run(ingest_all_max_history())
+
+    asyncio.run(ingest_all_max_history(only_missing=args.only_missing, limit=args.limit))

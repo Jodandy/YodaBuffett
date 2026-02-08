@@ -172,12 +172,16 @@ data/companies/SE/
 
 ### Database Migrations
 
-```bash
-# Create migration
-alembic revision --autogenerate -m "Add new table"
+We use idempotent scripts with `IF NOT EXISTS` pattern. See `backend/CLAUDE.md` for full details.
 
-# Run migrations
-alembic upgrade head
+```bash
+# Run a table creation script
+python create_market_data_tables.py
+
+# Run a migration
+python domains/document_intelligence/migration_add_region.py
+
+# Scripts are safe to re-run - they check before modifying
 ```
 
 ### Running Tests

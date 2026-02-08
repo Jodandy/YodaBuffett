@@ -28,7 +28,17 @@
       "Bash(du:*)",
       "Bash(docker inspect:*)",
       "Bash(/opt/homebrew/opt/postgresql@15/bin/psql:*)",
-      "Bash(PGPASSWORD=password /opt/homebrew/opt/postgresql@15/bin/psql:*)"
+      "Bash(PGPASSWORD=password /opt/homebrew/opt/postgresql@15/bin/psql:*)",
+      "Bash(launchctl load:*)",
+      "Bash(launchctl list:*)",
+      "Bash(xargs ls:*)",
+      "Bash(python3:*)",
+      "Bash(cat:*)",
+      "Bash(pnpm install:*)",
+      "Bash(timeout 10 pnpm dev:hub:*)",
+      "Bash(PGPASSWORD=password psql:*)",
+      "Bash(xargs:*)",
+      "Bash(timeout 5 python:*)"
     ],
     "deny": []
   }

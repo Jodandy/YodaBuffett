@@ -1,0 +1,18 @@
+/* Import base styles from shared UI package - must come before tailwind */
+@import '@yodabuffett/ui/styles/base.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Hub-specific styles */
+:root {
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 64px;
+  --topbar-height: 64px;
+}
+
+/* Smooth transitions for sidebar collapse */
+.sidebar-transition {
+  transition: width 0.3s ease, margin-left 0.3s ease;
+}

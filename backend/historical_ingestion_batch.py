@@ -238,8 +238,9 @@ class HistoricalIngestionBatch:
             resume = input("🔄 Resume from previous run? (y/n): ").lower().strip()
             if resume in ['y', 'yes']:
                 # Load previous results but start fresh session
-                completed_companies = set(previous_results.get('completed', []))
-                failed_companies = set(previous_results.get('failed', []))
+                # Extract company slugs from result dictionaries
+                completed_companies = set(r.get('company') for r in previous_results.get('completed', []))
+                failed_companies = set(r.get('company') for r in previous_results.get('failed', []))
                 
                 # Skip companies that were already completed
                 self.results['skipped'] = list(completed_companies)

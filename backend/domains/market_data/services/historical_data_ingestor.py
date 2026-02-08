@@ -318,8 +318,9 @@ class HistoricalDataIngestor:
         
         yahoo_symbol = symbol_info['yahoo_symbol']
         
-        # Define date range
-        end_date = date.today()
+        # Define date range - exclude today to only get confirmed closing prices
+        # Markets close at 17:30 CET, so today's data may be incomplete
+        end_date = date.today() - timedelta(days=1)  # Yesterday = last confirmed close
         start_date = end_date - timedelta(days=days_back)
         
         # Fetch data from Yahoo

@@ -12,6 +12,7 @@ tail -50 ~/Documents/YodaBuffett/backend/logs/daily-*.log
 ## 📅 Daily Schedule
 ```
 03:00 AM 🌅 Market Data       → Updates stock prices for 1,606 companies
+04:00 AM 📊 Dimensions        → Computes 5 dimension scores for all companies
 07:00 AM 📄 Doc Discovery 1   → Finds new documents (event-driven)
 09:00 AM 📄 Doc Discovery 2   → Catches any stragglers
 10:00 AM 📥 PDF Download      → Downloads discovered PDFs
@@ -25,6 +26,7 @@ tail -50 ~/Documents/YodaBuffett/backend/logs/daily-*.log
 ```bash
 # Run any service immediately
 launchctl start com.yodabuffett.daily-market-data-worker
+launchctl start com.yodabuffett.daily-dimensions-worker
 launchctl start com.yodabuffett.daily-document-worker-morning
 launchctl start com.yodabuffett.daily-document-pipeline
 launchctl start com.yodabuffett.daily-anomaly-detection
@@ -84,6 +86,68 @@ async def today_stats():
 asyncio.run(today_stats())
 EOF
 ```
+
+## 📊 Dimensions Scoring
+
+### Run Dimensions Manually
+```bash
+cd ~/Documents/YodaBuffett/backend
+source venv/bin/activate
+
+# All 5 dimensions
+python -m workers.daily_dimensions_worker --run-now
+
+# Single dimension
+python -m workers.daily_dimensions_worker --run-now --dimension value
+python -m workers.daily_dimensions_worker --run-now --dimension momentum
+python -m workers.daily_dimensions_worker --run-now --dimension quality
+python -m workers.daily_dimensions_worker --run-now --dimension risk
+python -m workers.daily_dimensions_worker --run-now --dimension sentiment
+
+# Dry run (preview only)
+python -m workers.daily_dimensions_worker --dry-run
+
+# Backfill a specific date
+python -m workers.daily_dimensions_worker --run-now --date 2026-02-05
+```
+
+### Check Dimension Scores
+```bash
+# Quick summary by dimension
+psql -d yodabuffett -c "
+SELECT dimension_code, COUNT(*) as companies,
+       AVG(score)::numeric(5,1) as avg_score,
+       AVG(confidence)::numeric(4,2) as avg_conf
+FROM daily_dimension_scores
+WHERE score_date = CURRENT_DATE
+GROUP BY 1 ORDER BY 1"
+
+# Top 10 by value dimension
+psql -d yodabuffett -c "
+SELECT cm.company_name, ds.score, ds.percentile_rank
+FROM daily_dimension_scores ds
+JOIN company_master cm ON ds.company_id = cm.id
+WHERE ds.dimension_code = 'value' AND ds.score_date = CURRENT_DATE
+ORDER BY ds.score DESC LIMIT 10"
+
+# All scores for a company
+psql -d yodabuffett -c "
+SELECT ds.dimension_code, ds.score, ds.confidence, ds.percentile_rank
+FROM daily_dimension_scores ds
+JOIN company_master cm ON ds.company_id = cm.id
+WHERE cm.company_name LIKE '%Volvo%' AND ds.score_date = CURRENT_DATE"
+```
+
+### Dimensions Overview
+| Dimension | Type | What it Measures |
+|-----------|------|------------------|
+| value | fundamental | Undervaluation (P/E, P/B, EV/EBITDA) |
+| momentum | technical | Price/volume trends (RSI, SMA, KNN) |
+| quality | fundamental | Financial health (ROE, margins, debt) |
+| risk | fundamental | Downside exposure (volatility, drawdown) |
+| sentiment | ai_derived | Communication patterns (embeddings) |
+
+---
 
 ## 🚨 Temporal Anomaly Analysis
 

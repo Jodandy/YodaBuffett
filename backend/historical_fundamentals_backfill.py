@@ -279,12 +279,12 @@ class HistoricalFundamentalsBackfill:
                     success_count += 1
                     
             logger.info(f"✅ Stored {success_count} financial statements for {symbol}")
-            return True
-            
+            return success_count > 0
+
         except Exception as e:
             logger.error(f"Error backfilling financial statements for {symbol}: {e}")
             return False
-            
+
     async def backfill_balance_sheet(self, symbol: str) -> bool:
         """Backfill balance sheet data."""
         
@@ -343,7 +343,7 @@ class HistoricalFundamentalsBackfill:
                     success_count += 1
                     
             logger.info(f"✅ Stored {success_count} balance sheet records for {symbol}")
-            return True
+            return success_count > 0
             
         except Exception as e:
             logger.error(f"Error backfilling balance sheet for {symbol}: {e}")
@@ -409,7 +409,7 @@ class HistoricalFundamentalsBackfill:
                     success_count += 1
                     
             logger.info(f"✅ Stored {success_count} cash flow records for {symbol}")
-            return True
+            return success_count > 0
             
         except Exception as e:
             logger.error(f"Error backfilling cash flow for {symbol}: {e}")
@@ -521,7 +521,7 @@ class HistoricalFundamentalsBackfill:
                     success_count += 1
                     
             logger.info(f"✅ Calculated {success_count} daily metrics for {symbol}")
-            return True
+            return success_count > 0
             
         except Exception as e:
             logger.error(f"Error calculating historical metrics for {symbol}: {e}")
@@ -623,83 +623,72 @@ class HistoricalFundamentalsBackfill:
         
         await self.db_conn.execute(query, *values)
         
-    async def backfill_symbol_complete(self, symbol: str, 
-                                     calculate_daily_metrics: bool = True) -> Dict:
-        """Complete backfill for a single symbol."""
-        
+    async def backfill_symbol_complete(self, symbol: str) -> Dict:
+        """Complete backfill for a single symbol.
+
+        Fetches 3 components from Yahoo Finance:
+        1. Financial statements (income statement)
+        2. Balance sheet
+        3. Cash flow statement
+        """
+
         logger.info(f"🚀 Starting complete backfill for {symbol}")
-        
+
         results = {
             'symbol': symbol,
             'financial_statements': False,
             'balance_sheet': False,
             'cash_flow': False,
-            'daily_metrics': False
         }
-        
+
         # 1. Financial statements
         results['financial_statements'] = await self.backfill_financial_statements(symbol)
         await asyncio.sleep(1)  # Rate limiting
-        
+
         # 2. Balance sheet
         results['balance_sheet'] = await self.backfill_balance_sheet(symbol)
         await asyncio.sleep(1)
-        
+
         # 3. Cash flow
         results['cash_flow'] = await self.backfill_cash_flow(symbol)
         await asyncio.sleep(1)
-        
-        # 4. Calculate daily metrics if requested
-        if calculate_daily_metrics:
-            # Get date range from price data
-            price_range = await self.db_conn.fetchrow("""
-                SELECT MIN(date) as start_date, MAX(date) as end_date
-                FROM daily_price_data WHERE symbol = $1
-            """, symbol)
-            
-            if price_range and price_range['start_date']:
-                results['daily_metrics'] = await self.calculate_historical_metrics(
-                    symbol, price_range['start_date'], price_range['end_date']
-                )
-                
-        success_count = sum(1 for v in results.values() if v is True)
-        logger.info(f"✅ Backfill complete for {symbol}: {success_count}/4 successful")
-        
+
+        success_count = sum(1 for k, v in results.items() if k != 'symbol' and v is True)
+        logger.info(f"✅ Backfill complete for {symbol}: {success_count}/3 successful")
+
         return results
         
-    async def get_symbols_for_backfill(self, limit: Optional[int] = None, test_availability: bool = False) -> List[str]:
-        """Get symbols that need backfilling."""
-        if test_availability:
-            # Broader scope - test availability for all companies with Yahoo symbols
+    async def get_symbols_for_backfill(self, limit: Optional[int] = None, only_missing: bool = False) -> List[str]:
+        """Get symbols for backfilling.
+
+        Args:
+            limit: Max number of symbols to return
+            only_missing: If True, only get companies without existing data
+        """
+        if only_missing:
+            # Only companies that don't have financial statements yet
             query = """
-              SELECT cm.primary_ticker, cm.yahoo_symbol, cm.company_name, cm.country
+                SELECT cm.primary_ticker
                 FROM company_master cm
                 WHERE cm.yahoo_symbol IS NOT NULL
-                AND cm.country IN ('Sverige', 'Norway', 'Denmark', 'Finland', 'Sweden', 'Norge', 'Danmark')
                 AND NOT EXISTS (
                     SELECT 1 FROM financial_statements fs
                     WHERE fs.symbol = cm.primary_ticker
                 )
-                ORDER BY cm.document_count DESC NULLS LAST
+                ORDER BY cm.primary_ticker
             """
         else:
-            # Conservative scope - only validated companies
+            # All companies with yahoo symbols (for full refresh)
             query = """
-            SELECT DISTINCT cm.primary_ticker
-            FROM company_master cm
-            WHERE cm.yahoo_symbol IS NOT NULL
-            AND cm.yahoo_finance_available = true
-            AND EXISTS (
-                SELECT 1 FROM daily_price_data dpd 
-                WHERE dpd.symbol = cm.primary_ticker 
-                LIMIT 1
-            )
-            ORDER BY cm.primary_ticker
+                SELECT cm.primary_ticker
+                FROM company_master cm
+                WHERE cm.yahoo_symbol IS NOT NULL
+                ORDER BY cm.primary_ticker
             """
-        
+
         if limit:
             query += f" LIMIT {limit}"
-            
+
         rows = await self.db_conn.fetch(query)
         return [row['primary_ticker'] for row in rows]
         
@@ -708,81 +697,119 @@ class HistoricalFundamentalsBackfill:
             await self.db_conn.close()
 
 async def main():
-    """Test historical fundamentals backfill."""
-    
+    """Backfill all fundamentals data from Yahoo Finance."""
+    import argparse
+    from datetime import datetime
+    import os
+
+    parser = argparse.ArgumentParser(description='Backfill fundamentals from Yahoo Finance')
+    parser.add_argument('--only-missing', action='store_true', help='Only process companies without existing data')
+    parser.add_argument('--limit', type=int, default=None, help='Limit number of companies to process')
+    args = parser.parse_args()
+
     backfill = HistoricalFundamentalsBackfill()
-    
+
+    # Track results for JSON output
+    run_results = {
+        'start_time': datetime.now().isoformat(),
+        'end_time': None,
+        'mode': 'missing_only' if args.only_missing else 'full_refresh',
+        'total_symbols': 0,
+        'successful': [],
+        'skipped_no_data': [],
+        'failed': [],
+        'summary': {}
+    }
+
     try:
         await backfill.setup()
-        
-        # Get broader set of symbols to test availability
-        symbols = await backfill.get_symbols_for_backfill(limit=5000, test_availability=True)  # Test 50 more symbols
-        
-        print("🚀 Historical Fundamentals Backfill - PRODUCTION RUN")
+
+        # Get symbols to process
+        symbols = await backfill.get_symbols_for_backfill(
+            limit=args.limit,
+            only_missing=args.only_missing
+        )
+
+        run_results['total_symbols'] = len(symbols)
+
+        mode = "MISSING ONLY" if args.only_missing else "FULL REFRESH"
+        print(f"🚀 Historical Fundamentals Backfill - {mode}")
         print("=" * 60)
         print(f"📊 Processing {len(symbols)} symbols...")
-        
-        successful = 0
-        failed = 0
-        
+
         for i, symbol in enumerate(symbols, 1):
             print(f"\n[{i}/{len(symbols)}] Processing {symbol}...")
-            
-            results = await backfill.backfill_symbol_complete(symbol, calculate_daily_metrics=True)
-            
-            success_count = sum(1 for v in results.values() if v is True and v != symbol)
-            if success_count >= 3:  # At least 3 out of 4 components successful
-                successful += 1
+
+            results = await backfill.backfill_symbol_complete(symbol)
+
+            # Count successful components (excluding 'symbol' key)
+            success_count = sum(1 for k, v in results.items() if k != 'symbol' and v is True)
+
+            # Track result
+            result_entry = {
+                'symbol': symbol,
+                'financial_statements': results.get('financial_statements', False),
+                'balance_sheet': results.get('balance_sheet', False),
+                'cash_flow': results.get('cash_flow', False),
+                'components_success': success_count,
+                'processed_at': datetime.now().isoformat()
+            }
+
+            if success_count >= 1:
+                run_results['successful'].append(result_entry)
                 status = "✅ SUCCESS"
+            elif success_count == 0:
+                run_results['skipped_no_data'].append(result_entry)
+                status = "⏭️ SKIPPED (no data)"
             else:
-                failed += 1  
-                status = "❌ PARTIAL/FAILED"
-                
-            print(f"   {status} ({success_count}/4 components)")
-            
+                run_results['failed'].append(result_entry)
+                status = "❌ FAILED"
+
+            print(f"   {status} ({success_count}/3 components)")
+
         # Final summary
+        run_results['end_time'] = datetime.now().isoformat()
+        run_results['summary'] = {
+            'successful': len(run_results['successful']),
+            'skipped_no_data': len(run_results['skipped_no_data']),
+            'failed': len(run_results['failed'])
+        }
+
         print(f"\n🎯 BATCH COMPLETE:")
         print(f"   Total symbols: {len(symbols)}")
-        print(f"   Successful: {successful}")
-        print(f"   Failed/Partial: {failed}")
-        print(f"   Success rate: {successful/len(symbols)*100:.1f}%")
-                    
+        print(f"   Successful: {run_results['summary']['successful']}")
+        print(f"   Skipped (no data): {run_results['summary']['skipped_no_data']}")
+        print(f"   Failed: {run_results['summary']['failed']}")
+
+        total_processed = run_results['summary']['successful'] + run_results['summary']['failed']
+        if total_processed > 0:
+            print(f"   Success rate: {run_results['summary']['successful']/total_processed*100:.1f}%")
+
         # Show what we collected
-        print(f"\n📈 Total Data Collected:")
-        
+        print(f"\n📈 Total Data in Database:")
+
         tables = [
             ('financial_statements', 'Financial statements'),
-            ('balance_sheet_data', 'Balance sheet records'), 
+            ('balance_sheet_data', 'Balance sheet records'),
             ('cash_flow_data', 'Cash flow records'),
-            ('historical_fundamentals_daily', 'Daily calculated metrics')
         ]
-        
+
         for table, description in tables:
             count = await backfill.db_conn.fetchval(f"SELECT COUNT(*) FROM {table}")
             print(f"   {description}: {count:,}")
-            
-        # Show some sample analysis
-        print(f"\n📊 Sample Analysis:")
-        analysis_query = """
-        SELECT 
-            COUNT(DISTINCT symbol) as symbols_with_data,
-            AVG(market_cap::NUMERIC) as avg_market_cap,
-            COUNT(*) as total_daily_metrics
-        FROM historical_fundamentals_daily 
-        WHERE market_cap IS NOT NULL
-        """
-        
-        row = await backfill.db_conn.fetchrow(analysis_query)
-        if row and row['symbols_with_data']:
-            print(f"   Companies with market cap data: {row['symbols_with_data']}")
-            print(f"   Average market cap: ${row['avg_market_cap']:,.0f}")
-            print(f"   Total daily fundamental metrics: {row['total_daily_metrics']:,}")
-            
+
+        # Save results to JSON
+        os.makedirs('data', exist_ok=True)
+        results_file = f"data/fundamentals_backfill_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        with open(results_file, 'w') as f:
+            json.dump(run_results, f, indent=2, default=str)
+        print(f"\n💾 Results saved to: {results_file}")
+
     except Exception as e:
         logger.error(f"Error: {e}")
         import traceback
         traceback.print_exc()
-        
+
     finally:
         await backfill.cleanup()
 

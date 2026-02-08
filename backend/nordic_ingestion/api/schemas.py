@@ -127,7 +127,7 @@ class CollectionStatsResponse(BaseModel):
 class DocumentUploadRequest(BaseModel):
     """Manual document upload request schema"""
     company_id: UUID
-    document_type: str = Field(..., regex="^(Q1|Q2|Q3|annual|press_release|other)$")
+    document_type: str = Field(..., pattern="^(Q1|Q2|Q3|annual|press_release|other)$")
     report_period: str
     title: str
     source_url: Optional[str] = None
@@ -139,19 +139,19 @@ class CompanyCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     ticker: Optional[str] = Field(None, max_length=50)
     exchange: Optional[str] = Field(None, max_length=50)
-    country: str = Field(..., regex="^(SE|NO|DK|FI)$")
-    market_cap_category: Optional[str] = Field(None, regex="^(Large|Mid|Small)$")
+    country: str = Field(..., pattern="^(SE|NO|DK|FI)$")
+    market_cap_category: Optional[str] = Field(None, pattern="^(Large|Mid|Small)$")
     sector: Optional[str] = Field(None, max_length=100)
     ir_email: Optional[str] = Field(None, max_length=255)
     ir_website: Optional[str] = None
     website: Optional[str] = None
-    reporting_language: str = Field(default="sv", regex="^(sv|no|da|fi|en)$")
+    reporting_language: str = Field(default="sv", pattern="^(sv|no|da|fi|en)$")
 
 
 class CalendarEventCreateRequest(BaseModel):
     """Create calendar event request schema"""
     company_id: UUID
-    event_type: str = Field(..., regex="^(Q1_report|Q2_report|Q3_report|annual_report|agm|earnings_call|other)$")
+    event_type: str = Field(..., pattern="^(Q1_report|Q2_report|Q3_report|annual_report|agm|earnings_call|other)$")
     event_date: date
     event_time: Optional[time] = None
     report_period: Optional[str] = None

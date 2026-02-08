@@ -149,6 +149,25 @@ Building extensible platform for any financial analysis, not just specific featu
 - **Comprehensive Testing**: Validated against EMA 10 strategy showing -7.3% vs +509% unrealistic returns
 - **Documentation**: [docs/features/portfolio-management.md](./docs/features/portfolio-management.md)
 
+🎯 **Fat Pitch Machine** - PRODUCTION READY ⭐ INVESTMENT FILTER
+- **Multi-Stage Routing**: Routes companies to lifecycle stages (Early/Growth/Mature/Compounder/Established)
+- **Stage-Specific Scoring**: Each stage values different dimensions differently
+- **14 Dimension System**: Profitability, Returns, Growth, Financial Health, Value, Risk, Momentum, Quality, etc.
+- **Quality Tiers**: Tier 1-5 ranking with actionable pitch identification
+- **REST API**: Full FastAPI endpoints for integration
+- **CLI Testing**: `python test_fat_pitch.py --actionable` to see top opportunities
+- **Purpose**: Filter/screener to surface candidates for human review, NOT automated trading
+- **Documentation**: [backend/CLAUDE.md](./backend/CLAUDE.md)
+
+📊 **14-Dimension Scoring System** - PRODUCTION READY ⭐ COMPANY ANALYSIS
+- **Business Fundamentals**: profitability, returns, growth, financial_health, earnings_quality, capital_allocation, working_capital, beneish_mscore
+- **Market Perception**: value, risk, momentum, quality, valuation_percentile
+- **AI-Derived**: sentiment (embedding-based communication analysis)
+- **Point-in-Time Safe**: All calculators use `<= score_date` for historical accuracy
+- **Historical Backfill**: `python historical_dimensions_backfill.py` for ML training data
+- **1,589 Companies**: Nordic companies with financial statement coverage
+- **Documentation**: [backend/domains/dimensions/CLAUDE.md](./backend/domains/dimensions/CLAUDE.md)
+
 ## Documentation Structure
 
 | Need This? | Go Here |
@@ -161,6 +180,8 @@ Building extensible platform for any financial analysis, not just specific featu
 | **Portfolio management & realistic backtesting** | [docs/features/portfolio-management.md](./docs/features/portfolio-management.md) |
 | **Advanced analytics concepts** | [docs/features/advanced-analytics.md](./docs/features/advanced-analytics.md) |
 | **Temporal anomaly detection** | [docs/features/temporal-anomaly-detection.md](./docs/features/temporal-anomaly-detection.md) |
+| **Database schema (all tables)** | [backend/docs/DATABASE_SCHEMA.md](./backend/docs/DATABASE_SCHEMA.md) |
+| **Financial data architecture** | [backend/docs/FINANCIAL_DATA_ARCHITECTURE.md](./backend/docs/FINANCIAL_DATA_ARCHITECTURE.md) |
 | **Database/Data design** | [docs/architecture/data-architecture.md](./docs/architecture/data-architecture.md) |
 | **Architecture rules** | [docs/development/principles.md](./docs/development/principles.md) |
 | **System flexibility** | [docs/architecture/system-flexibility.md](./docs/architecture/system-flexibility.md) |
@@ -178,6 +199,9 @@ Building extensible platform for any financial analysis, not just specific featu
 | **Document processing pipeline** | [docs/features/document-processing.md](./docs/features/document-processing.md) |
 | **Section-based embeddings** | [docs/features/section-based-embeddings.md](./docs/features/section-based-embeddings.md) |
 | **Human operator guide** | [docs/operations/human-operator-guide.md](./docs/operations/human-operator-guide.md) |
+| **Fat Pitch Machine (investment filter)** | [backend/CLAUDE.md](./backend/CLAUDE.md) |
+| **14 Dimension Scoring System** | [backend/domains/dimensions/CLAUDE.md](./backend/domains/dimensions/CLAUDE.md) |
+| **Backend overview** | [backend/CLAUDE.md](./backend/CLAUDE.md) |
 
 ## 🚀 **Quick Commands - Daily Automation**
 
@@ -466,6 +490,116 @@ python domains/document_intelligence/cli_document_embeddings.py local status
 # Diagnostic tools
 python check_embedding_tables.py
 python diagnose_extraction_issue.py
+```
+
+## 📊 **Quick Commands - Data Backfill**
+
+### Fundamentals Backfill (Financial Statements)
+```bash
+cd backend/
+
+# All companies (~1,800) - fetches income statements, balance sheets, cash flows
+python historical_fundamentals_backfill.py
+
+# Only companies missing fundamental data
+python historical_fundamentals_backfill.py --only-missing
+
+# Limited batch for testing
+python historical_fundamentals_backfill.py --limit 50
+
+# Check status
+psql -d yodabuffett -c "SELECT
+    (SELECT COUNT(*) FROM financial_statements) as statements,
+    (SELECT COUNT(*) FROM balance_sheet_data) as balance_sheets,
+    (SELECT COUNT(*) FROM cash_flow_data) as cash_flows;"
+```
+
+### Price Data Backfill (Historical Prices)
+```bash
+cd backend/
+
+# All companies - max available history (up to 20+ years)
+python ingest_all_max_history.py
+
+# Only companies missing price data
+python ingest_all_max_history.py --only-missing
+
+# Limited batch for testing
+python ingest_all_max_history.py --limit 50
+
+# Check status
+psql -d yodabuffett -c "SELECT COUNT(*) as records,
+    COUNT(DISTINCT symbol) as companies,
+    MIN(date) as oldest, MAX(date) as newest
+    FROM daily_price_data;"
+```
+
+Note: Both scripts exclude today's date to only store confirmed closing prices.
+
+### Dimension Scores Backfill (For ML/Backtesting)
+```bash
+cd backend/
+
+# Calculate dimensions for current date
+python calculate_and_store_dimensions.py --all
+
+# Single company
+python calculate_and_store_dimensions.py --company "Volvo"
+
+# HISTORICAL BACKFILL (for ML training)
+# Quarterly snapshots (faster, recommended start)
+python historical_dimensions_backfill.py --frequency quarterly --start-date 2021-06-01
+
+# Monthly snapshots (more granular)
+python historical_dimensions_backfill.py --start-date 2021-06-01
+
+# Dry run to see what will be calculated
+python historical_dimensions_backfill.py --dry-run
+
+# Test with limited companies
+python historical_dimensions_backfill.py --limit 50 --frequency quarterly
+
+# Check status
+python3 -c "
+import asyncio, asyncpg
+async def check():
+    conn = await asyncpg.connect('postgresql://yodabuffett:password@localhost:5432/yodabuffett')
+    count = await conn.fetchval('SELECT COUNT(*) FROM daily_dimension_scores')
+    dates = await conn.fetchval('SELECT COUNT(DISTINCT score_date) FROM daily_dimension_scores')
+    companies = await conn.fetchval('SELECT COUNT(DISTINCT company_id) FROM daily_dimension_scores')
+    print(f'Dimension scores: {count:,} records, {dates} dates, {companies} companies')
+    await conn.close()
+asyncio.run(check())
+"
+```
+
+### Fat Pitch Machine (Investment Filter)
+```bash
+cd backend/
+
+# Run all tests
+python test_fat_pitch.py
+
+# Get actionable pitches (Tier 1-3 quality + cheap valuation)
+python test_fat_pitch.py --actionable
+
+# Test specific lifecycle stage
+python test_fat_pitch.py --stage growth_stage
+python test_fat_pitch.py --stage compounder
+python test_fat_pitch.py --stage mature_yield
+
+# Analyze specific company
+python test_fat_pitch.py --company "Volvo"
+python test_fat_pitch.py --company "Atlas Copco"
+
+# Show scoring profiles (what dimensions matter per stage)
+python test_fat_pitch.py --profiles
+
+# Stage summary statistics
+python test_fat_pitch.py --summary
+
+# All stage rankings at once
+python test_fat_pitch.py --all-stages
 ```
 
 ## Quick Commands
