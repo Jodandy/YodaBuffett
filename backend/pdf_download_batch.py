@@ -204,8 +204,8 @@ class PDFDownloadBatch:
                         (nd.publish_date BETWEEN :year_start AND :year_end
                          OR nd.title LIKE :year_pattern)
                     """)
-                    params['year_start'] = f"{self.target_year}-01-01"
-                    params['year_end'] = f"{self.target_year}-12-31"
+                    params['year_start'] = date(self.target_year, 1, 1)
+                    params['year_end'] = date(self.target_year, 12, 31)
                     params['year_pattern'] = f"%{self.target_year}%"
 
                 # Apply company filter

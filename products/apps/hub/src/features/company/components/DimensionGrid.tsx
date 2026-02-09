@@ -1,14 +1,19 @@
 /**
  * DimensionGrid Component
  * Displays all 14 dimension scores in a grid layout with visual bars
+ * Clicking a dimension opens a modal with detailed breakdown
  */
 
+import { useState } from 'react'
 import { cn } from '@yodabuffett/ui'
+import { useDimensionDetails } from '../hooks/useCompanyDetail'
+import { DimensionDetailModal } from './DimensionDetailModal'
 
 interface DimensionGridProps {
   dimensionScores: Record<string, number>
   dimensionContributions?: Record<string, number>
   showContributions?: boolean
+  companyId?: string // Required for fetching dimension details
 }
 
 // Dimension metadata
@@ -70,19 +75,35 @@ interface DimensionBarProps {
   score: number
   contribution?: number
   showContribution?: boolean
+  onClick?: () => void
+  clickable?: boolean
 }
 
-function DimensionBar({ code, score, contribution, showContribution }: DimensionBarProps) {
+function DimensionBar({ code, score, contribution, showContribution, onClick, clickable = false }: DimensionBarProps) {
   const meta = dimensionMeta[code] || { name: code, description: '', category: 'fundamental' }
   const roundedScore = Math.round(score)
 
   return (
-    <div className="space-y-1.5">
+    <div
+      className={cn(
+        'space-y-1.5 rounded-lg p-2 -m-2 transition-colors',
+        clickable && 'cursor-pointer hover:bg-muted/50'
+      )}
+      onClick={onClick}
+      role={clickable ? 'button' : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={clickable ? (e) => e.key === 'Enter' && onClick?.() : undefined}
+    >
       <div className="flex justify-between items-baseline">
-        <div>
+        <div className="flex items-center gap-1">
           <span className="text-sm font-medium text-foreground">{meta.name}</span>
+          {clickable && (
+            <svg className="w-3 h-3 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          )}
           {showContribution && contribution !== undefined && (
-            <span className="text-xs text-muted-foreground ml-2">
+            <span className="text-xs text-muted-foreground ml-1">
               (+{contribution.toFixed(1)} pts)
             </span>
           )}
@@ -102,53 +123,83 @@ function DimensionBar({ code, score, contribution, showContribution }: Dimension
   )
 }
 
-export function DimensionGrid({ dimensionScores, dimensionContributions, showContributions = false }: DimensionGridProps) {
+export function DimensionGrid({ dimensionScores, dimensionContributions, showContributions = false, companyId }: DimensionGridProps) {
+  // Modal state
+  const [selectedDimension, setSelectedDimension] = useState<string | null>(null)
+  const isModalOpen = selectedDimension !== null
+
+  // Fetch dimension details when modal is open
+  const { data: dimensionDetails, isLoading } = useDimensionDetails(
+    isModalOpen ? companyId : undefined
+  )
+
+  // Find the detail for the selected dimension
+  const selectedDetail = dimensionDetails?.find(d => d.dimensionCode === selectedDimension) ?? null
+
+  // Check if clicking is enabled (need companyId)
+  const clickable = !!companyId
+
   // Separate into categories
   const fundamentals = displayOrder.filter(d => dimensionMeta[d]?.category === 'fundamental')
   const market = displayOrder.filter(d => dimensionMeta[d]?.category === 'market')
 
   return (
-    <div className="space-y-6">
-      {/* Business Fundamentals */}
-      <div>
-        <h3 className="text-lg font-semibold text-foreground mb-4">Business Fundamentals</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-          {fundamentals.map(code => {
-            const score = dimensionScores[code]
-            if (score === undefined || score === null) return null
-            return (
-              <DimensionBar
-                key={code}
-                code={code}
-                score={score}
-                contribution={dimensionContributions?.[code]}
-                showContribution={showContributions}
-              />
-            )
-          })}
+    <>
+      <div className="space-y-6">
+        {/* Business Fundamentals */}
+        <div>
+          <h3 className="text-lg font-semibold text-foreground mb-4">Business Fundamentals</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+            {fundamentals.map(code => {
+              const score = dimensionScores[code]
+              if (score === undefined || score === null) return null
+              return (
+                <DimensionBar
+                  key={code}
+                  code={code}
+                  score={score}
+                  contribution={dimensionContributions?.[code]}
+                  showContribution={showContributions}
+                  onClick={clickable ? () => setSelectedDimension(code) : undefined}
+                  clickable={clickable}
+                />
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Market Perception */}
+        <div>
+          <h3 className="text-lg font-semibold text-foreground mb-4">Market Perception</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+            {market.map(code => {
+              const score = dimensionScores[code]
+              if (score === undefined || score === null) return null
+              return (
+                <DimensionBar
+                  key={code}
+                  code={code}
+                  score={score}
+                  contribution={dimensionContributions?.[code]}
+                  showContribution={showContributions}
+                  onClick={clickable ? () => setSelectedDimension(code) : undefined}
+                  clickable={clickable}
+                />
+              )
+            })}
+          </div>
         </div>
       </div>
 
-      {/* Market Perception */}
-      <div>
-        <h3 className="text-lg font-semibold text-foreground mb-4">Market Perception</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-          {market.map(code => {
-            const score = dimensionScores[code]
-            if (score === undefined || score === null) return null
-            return (
-              <DimensionBar
-                key={code}
-                code={code}
-                score={score}
-                contribution={dimensionContributions?.[code]}
-                showContribution={showContributions}
-              />
-            )
-          })}
-        </div>
-      </div>
-    </div>
+      {/* Dimension Detail Modal */}
+      <DimensionDetailModal
+        isOpen={isModalOpen}
+        onClose={() => setSelectedDimension(null)}
+        dimensionCode={selectedDimension || ''}
+        detail={selectedDetail}
+        isLoading={isLoading}
+      />
+    </>
   )
 }
 

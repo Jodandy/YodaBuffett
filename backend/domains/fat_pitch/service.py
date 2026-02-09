@@ -345,3 +345,63 @@ class FatPitchService:
             "cheapness_weight": profile.cheapness_weight,
             "tier_thresholds": profile.tier_thresholds,
         }
+
+    async def get_dimension_details(
+        self,
+        company_id: str,
+        score_date: date = None,
+    ) -> List[Dict]:
+        """
+        Get full dimension details including metadata for a company.
+
+        Returns all dimension scores with their underlying metrics.
+        """
+        import json
+
+        score_date = score_date or date.today()
+
+        # Use DISTINCT ON for efficient "latest per dimension" query
+        query = """
+        SELECT DISTINCT ON (dimension_code)
+            dimension_code,
+            score,
+            confidence,
+            data_quality,
+            score_low,
+            score_high,
+            metadata
+        FROM daily_dimension_scores
+        WHERE company_id = $1::uuid
+        AND score_date <= $2
+        ORDER BY dimension_code, score_date DESC
+        """
+
+        try:
+            rows = await self.db_conn.fetch(query, company_id, score_date)
+        except Exception as e:
+            logger.error(f"Error fetching dimension details for {company_id}: {e}")
+            return []
+
+        result = []
+        for row in rows:
+            # Parse metadata if it's a string (asyncpg sometimes returns JSONB as string)
+            metadata = row["metadata"]
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except json.JSONDecodeError:
+                    metadata = {}
+            elif metadata is None:
+                metadata = {}
+
+            result.append({
+                "dimension_code": row["dimension_code"],
+                "score": float(row["score"]) if row["score"] else None,
+                "confidence": float(row["confidence"]) if row["confidence"] else None,
+                "data_quality": float(row["data_quality"]) if row["data_quality"] else None,
+                "score_low": float(row["score_low"]) if row["score_low"] else None,
+                "score_high": float(row["score_high"]) if row["score_high"] else None,
+                "metadata": metadata,
+            })
+
+        return result

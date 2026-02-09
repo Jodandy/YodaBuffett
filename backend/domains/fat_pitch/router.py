@@ -88,6 +88,17 @@ class StageProfileResponse(BaseModel):
     tier_thresholds: Dict[int, float]
 
 
+class DimensionDetailResponse(BaseModel):
+    """Full dimension details including metadata."""
+    dimension_code: str
+    score: Optional[float]
+    confidence: Optional[float]
+    data_quality: Optional[float]
+    score_low: Optional[float]
+    score_high: Optional[float]
+    metadata: Dict
+
+
 # ============================================================================
 # Dependency
 # ============================================================================
@@ -281,6 +292,40 @@ async def analyze_company(
         raise
     except Exception as e:
         logger.error(f"Error analyzing company: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/dimensions/{company_id}", response_model=List[DimensionDetailResponse])
+async def get_dimension_details(
+    company_id: str,
+    score_date: Optional[str] = Query(None, description="Score date (YYYY-MM-DD)"),
+    service: FatPitchService = Depends(get_fat_pitch_service)
+):
+    """
+    Get full dimension details including metadata for a company.
+
+    Returns all dimension scores with their underlying metrics breakdown.
+    Useful for understanding why a company has a specific dimension score.
+    """
+    try:
+        parsed_date = date.fromisoformat(score_date) if score_date else None
+
+        details = await service.get_dimension_details(
+            company_id=company_id,
+            score_date=parsed_date
+        )
+
+        if not details:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No dimension data found for company {company_id}"
+            )
+
+        return [DimensionDetailResponse(**d) for d in details]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting dimension details: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

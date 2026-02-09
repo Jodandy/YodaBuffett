@@ -359,36 +359,27 @@ class BeneishMScoreCalculator(BaseDimensionCalculator):
         """, symbol, score_date, offset)
 
         if not fs:
-            # Try quarterly if no annual
-            fs = await self.db_conn.fetchrow("""
-                SELECT
-                    period_date, total_revenue, gross_profit, net_income,
-                    selling_general_administrative
-                FROM financial_statements
-                WHERE symbol = $1 AND period_date <= $2
-                ORDER BY period_date DESC
-                OFFSET $3 LIMIT 1
-            """, symbol, score_date, offset)
-
-        if not fs:
+            # No annual data available
             return None
 
         period_date = fs["period_date"]
 
-        # Get matching balance sheet
+        # Get matching annual balance sheet
         bs = await self.db_conn.fetchrow("""
             SELECT
                 accounts_receivable, current_assets, total_assets,
                 total_liabilities, total_debt
             FROM balance_sheet_data
             WHERE symbol = $1 AND period_date = $2
+            AND statement_type = 'annual'
         """, symbol, period_date)
 
-        # Get matching cash flow
+        # Get matching annual cash flow
         cf = await self.db_conn.fetchrow("""
             SELECT operating_cash_flow, depreciation_amortization
             FROM cash_flow_data
             WHERE symbol = $1 AND period_date = $2
+            AND statement_type = 'annual'
         """, symbol, period_date)
 
         result = dict(fs)

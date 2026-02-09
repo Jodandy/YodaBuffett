@@ -11,6 +11,7 @@ import type {
   FinancialData,
   CalendarEventsResponse,
   DocumentsResponse,
+  DimensionDetail,
 } from './types'
 
 /**
@@ -149,6 +150,19 @@ export async function searchCompanies(query: string): Promise<CompanyDetail[]> {
     ).slice(0, 20)
   } catch (error) {
     console.error('Failed to search companies:', error)
+    return []
+  }
+}
+
+/**
+ * Fetch dimension details with full metadata for a company
+ */
+export async function fetchDimensionDetails(companyId: string): Promise<DimensionDetail[]> {
+  try {
+    const response = await api.get(`/fat-pitch/dimensions/${companyId}`)
+    return toCamelCase<DimensionDetail[]>(response.data)
+  } catch (error) {
+    console.warn('Failed to fetch dimension details:', error)
     return []
   }
 }

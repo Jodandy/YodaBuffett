@@ -30,6 +30,7 @@ import numpy as np
 from scipy import stats
 
 from .base import BaseDimensionCalculator, register_calculator
+from .currency_utils import convert_currency, get_exchange_rate, needs_conversion
 from .analysis_helpers import (
     MetricAnalysis,
     DimensionAnalysis,
@@ -135,9 +136,13 @@ class ValueCalculator(BaseDimensionCalculator):
             currency=currency,
         )
 
-        # Calculate valuation metrics
+        # Calculate valuation metrics (with currency conversion if needed)
+        report_currency = company_info.get("report_currency")
+        stock_currency = company_info.get("stock_currency")
         valuation_metrics = await self._calculate_valuation_metrics(
-            symbol, score_date, price_data, financials, balance_sheet
+            symbol, score_date, price_data, financials, balance_sheet,
+            report_currency=report_currency,
+            stock_currency=stock_currency
         )
 
         # Analyze each metric
@@ -205,11 +210,25 @@ class ValueCalculator(BaseDimensionCalculator):
         row = await self.db_conn.fetchrow("""
             SELECT
                 id, company_name, primary_ticker, yahoo_symbol,
-                sector, industry, report_currency, country
+                sector, industry, report_currency, stock_currency, country
             FROM company_master
             WHERE id = $1
         """, company_id)
-        return dict(row) if row else None
+        if not row:
+            return None
+        result = dict(row)
+        # Default stock_currency based on exchange suffix if not set
+        if not result.get("stock_currency"):
+            yahoo = result.get("yahoo_symbol", "")
+            if yahoo.endswith(".ST"):
+                result["stock_currency"] = "SEK"
+            elif yahoo.endswith(".OL"):
+                result["stock_currency"] = "NOK"
+            elif yahoo.endswith(".CO"):
+                result["stock_currency"] = "DKK"
+            elif yahoo.endswith(".HE"):
+                result["stock_currency"] = "EUR"
+        return result
 
     async def _get_price_data(
         self,
@@ -295,9 +314,15 @@ class ValueCalculator(BaseDimensionCalculator):
         score_date: date,
         price_data: Dict,
         financials: Dict,
-        balance_sheet: Optional[Dict]
+        balance_sheet: Optional[Dict],
+        report_currency: Optional[str] = None,
+        stock_currency: Optional[str] = None
     ) -> Dict[str, List[Tuple[date, float]]]:
-        """Calculate valuation ratios over time."""
+        """Calculate valuation ratios over time.
+
+        Handles currency conversion when report_currency != stock_currency.
+        Financial values are converted to stock_currency before calculating ratios.
+        """
 
         current_price = price_data.get("close_price")
         if not current_price:
@@ -310,6 +335,13 @@ class ValueCalculator(BaseDimensionCalculator):
             "ev_ebitda": [],
             "price_52w_position": [],
         }
+
+        # Get exchange rate if currencies differ
+        fx_rate = 1.0
+        if report_currency and stock_currency and report_currency != stock_currency:
+            fx_rate = get_exchange_rate(report_currency, stock_currency) or 1.0
+            if fx_rate != 1.0:
+                logger.debug(f"Currency conversion: {report_currency} -> {stock_currency}, rate={fx_rate:.4f}")
 
         # Get historical prices for historical valuation context
         historical_prices = await self._get_historical_prices(symbol, score_date, years=3)
@@ -339,37 +371,42 @@ class ValueCalculator(BaseDimensionCalculator):
             if not shares or shares <= 0:
                 continue
 
+            # Market cap is in stock_currency
             market_cap = float(price_at_period) * float(shares)
 
-            # P/E ratio (using annual data, no annualization needed)
+            # P/E ratio - convert net_income to stock_currency
             net_income = fin.get("net_income")
             if net_income and net_income > 0:  # Only positive earnings
-                pe = market_cap / float(net_income)
+                net_income_converted = float(net_income) * fx_rate
+                pe = market_cap / net_income_converted
                 if 0 < pe < 100:
                     metrics["pe_ratio"].append((period, pe))
 
-            # P/B ratio
+            # P/B ratio - convert equity to stock_currency
             if bs:
                 equity = bs.get("total_equity")
                 if equity and equity > 0:
-                    pb = market_cap / float(equity)
+                    equity_converted = float(equity) * fx_rate
+                    pb = market_cap / equity_converted
                     if 0 < pb < 20:
                         metrics["pb_ratio"].append((period, pb))
 
-            # P/S ratio (using annual data, no annualization needed)
+            # P/S ratio - convert revenue to stock_currency
             revenue = fin.get("total_revenue")
             if revenue and revenue > 0:
-                ps = market_cap / float(revenue)
+                revenue_converted = float(revenue) * fx_rate
+                ps = market_cap / revenue_converted
                 if 0 < ps < 50:
                     metrics["ps_ratio"].append((period, ps))
 
-            # EV/EBITDA (using annual data, no annualization needed)
+            # EV/EBITDA - convert all balance sheet items to stock_currency
             ebitda = fin.get("ebitda")
             if ebitda and ebitda > 0 and bs:
-                debt = bs.get("total_debt") or 0
-                cash = bs.get("cash_and_equivalents") or 0
-                ev = market_cap + float(debt) - float(cash)
-                ev_ebitda = ev / float(ebitda)
+                debt = float(bs.get("total_debt") or 0) * fx_rate
+                cash = float(bs.get("cash_and_equivalents") or 0) * fx_rate
+                ebitda_converted = float(ebitda) * fx_rate
+                ev = market_cap + debt - cash
+                ev_ebitda = ev / ebitda_converted
                 if 0 < ev_ebitda < 50:
                     metrics["ev_ebitda"].append((period, ev_ebitda))
 

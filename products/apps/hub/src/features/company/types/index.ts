@@ -214,3 +214,40 @@ export type CompanyTab = 'overview' | 'financials' | 'documents' | 'events'
 
 // Time range options for price chart
 export type PriceTimeRange = '1M' | '3M' | '6M' | '1Y' | '3Y' | '5Y' | 'MAX'
+
+// Dimension detail with full metadata for deep dive
+export interface DimensionDetail {
+  dimensionCode: string
+  score: number | null
+  confidence: number | null
+  dataQuality: number | null
+  scoreLow: number | null
+  scoreHigh: number | null
+  metadata: DimensionMetadata
+}
+
+// Metadata structure varies by dimension
+export interface DimensionMetadata {
+  // Component scores (common for many dimensions)
+  componentScores?: {
+    raw?: number
+    peer?: number
+    trend?: number
+    stability?: number
+  }
+  // Metrics breakdown (e.g., for value dimension)
+  metrics?: Record<string, MetricDetail>
+  // Context/interpretation
+  [key: string]: unknown
+}
+
+// Individual metric detail
+export interface MetricDetail {
+  current?: number
+  rawScore?: number
+  sectorPercentile?: number
+  historicalPercentile?: number
+  minHistorical?: number
+  maxHistorical?: number
+  trend?: string
+}

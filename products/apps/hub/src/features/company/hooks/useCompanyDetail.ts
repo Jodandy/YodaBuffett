@@ -12,6 +12,7 @@ import {
   fetchFinancials,
   fetchCalendarEvents,
   fetchDocuments,
+  fetchDimensionDetails,
 } from '../api'
 import type { PriceTimeRange } from '../types'
 
@@ -25,6 +26,7 @@ export const companyKeys = {
   financials: (symbol: string) => [...companyKeys.all, 'financials', symbol] as const,
   events: (symbol: string) => [...companyKeys.all, 'events', symbol] as const,
   documents: (symbol: string) => [...companyKeys.all, 'documents', symbol] as const,
+  dimensions: (companyId: string) => [...companyKeys.all, 'dimensions', companyId] as const,
 }
 
 // Map time range to days
@@ -118,6 +120,18 @@ export function useDocuments(symbol: string | undefined) {
     queryKey: companyKeys.documents(symbol || ''),
     queryFn: () => fetchDocuments(symbol!),
     enabled: !!symbol,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+/**
+ * Fetch dimension details with full metadata by company ID
+ */
+export function useDimensionDetails(companyId: string | undefined) {
+  return useQuery({
+    queryKey: companyKeys.dimensions(companyId || ''),
+    queryFn: () => fetchDimensionDetails(companyId!),
+    enabled: !!companyId,
     staleTime: 5 * 60 * 1000,
   })
 }

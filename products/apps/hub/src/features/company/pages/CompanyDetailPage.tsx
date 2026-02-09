@@ -127,11 +127,13 @@ export default function CompanyDetailPage() {
 
             {/* Dimension Scores */}
             <div className="bg-card border border-border rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-6">Dimension Scores</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-2">Dimension Scores</h3>
+              <p className="text-sm text-muted-foreground mb-6">Click on any dimension to see detailed breakdown</p>
               <DimensionGrid
                 dimensionScores={company.dimensionScores}
                 dimensionContributions={company.dimensionContributions}
                 showContributions
+                companyId={company.companyId}
               />
             </div>
 

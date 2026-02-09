@@ -25,6 +25,7 @@ import numpy as np
 from scipy import stats
 
 from .base import BaseDimensionCalculator, register_calculator
+from .currency_utils import get_exchange_rate
 from ..models.dimension import DimensionScore, DimensionDefinition
 
 logger = logging.getLogger(__name__)
@@ -96,9 +97,16 @@ class ValuationPercentileCalculator(BaseDimensionCalculator):
         if not financials or not balance_sheet:
             return None
 
+        # Get exchange rate for currency conversion
+        report_currency = company_info.get("report_currency")
+        stock_currency = company_info.get("stock_currency")
+        fx_rate = 1.0
+        if report_currency and stock_currency and report_currency != stock_currency:
+            fx_rate = get_exchange_rate(report_currency, stock_currency) or 1.0
+
         # Calculate current multiples
         current_multiples = self._calculate_multiples(
-            current_price, financials, balance_sheet
+            current_price, financials, balance_sheet, fx_rate
         )
 
         if not current_multiples:
@@ -106,7 +114,7 @@ class ValuationPercentileCalculator(BaseDimensionCalculator):
 
         # Get historical multiples (5 years)
         historical = await self._get_historical_multiples(
-            symbol, symbol, score_date, years=5
+            symbol, symbol, score_date, years=5, fx_rate=fx_rate
         )
 
         if len(historical) < 20:  # Need enough history
@@ -143,9 +151,17 @@ class ValuationPercentileCalculator(BaseDimensionCalculator):
         self,
         price: float,
         financials: Dict,
-        balance_sheet: Dict
+        balance_sheet: Dict,
+        fx_rate: float = 1.0
     ) -> Dict[str, float]:
-        """Calculate valuation multiples."""
+        """Calculate valuation multiples.
+
+        Args:
+            price: Stock price in stock_currency
+            financials: Financial data in report_currency
+            balance_sheet: Balance sheet data in report_currency
+            fx_rate: Exchange rate to convert report_currency to stock_currency
+        """
 
         multiples = {}
         shares = float(balance_sheet.get("shares_outstanding") or 0)
@@ -153,29 +169,30 @@ class ValuationPercentileCalculator(BaseDimensionCalculator):
         if shares <= 0:
             return {}
 
+        # Market cap is in stock_currency
         market_cap = price * shares
 
-        # P/E
-        net_income = float(financials.get("net_income") or 0)
+        # P/E - convert net_income to stock_currency
+        net_income = float(financials.get("net_income") or 0) * fx_rate
         if net_income > 0:
             eps = net_income / shares
             multiples["pe"] = price / eps
 
-        # P/B
-        equity = float(balance_sheet.get("total_equity") or 0)
+        # P/B - convert equity to stock_currency
+        equity = float(balance_sheet.get("total_equity") or 0) * fx_rate
         if equity > 0:
             book_per_share = equity / shares
             multiples["pb"] = price / book_per_share
 
-        # P/S
-        revenue = float(financials.get("total_revenue") or 0)
+        # P/S - convert revenue to stock_currency
+        revenue = float(financials.get("total_revenue") or 0) * fx_rate
         if revenue > 0:
             multiples["ps"] = market_cap / revenue
 
-        # EV/EBITDA
-        ebitda = float(financials.get("ebitda") or 0)
-        debt = float(balance_sheet.get("total_debt") or 0)
-        cash = float(balance_sheet.get("cash_and_equivalents") or 0)
+        # EV/EBITDA - convert all financial items to stock_currency
+        ebitda = float(financials.get("ebitda") or 0) * fx_rate
+        debt = float(balance_sheet.get("total_debt") or 0) * fx_rate
+        cash = float(balance_sheet.get("cash_and_equivalents") or 0) * fx_rate
 
         if ebitda > 0:
             ev = market_cap + debt - cash
@@ -265,10 +282,25 @@ class ValuationPercentileCalculator(BaseDimensionCalculator):
 
     async def _get_company_info(self, company_id: str) -> Optional[Dict]:
         row = await self.db_conn.fetchrow("""
-            SELECT id, company_name, primary_ticker, yahoo_symbol
+            SELECT id, company_name, primary_ticker, yahoo_symbol,
+                   report_currency, stock_currency
             FROM company_master WHERE id = $1
         """, company_id)
-        return dict(row) if row else None
+        if not row:
+            return None
+        result = dict(row)
+        # Default stock_currency based on exchange suffix if not set
+        if not result.get("stock_currency"):
+            yahoo = result.get("yahoo_symbol", "")
+            if yahoo.endswith(".ST"):
+                result["stock_currency"] = "SEK"
+            elif yahoo.endswith(".OL"):
+                result["stock_currency"] = "NOK"
+            elif yahoo.endswith(".CO"):
+                result["stock_currency"] = "DKK"
+            elif yahoo.endswith(".HE"):
+                result["stock_currency"] = "EUR"
+        return result
 
     async def _get_price(self, symbol: str, score_date: date) -> Optional[float]:
         row = await self.db_conn.fetchrow("""
@@ -303,7 +335,8 @@ class ValuationPercentileCalculator(BaseDimensionCalculator):
         price_symbol: str,
         fin_symbol: str,
         score_date: date,
-        years: int = 5
+        years: int = 5,
+        fx_rate: float = 1.0
     ) -> List[Dict]:
         """Get historical valuation multiples."""
 
@@ -372,7 +405,8 @@ class ValuationPercentileCalculator(BaseDimensionCalculator):
                 multiples = self._calculate_multiples(
                     float(price_row["close_price"]),
                     applicable_fin,
-                    applicable_bs
+                    applicable_bs,
+                    fx_rate
                 )
                 if multiples:
                     multiples["date"] = price_date

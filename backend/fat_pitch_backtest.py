@@ -156,6 +156,23 @@ WEIGHT_PROFILES = {
         'sentiment': 0,
         'financial_health': 0,
     },
+    # Pure momentum - ignore fundamentals, just buy what's going up
+    'momentum_only': {
+        'momentum': 100,
+        'profitability': 0,
+        'returns': 0,
+        'growth': 0,
+        'financial_health': 0,
+        'earnings_quality': 0,
+        'capital_allocation': 0,
+        'working_capital': 0,
+        'beneish_mscore': 0,
+        'value': 0,
+        'risk': 0,
+        'quality': 0,
+        'valuation_percentile': 0,
+        'sentiment': 0,
+    },
 }
 
 DIMENSIONS = list(WEIGHT_PROFILES['ml'].keys())
@@ -164,12 +181,15 @@ DIMENSIONS = list(WEIGHT_PROFILES['ml'].keys())
 class FatPitchBacktester:
     """Backtest Fat Pitch strategy across quarters."""
 
-    def __init__(self, top_n: int = 20, weight_profile: str = 'ml', lag_days: int = 0, select_bottom: bool = False):
+    def __init__(self, top_n: int = 20, weight_profile: str = 'ml', lag_days: int = 0,
+                 select_bottom: bool = False, momentum_veto: int = None, min_momentum: int = None):
         self.top_n = top_n
         self.weight_profile = weight_profile
         self.weights = WEIGHT_PROFILES[weight_profile]
         self.lag_days = lag_days  # Conservative lag to avoid look-ahead bias
         self.select_bottom = select_bottom  # Pick worst instead of best
+        self.momentum_veto = momentum_veto  # Exclude companies with momentum below this threshold
+        self.min_momentum = min_momentum  # Only include companies with momentum >= this (stricter)
         self.conn = None
 
     async def connect(self):
@@ -249,6 +269,22 @@ class FatPitchBacktester:
                 df[dim] = df[dim].fillna(50)  # Neutral for missing
                 # Negative weights invert the contribution (high score → low contribution)
                 df['weighted_score'] += (df[dim] * weight / total_weight)
+
+        # Apply momentum veto if set - exclude companies with poor momentum
+        if self.momentum_veto is not None and 'momentum' in df.columns:
+            before_count = len(df)
+            df = df[df['momentum'] >= self.momentum_veto]
+            vetoed = before_count - len(df)
+            if vetoed > 0:
+                logger.debug(f"Momentum veto removed {vetoed} companies (< {self.momentum_veto})")
+
+        # Apply min momentum filter - only keep high momentum companies
+        if self.min_momentum is not None and 'momentum' in df.columns:
+            before_count = len(df)
+            df = df[df['momentum'] >= self.min_momentum]
+            filtered = before_count - len(df)
+            if filtered > 0:
+                logger.debug(f"Min momentum filter removed {filtered} companies (< {self.min_momentum})")
 
         return df
 
@@ -448,6 +484,7 @@ class FatPitchBacktester:
                     'weights': self.weights,
                     'top_n': self.top_n,
                     'lag_days': self.lag_days,
+                    'momentum_veto': self.momentum_veto,
                     'quarters': len(quarters),
                 }
 
@@ -538,6 +575,8 @@ class FatPitchBacktester:
                 'weights': self.weights,
                 'top_n': self.top_n,
                 'lag_days': self.lag_days,
+                'momentum_veto': self.momentum_veto,
+                'min_momentum': self.min_momentum,
                 'quarters': len(quarterly_summaries),
                 'all_picks': all_results,
                 'quarterly_summaries': quarterly_summaries,
@@ -555,6 +594,10 @@ def print_results(results: Dict):
     print(f"Weight Profile: {results['weight_profile'].upper()}")
     print(f"Top N: {results['top_n']}")
     print(f"Lag Days: {results.get('lag_days', 0)} {'(NO LOOK-AHEAD BIAS)' if results.get('lag_days', 0) >= 60 else ''}")
+    if results.get('momentum_veto'):
+        print(f"Momentum Veto: < {results['momentum_veto']} excluded (AVOID VALUE TRAPS)")
+    if results.get('min_momentum'):
+        print(f"Min Momentum: >= {results['min_momentum']} required (QUALITY + MOMENTUM)")
     print(f"Quarters Tested: {results['quarters']}")
     print("=" * 100)
 
@@ -954,22 +997,76 @@ def export_to_excel(results: Dict, filename: str = None):
     return filename
 
 
-async def compare_strategies(lag_days: int = 0, select_bottom: bool = False):
+async def compare_veto(weight_profile: str = 'equal', lag_days: int = 60, top_n: int = 20):
+    """Compare results with and without momentum veto at different thresholds."""
+    print("\n" + "=" * 100)
+    print(f"MOMENTUM VETO COMPARISON - {weight_profile.upper()} weights, Top {top_n}, lag={lag_days}")
+    print("=" * 100)
+
+    thresholds = [None, 30, 40, 50, 60]  # None = no veto
+    results = {}
+
+    for threshold in thresholds:
+        label = f"veto_{threshold}" if threshold else "no_veto"
+        logger.info(f"Running with momentum veto = {threshold}...")
+        backtester = FatPitchBacktester(
+            top_n=top_n,
+            weight_profile=weight_profile,
+            lag_days=lag_days,
+            momentum_veto=threshold
+        )
+        results[label] = await backtester.run_backtest()
+
+    # Print comparison table
+    print(f"\n{'Threshold':<12} {'Avg Alpha 3M':>14} {'Avg Alpha 6M':>14} {'Avg Alpha 12M':>14} {'Win Rate 12M':>14} {'Worst Pick':>12}")
+    print("-" * 85)
+
+    for threshold in thresholds:
+        label = f"veto_{threshold}" if threshold else "no_veto"
+        res = results[label]
+        summaries = pd.DataFrame(res['quarterly_summaries'])
+        picks = pd.DataFrame(res['all_picks'])
+
+        avg_alpha_3m = summaries['alpha_3M'].mean()
+        avg_alpha_6m = summaries['alpha_6M'].mean()
+        avg_alpha_12m = summaries['alpha_12M'].mean()
+        win_rate_12m = (summaries['alpha_12M'] > 0).mean() * 100
+
+        # Find worst pick
+        worst_12m = picks['return_12M'].min() if not picks.empty and 'return_12M' in picks.columns else None
+
+        threshold_str = f"< {threshold}" if threshold else "None"
+        worst_str = f"{worst_12m:+.0f}%" if worst_12m is not None else "N/A"
+
+        print(f"{threshold_str:<12} {avg_alpha_3m:>+13.1f}% {avg_alpha_6m:>+13.1f}% {avg_alpha_12m:>+13.1f}% {win_rate_12m:>13.0f}% {worst_str:>12}")
+
+    # Summary
+    print("-" * 85)
+    print("\nInterpretation:")
+    print("  - Higher Alpha = better returns vs market")
+    print("  - Higher Win Rate = more consistent outperformance")
+    print("  - Less negative Worst Pick = fewer value trap disasters")
+    print("\nIf veto helps, you'll see: higher alpha, higher win rate, less extreme worst pick")
+
+
+async def compare_strategies(lag_days: int = 0, select_bottom: bool = False, momentum_veto: int = None):
     """Compare different weight profiles."""
     mode = "BOTTOM" if select_bottom else "TOP"
+    veto_str = f", momentum_veto={momentum_veto}" if momentum_veto else ""
     print("\n" + "=" * 100)
-    print(f"STRATEGY COMPARISON - {mode} 20 (lag={lag_days} days)")
+    print(f"STRATEGY COMPARISON - {mode} 20 (lag={lag_days} days{veto_str})")
     print("=" * 100)
 
     results = {}
-    profiles = ['ml', 'original', 'equal', 'value', 'quality', 'contrarian', 'anti']
+    profiles = ['ml', 'original', 'equal', 'value', 'quality', 'contrarian', 'anti', 'momentum_only']
     for profile in profiles:
         logger.info(f"Running {profile} strategy ({mode})...")
         backtester = FatPitchBacktester(
             top_n=20,
             weight_profile=profile,
             lag_days=lag_days,
-            select_bottom=select_bottom
+            select_bottom=select_bottom,
+            momentum_veto=momentum_veto
         )
         results[profile] = await backtester.run_backtest()
 
@@ -1004,13 +1101,19 @@ async def main():
     parser = argparse.ArgumentParser(description='Fat Pitch Strategy Backtest')
     parser.add_argument('--top', type=int, default=20, help='Number of top picks per quarter')
     parser.add_argument('--weights', type=str, default='ml',
-                        choices=['ml', 'original', 'equal', 'value', 'quality', 'contrarian', 'anti'],
+                        choices=['ml', 'original', 'equal', 'value', 'quality', 'contrarian', 'anti', 'momentum_only'],
                         help='Weight profile to use')
     parser.add_argument('--compare', action='store_true', help='Compare all weight profiles')
+    parser.add_argument('--compare-veto', action='store_true', dest='compare_veto',
+                        help='Compare results with different momentum veto thresholds')
     parser.add_argument('--bottom', action='store_true',
                         help='Select BOTTOM N instead of top N (test if signal works both ways)')
     parser.add_argument('--lag', type=int, default=0,
                         help='Days to lag dimension scores (60 = no look-ahead bias)')
+    parser.add_argument('--momentum-veto', type=int, default=None, dest='momentum_veto',
+                        help='Exclude companies with momentum score below this threshold (e.g., 40)')
+    parser.add_argument('--min-momentum', type=int, default=None, dest='min_momentum',
+                        help='Only include companies with momentum >= this (e.g., 60 for high momentum)')
     parser.add_argument('--export', action='store_true',
                         help='Export full data to Excel (all companies, all dimensions, all returns)')
     parser.add_argument('--output', type=str, default=None,
@@ -1018,14 +1121,19 @@ async def main():
 
     args = parser.parse_args()
 
-    if args.compare:
-        await compare_strategies(lag_days=args.lag, select_bottom=args.bottom)
+    if args.compare_veto:
+        await compare_veto(weight_profile=args.weights, lag_days=args.lag, top_n=args.top)
+    elif args.compare:
+        await compare_strategies(lag_days=args.lag, select_bottom=args.bottom,
+                                 momentum_veto=args.momentum_veto)
     elif args.export:
         backtester = FatPitchBacktester(
             top_n=args.top,
             weight_profile=args.weights,
             lag_days=args.lag,
-            select_bottom=args.bottom
+            select_bottom=args.bottom,
+            momentum_veto=args.momentum_veto,
+            min_momentum=args.min_momentum
         )
         results = await backtester.run_backtest_with_export()
         export_to_excel(results, args.output)
@@ -1034,7 +1142,9 @@ async def main():
             top_n=args.top,
             weight_profile=args.weights,
             lag_days=args.lag,
-            select_bottom=args.bottom
+            select_bottom=args.bottom,
+            momentum_veto=args.momentum_veto,
+            min_momentum=args.min_momentum
         )
         results = await backtester.run_backtest()
         print_results(results)
