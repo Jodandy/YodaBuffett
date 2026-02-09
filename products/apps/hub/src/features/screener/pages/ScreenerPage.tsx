@@ -4,11 +4,18 @@
  */
 
 import { useState, useMemo } from 'react'
-import { ChartBarSquareIcon, SparklesIcon, ExclamationTriangleIcon, BeakerIcon } from '@heroicons/react/24/outline'
+import { ChartBarSquareIcon, SparklesIcon, ExclamationTriangleIcon, BeakerIcon, CalendarIcon } from '@heroicons/react/24/outline'
 import { usePitches, useWeightProfiles } from '../hooks/usePitches'
 import { CompanyCard, CompanyCardExpanded } from '../components/CompanyCard'
 import { ScreenerFilters } from '../components/ScreenerFilters'
 import type { ScreenerFilters as Filters, SortDirection } from '../types'
+
+// Format date for display
+function formatDateLabel(dateStr: string | null): string {
+  if (!dateStr) return 'Today'
+  const date = new Date(dateStr)
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
 
 // Sort field type - includes main fields and dimensions
 type SortField = 'fatPitchScore' | 'qualityScore' | 'cheapnessScore' | 'companyName' | 'qualityTier' | string
@@ -45,12 +52,16 @@ export default function ScreenerPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [viewMode, setViewMode] = useState<'grid' | 'expanded'>('grid')
   const [selectedProfile, setSelectedProfile] = useState<string>('optimal')
+  const [selectedDate, setSelectedDate] = useState<string | null>(null) // null = today
 
   // Fetch weight profiles
   const { data: profileData } = useWeightProfiles()
 
-  // Fetch data with selected profile
-  const { data: pitches = [], isLoading, error } = usePitches(selectedProfile)
+  // Fetch data with selected profile and date
+  const { data: pitches = [], isLoading, error } = usePitches(
+    selectedProfile,
+    selectedDate || undefined
+  )
 
   // Filter and sort pitches
   const filteredPitches = useMemo(() => {
@@ -171,9 +182,43 @@ export default function ScreenerPage() {
           <h1 className="text-3xl font-bold text-foreground">Stock Screener</h1>
           <p className="text-muted-foreground mt-2">
             Fat Pitch Machine - find quality companies at attractive prices
+            {selectedDate && (
+              <span className="ml-2 text-yellow-500">
+                (Viewing scores as of {formatDateLabel(selectedDate)})
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-4">
+          {/* Date Picker */}
+          <div className="flex items-center gap-2">
+            <CalendarIcon className="w-5 h-5 text-muted-foreground" />
+            <div className="relative">
+              <input
+                type="date"
+                value={selectedDate || ''}
+                onChange={(e) => setSelectedDate(e.target.value || null)}
+                max={new Date().toISOString().split('T')[0]}
+                min="2021-06-01"
+                className="bg-card border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              {selectedDate && (
+                <button
+                  onClick={() => setSelectedDate(null)}
+                  className="absolute right-8 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  title="Reset to today"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+            {selectedDate && (
+              <span className="text-xs text-yellow-500 font-medium">
+                Historical
+              </span>
+            )}
+          </div>
+
           {/* Weight Profile Selector */}
           <div className="flex items-center gap-2">
             <BeakerIcon className="w-5 h-5 text-muted-foreground" />

@@ -58,12 +58,26 @@ async def _get_company_name(conn: asyncpg.Connection, symbol: str) -> Optional[s
 
 
 async def _get_nordic_company_id(conn: asyncpg.Connection, symbol: str) -> Optional[str]:
-    """Get nordic_companies id from a symbol (via company_master ticker)."""
+    """Get nordic_companies id from a symbol (via nordic_companies ticker)."""
     row = await conn.fetchrow(
         """
         SELECT nc.id, nc.name
         FROM nordic_companies nc
         WHERE nc.ticker = $1
+        LIMIT 1
+        """,
+        symbol
+    )
+    return row['id'] if row else None
+
+
+async def _get_company_master_id(conn: asyncpg.Connection, symbol: str) -> Optional[str]:
+    """Get company_master id from a symbol - this is what documents are linked to."""
+    row = await conn.fetchrow(
+        """
+        SELECT id
+        FROM company_master
+        WHERE primary_ticker = $1 OR yahoo_symbol = $1
         LIMIT 1
         """,
         symbol
@@ -324,9 +338,11 @@ async def get_documents(
     try:
         # Get company info
         company_name = await _get_company_name(conn, symbol)
-        nordic_company_id = await _get_nordic_company_id(conn, symbol)
 
-        if not nordic_company_id:
+        # Documents are linked via company_master.id, not nordic_companies.id
+        company_id = await _get_company_master_id(conn, symbol)
+
+        if not company_id:
             raise HTTPException(
                 status_code=404,
                 detail=f"No company found for symbol: {symbol}"
@@ -334,7 +350,7 @@ async def get_documents(
 
         # Build document type filter
         type_filter = ""
-        params = [nordic_company_id, limit]
+        params = [company_id, limit]
         if document_type:
             type_filter = "AND nd.document_type = $3"
             params.append(document_type)
@@ -364,21 +380,21 @@ async def get_documents(
         if document_type:
             total_count = await conn.fetchval(
                 "SELECT COUNT(*) FROM nordic_documents WHERE company_id = $1 AND document_type = $2",
-                nordic_company_id, document_type
+                company_id, document_type
             )
         else:
             total_count = await conn.fetchval(
                 "SELECT COUNT(*) FROM nordic_documents WHERE company_id = $1",
-                nordic_company_id
+                company_id
             )
 
         downloaded_count = await conn.fetchval(
             "SELECT COUNT(*) FROM nordic_documents WHERE company_id = $1 AND storage_path IS NOT NULL",
-            nordic_company_id
+            company_id
         )
         extracted_count = await conn.fetchval(
             "SELECT COUNT(*) FROM nordic_documents WHERE company_id = $1 AND extraction_status = 'completed'",
-            nordic_company_id
+            company_id
         )
 
         # Convert to response format

@@ -12,7 +12,7 @@ export const pitchKeys = {
   all: ['pitches'] as const,
   lists: () => [...pitchKeys.all, 'list'] as const,
   list: (filters: Record<string, unknown>) => [...pitchKeys.lists(), filters] as const,
-  listWithProfile: (profile: string) => [...pitchKeys.lists(), { profile }] as const,
+  listWithParams: (profile?: string, date?: string) => [...pitchKeys.lists(), { profile, date }] as const,
   actionable: () => [...pitchKeys.all, 'actionable'] as const,
   byStage: (stage: BusinessStage) => [...pitchKeys.all, 'stage', stage] as const,
   summary: () => [...pitchKeys.all, 'summary'] as const,
@@ -20,11 +20,11 @@ export const pitchKeys = {
   weightProfiles: () => [...pitchKeys.all, 'weight-profiles'] as const,
 }
 
-// Fetch all pitches with optional weight profile
-export function usePitches(weightProfile?: string) {
+// Fetch all pitches with optional weight profile and score date
+export function usePitches(weightProfile?: string, scoreDate?: string) {
   return useQuery({
-    queryKey: weightProfile ? pitchKeys.listWithProfile(weightProfile) : pitchKeys.lists(),
-    queryFn: () => fetchPitches(weightProfile),
+    queryKey: pitchKeys.listWithParams(weightProfile, scoreDate),
+    queryFn: () => fetchPitches(weightProfile, scoreDate),
     staleTime: 5 * 60 * 1000, // 5 minutes
   })
 }

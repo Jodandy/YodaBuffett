@@ -6,11 +6,14 @@
 import { api, toCamelCase } from '@/services/api'
 import type { FatPitchSummary, FatPitch, BusinessStage, WeightProfileListResponse } from './types'
 
-// Fetch all pitches with optional weight profile
-export async function fetchPitches(weightProfile?: string): Promise<FatPitch[]> {
+// Fetch all pitches with optional weight profile and date
+export async function fetchPitches(weightProfile?: string, scoreDate?: string): Promise<FatPitch[]> {
   const params: Record<string, string | number> = { limit: 2000 }
   if (weightProfile) {
     params.weight_profile = weightProfile
+  }
+  if (scoreDate) {
+    params.score_date = scoreDate
   }
   const response = await api.get('/fat-pitch/pitches', { params })
   return toCamelCase<FatPitch[]>(response.data)
