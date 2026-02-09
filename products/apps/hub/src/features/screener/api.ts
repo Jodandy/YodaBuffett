@@ -4,12 +4,33 @@
  */
 
 import { api, toCamelCase } from '@/services/api'
-import type { FatPitchSummary, FatPitch, BusinessStage } from './types'
+import type { FatPitchSummary, FatPitch, BusinessStage, WeightProfileListResponse } from './types'
 
-// Fetch all pitches
-export async function fetchPitches(): Promise<FatPitch[]> {
-  const response = await api.get('/fat-pitch/pitches')
+// Fetch all pitches with optional weight profile
+export async function fetchPitches(weightProfile?: string): Promise<FatPitch[]> {
+  const params: Record<string, string | number> = { limit: 2000 }
+  if (weightProfile) {
+    params.weight_profile = weightProfile
+  }
+  const response = await api.get('/fat-pitch/pitches', { params })
   return toCamelCase<FatPitch[]>(response.data)
+}
+
+// Fetch available weight profiles
+export async function fetchWeightProfiles(): Promise<WeightProfileListResponse> {
+  try {
+    const response = await api.get('/fat-pitch/weight-profiles')
+    return toCamelCase<WeightProfileListResponse>(response.data)
+  } catch (error) {
+    console.warn('Failed to fetch weight profiles:', error)
+    // Return default fallback
+    return {
+      profiles: [
+        { name: 'optimal', description: 'Best predictor from backtesting', weights: {}, isDefault: true }
+      ],
+      defaultProfile: 'optimal'
+    }
+  }
 }
 
 // Fetch actionable pitches only

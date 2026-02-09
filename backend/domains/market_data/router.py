@@ -23,6 +23,8 @@ from .schemas import (
     DocumentsResponse,
     CalendarEventItem,
     CalendarEventsResponse,
+    GlobalCalendarEventItem,
+    GlobalCalendarResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -523,6 +525,124 @@ async def get_calendar_events(
         raise
     except Exception as e:
         logger.error(f"Error fetching events for {symbol}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        await conn.close()
+
+
+# ============== Global Calendar Endpoint ==============
+
+@router.get("/calendar", response_model=GlobalCalendarResponse)
+async def get_global_calendar(
+    event_type: Optional[str] = Query(None, description="Filter by type: earnings, dividend, agm, other"),
+    start_date: Optional[date] = Query(None, description="Start date for filtering events"),
+    end_date: Optional[date] = Query(None, description="End date for filtering events"),
+    days_ahead: int = Query(90, ge=1, le=365, description="Days ahead to look for upcoming events (default 90)"),
+    days_back: int = Query(30, ge=0, le=365, description="Days back to include past events (default 30)"),
+    limit: int = Query(500, ge=1, le=1000, description="Max events to return"),
+):
+    """
+    Get calendar events across all companies.
+
+    Returns a global view of all financial calendar events (earnings, dividends, AGMs, etc.)
+    sorted by date. Events include company information for context.
+    """
+    conn = await asyncpg.connect(DATABASE_URL)
+    try:
+        # Build date range
+        if start_date is None:
+            start_date = date.today() - timedelta(days=days_back)
+        if end_date is None:
+            end_date = date.today() + timedelta(days=days_ahead)
+
+        # Build filters
+        filters = ["nce.event_date >= $1", "nce.event_date <= $2"]
+        params: list = [start_date, end_date]
+        param_idx = 3
+
+        if event_type:
+            filters.append(f"nce.event_type = ${param_idx}")
+            params.append(event_type)
+            param_idx += 1
+
+        params.append(limit)
+        where_clause = " AND ".join(filters)
+
+        # Query events with company info
+        query = f"""
+            SELECT
+                nce.id,
+                nce.event_type,
+                nce.event_date,
+                nce.event_time,
+                nce.title,
+                nce.description,
+                nce.confirmed,
+                nce.webcast_url,
+                nce.source_url,
+                nce.dividend_amount,
+                nce.dividend_currency,
+                nce.ex_dividend_date,
+                nce.payment_date,
+                nc.ticker as symbol,
+                nc.name as company_name
+            FROM nordic_calendar_events nce
+            JOIN nordic_companies nc ON nce.company_id = nc.id
+            WHERE {where_clause}
+            ORDER BY nce.event_date ASC
+            LIMIT ${param_idx}
+        """
+        rows = await conn.fetch(query, *params)
+
+        # Get counts
+        total_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM nordic_calendar_events nce WHERE nce.event_date >= $1 AND nce.event_date <= $2",
+            start_date, end_date
+        )
+        upcoming_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM nordic_calendar_events WHERE event_date >= $1",
+            date.today()
+        )
+
+        # Get event type counts
+        type_counts_rows = await conn.fetch("""
+            SELECT event_type, COUNT(*) as count
+            FROM nordic_calendar_events
+            WHERE event_date >= $1 AND event_date <= $2
+            GROUP BY event_type
+        """, start_date, end_date)
+        event_type_counts = {row['event_type']: row['count'] for row in type_counts_rows}
+
+        # Convert to response format
+        events = []
+        for row in rows:
+            events.append(GlobalCalendarEventItem(
+                id=str(row['id']),
+                event_type=row['event_type'],
+                event_date=row['event_date'],
+                event_time=str(row['event_time']) if row.get('event_time') else None,
+                title=row.get('title'),
+                description=row.get('description'),
+                confirmed=row.get('confirmed', False),
+                webcast_url=row.get('webcast_url'),
+                source_url=row.get('source_url'),
+                dividend_amount=_to_float(row.get('dividend_amount')),
+                dividend_currency=row.get('dividend_currency'),
+                ex_dividend_date=row.get('ex_dividend_date'),
+                payment_date=row.get('payment_date'),
+                symbol=row['symbol'],
+                company_name=row['company_name'],
+            ))
+
+        return GlobalCalendarResponse(
+            events=events,
+            total_count=total_count or 0,
+            upcoming_count=upcoming_count or 0,
+            event_type_counts=event_type_counts,
+        )
+
+    except Exception as e:
+        logger.error(f"Error fetching global calendar: {e}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         await conn.close()

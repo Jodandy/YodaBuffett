@@ -1,13 +1,15 @@
 """
 Fat Pitch Scorer
 
-Scores companies as investment opportunities based on their lifecycle stage.
+Scores companies as investment opportunities using backtested weight profiles.
 
-Each stage has different dimension weights reflecting what matters most:
-- Early Stage: Growth trajectory, momentum (most qualitative, LLM territory)
-- Growth Stage: Growth quality, profitability, returns, capital allocation
-- Mature Yield: Dividend safety, financial health, earnings quality, value trap avoidance
-- Compounder: Moat/quality, returns, profitability, growth stability
+Available profiles (backtested on Nordic markets 2021-2024):
+- optimal: Best predictor from backtesting (growth + quality focus)
+- garp: Growth at Reasonable Price (Peter Lynch style)
+- buffett: Quality compounder (Buffett style)
+- quality: Pure quality focus
+- value: Deep value focus
+- equal: Equal weights baseline
 """
 
 from dataclasses import dataclass
@@ -28,7 +30,133 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================================================
-# STAGE SCORING PROFILES
+# BACKTESTED WEIGHT PROFILES
+# ============================================================================
+# These profiles were backtested on Nordic markets 2021-2024
+# Ranked by predictive power (slope of rank vs 12M return):
+#   optimal: -0.0350 (BEST)
+#   garp:    -0.0349
+#   quality: -0.0326
+#   buffett: -0.0322
+#   equal:   -0.0311
+
+WEIGHT_PROFILES: Dict[str, Dict[str, float]] = {
+    # OPTIMAL - Best predictor from backtesting (2026-02-09)
+    # Based on: growth matters, quality metrics predict, beneish filters manipulation
+    'optimal': {
+        'growth': 0.20,                # Growth matters (GARP insight)
+        'profitability': 0.18,         # Strong predictor
+        'returns': 0.15,               # ROE/ROIC matters
+        'earnings_quality': 0.12,      # Real earnings, not accounting tricks
+        'beneish_mscore': 0.12,        # Filter manipulation (top ML predictor)
+        'quality': 0.10,               # Overall quality composite
+        'value': 0.08,                 # Some value, but not extreme
+        'capital_allocation': 0.05,    # Good capital deployment
+        'momentum': 0.0,               # No signal alone - use as veto instead
+        'financial_health': 0.0,       # Didn't predict well
+        'working_capital': 0.0,
+        'valuation_percentile': 0.0,   # Historical cheapness = traps
+        'risk': 0.0,
+        'sentiment': 0.0,              # No signal
+    },
+
+    # GARP - Growth at Reasonable Price (Peter Lynch style)
+    'garp': {
+        'growth': 0.30,
+        'value': 0.25,
+        'profitability': 0.15,
+        'earnings_quality': 0.10,
+        'returns': 0.10,
+        'quality': 0.05,
+        'momentum': 0.05,
+        'financial_health': 0.0,
+        'capital_allocation': 0.0,
+        'working_capital': 0.0,
+        'beneish_mscore': 0.0,
+        'valuation_percentile': 0.0,
+        'risk': 0.0,
+        'sentiment': 0.0,
+    },
+
+    # BUFFETT - Quality compounder style
+    'buffett': {
+        'returns': 0.20,               # High sustainable ROE
+        'profitability': 0.15,         # Strong margins
+        'earnings_quality': 0.15,      # Real cash earnings
+        'capital_allocation': 0.15,    # Good capital deployment
+        'financial_health': 0.10,      # Conservative balance sheet
+        'beneish_mscore': 0.10,        # Honest accounting
+        'value': 0.10,                 # Fair price (not necessarily cheap)
+        'quality': 0.05,               # Overall quality
+        'growth': 0.0,
+        'working_capital': 0.0,
+        'risk': 0.0,
+        'momentum': 0.0,
+        'valuation_percentile': 0.0,
+        'sentiment': 0.0,
+    },
+
+    # QUALITY - Pure quality focus
+    'quality': {
+        'quality': 0.20,
+        'profitability': 0.15,
+        'returns': 0.15,
+        'earnings_quality': 0.15,
+        'capital_allocation': 0.10,
+        'beneish_mscore': 0.10,
+        'financial_health': 0.10,
+        'growth': 0.05,
+        'working_capital': 0.0,
+        'value': 0.0,
+        'risk': 0.0,
+        'momentum': 0.0,
+        'valuation_percentile': 0.0,
+        'sentiment': 0.0,
+    },
+
+    # VALUE - Deep value focus (note: inverse signal in backtest!)
+    'value': {
+        'value': 0.25,
+        'valuation_percentile': 0.20,
+        'earnings_quality': 0.15,
+        'profitability': 0.15,
+        'financial_health': 0.10,
+        'beneish_mscore': 0.10,
+        'quality': 0.05,
+        'returns': 0.0,
+        'growth': 0.0,
+        'capital_allocation': 0.0,
+        'working_capital': 0.0,
+        'risk': 0.0,
+        'momentum': 0.0,
+        'sentiment': 0.0,
+    },
+
+    # EQUAL - Equal weights baseline
+    'equal': {
+        'profitability': 1/14,
+        'returns': 1/14,
+        'growth': 1/14,
+        'financial_health': 1/14,
+        'earnings_quality': 1/14,
+        'capital_allocation': 1/14,
+        'working_capital': 1/14,
+        'beneish_mscore': 1/14,
+        'value': 1/14,
+        'risk': 1/14,
+        'momentum': 1/14,
+        'quality': 1/14,
+        'valuation_percentile': 1/14,
+        'sentiment': 1/14,
+    },
+}
+
+# Default profile to use
+DEFAULT_WEIGHT_PROFILE = 'optimal'
+
+
+# ============================================================================
+# STAGE SCORING PROFILES (Legacy - kept for reference)
 # ============================================================================
 
 STAGE_PROFILES: Dict[BusinessStage, StageProfile] = {
@@ -183,15 +311,25 @@ STAGE_PROFILES: Dict[BusinessStage, StageProfile] = {
 
 class FatPitchScorer:
     """
-    Scores companies as fat pitch candidates based on their stage.
+    Scores companies using backtested weight profiles.
+
+    Available profiles: optimal, garp, buffett, quality, value, equal
+    Default: optimal (best backtested predictor)
     """
 
     # Dimensions used for cheapness score
     CHEAPNESS_DIMENSIONS = ["value", "valuation_percentile"]
 
-    def __init__(self, db_conn=None):
+    def __init__(self, db_conn=None, weight_profile: str = None):
         self.db_conn = db_conn
-        self.profiles = STAGE_PROFILES
+        self.weight_profile = weight_profile or DEFAULT_WEIGHT_PROFILE
+        self.weights = WEIGHT_PROFILES.get(self.weight_profile, WEIGHT_PROFILES[DEFAULT_WEIGHT_PROFILE])
+        self.stage_profiles = STAGE_PROFILES  # Keep for reference/tier calculation
+
+    @classmethod
+    def get_available_profiles(cls) -> List[str]:
+        """Return list of available weight profiles."""
+        return list(WEIGHT_PROFILES.keys())
 
     async def score_company(
         self,
@@ -200,47 +338,42 @@ class FatPitchScorer:
         dimension_scores: Dict[str, float],
         financials: Optional[CompanyFinancials] = None,
         stage_confidence: float = 1.0,
+        weight_profile: str = None,
     ) -> Optional[FatPitch]:
         """
-        Score a single company as a fat pitch candidate.
+        Score a single company using the selected weight profile.
 
         Args:
             company_id: Company UUID
-            stage: Assigned business stage
+            stage: Assigned business stage (kept as metadata)
             dimension_scores: Dict of dimension_code -> score (0-100)
             financials: Optional company financials
             stage_confidence: Confidence in stage assignment (0-1)
+            weight_profile: Override weight profile for this call
 
         Returns:
             FatPitch object or None if insufficient data
         """
+        # Use override profile if provided, else instance default
+        profile_name = weight_profile or self.weight_profile
+        weights = WEIGHT_PROFILES.get(profile_name, WEIGHT_PROFILES[DEFAULT_WEIGHT_PROFILE])
 
-        if stage == BusinessStage.UNKNOWN:
-            return None
-
-        profile = self.profiles.get(stage)
-        if not profile:
-            logger.warning(f"No profile for stage {stage}")
-            return None
-
-        # Calculate quality score (weighted dimensions)
-        quality_score, contributions = self._calculate_quality_score(
-            dimension_scores, profile
+        # Calculate weighted score using backtested weights
+        weighted_score, contributions = self._calculate_weighted_score(
+            dimension_scores, weights
         )
 
-        # Calculate cheapness score
+        # Calculate cheapness score (for reference)
         cheapness_score = self._calculate_cheapness_score(dimension_scores)
 
-        # Calculate fat pitch score
-        fat_pitch_score = self._calculate_fat_pitch_score(
-            quality_score, cheapness_score, profile
-        )
+        # Use weighted_score as the main fat_pitch_score
+        fat_pitch_score = weighted_score
 
-        # Determine quality tier
-        quality_tier = profile.get_tier(quality_score)
+        # Determine quality tier based on score
+        quality_tier = self._get_tier_from_score(weighted_score)
 
         # Generate flags and warnings
-        flags = self._generate_flags(dimension_scores, quality_score, cheapness_score)
+        flags = self._generate_flags(dimension_scores, weighted_score, cheapness_score)
         warnings = self._generate_warnings(dimension_scores, stage)
 
         # Get company info
@@ -252,7 +385,7 @@ class FatPitchScorer:
             company_name=company_info.get("company_name", ""),
             stage=stage,
             stage_confidence=stage_confidence,
-            quality_score=round(quality_score, 1),
+            quality_score=round(weighted_score, 1),  # Now using weighted_score
             cheapness_score=round(cheapness_score, 1),
             fat_pitch_score=round(fat_pitch_score, 1),
             quality_tier=quality_tier,
@@ -298,6 +431,68 @@ class FatPitchScorer:
         quality_score = quality_score * (0.8 + 0.2 * completeness)
 
         return quality_score, contributions
+
+    def _calculate_weighted_score(
+        self,
+        dimension_scores: Dict[str, float],
+        weights: Dict[str, float]
+    ) -> tuple[float, Dict[str, float]]:
+        """
+        Calculate weighted score using backtested weight profile.
+
+        Args:
+            dimension_scores: Dict of dimension_code -> score (0-100)
+            weights: Dict of dimension_code -> weight (0-1)
+
+        Returns:
+            Tuple of (weighted_score, contributions_dict)
+        """
+        contributions = {}
+        weighted_sum = 0.0
+        total_weight = 0.0
+
+        for dim, weight in weights.items():
+            if weight > 0 and dim in dimension_scores:
+                score = dimension_scores[dim]
+                contribution = score * weight
+                contributions[dim] = round(contribution, 2)
+                weighted_sum += contribution
+                total_weight += weight
+
+        if total_weight == 0:
+            return 50.0, contributions
+
+        # Normalize by actual weights used (handles missing dimensions)
+        weighted_score = weighted_sum / total_weight
+
+        # Calculate completeness and apply mild penalty for missing data
+        expected_weight = sum(w for w in weights.values() if w > 0)
+        completeness = total_weight / expected_weight if expected_weight > 0 else 1.0
+        # Penalize incomplete data slightly (0.8 + 0.2 * completeness)
+        weighted_score = weighted_score * (0.8 + 0.2 * completeness)
+
+        return weighted_score, contributions
+
+    def _get_tier_from_score(self, score: float) -> int:
+        """
+        Determine quality tier (1-5) based on weighted score.
+
+        Tier 1: Elite (top tier)
+        Tier 2: High quality
+        Tier 3: Good quality
+        Tier 4: Average
+        Tier 5: Below average
+        """
+        if score >= 75:
+            return 1
+        elif score >= 65:
+            return 2
+        elif score >= 55:
+            return 3
+        elif score >= 45:
+            return 4
+        else:
+            return 5
 
     def _calculate_cheapness_score(
         self,

@@ -158,3 +158,34 @@ class CalendarEventsResponse(BaseModel):
     events: List[CalendarEventItem]
     total_count: int
     upcoming_count: int
+
+
+# ============== Global Calendar Schemas ==============
+
+class GlobalCalendarEventItem(BaseModel):
+    """Calendar event with company information for global calendar view"""
+    id: str
+    event_type: str
+    event_date: date
+    event_time: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    confirmed: bool = False
+    webcast_url: Optional[str] = None
+    source_url: Optional[str] = None
+    # Dividend-specific fields
+    dividend_amount: Optional[float] = None
+    dividend_currency: Optional[str] = None
+    ex_dividend_date: Optional[date] = None
+    payment_date: Optional[date] = None
+    # Company info
+    symbol: str
+    company_name: str
+
+
+class GlobalCalendarResponse(BaseModel):
+    """Global calendar with events from all companies"""
+    events: List[GlobalCalendarEventItem]
+    total_count: int
+    upcoming_count: int
+    event_type_counts: dict  # e.g., {"earnings": 5, "dividend": 10, "agm": 2}

@@ -12,41 +12,23 @@ import type {
   CalendarEventsResponse,
   DocumentsResponse,
   DimensionDetail,
+  WeightProfileListResponse,
 } from './types'
 
 /**
- * Fetch company detail from Fat Pitch endpoint
- * Note: Fat Pitch uses company_id (UUID), so we first need to resolve symbol → id
+ * Fetch company detail from Fat Pitch endpoint by symbol
+ * Uses the dedicated symbol lookup endpoint for efficiency
  */
 export async function fetchCompanyBySymbol(symbol: string): Promise<CompanyDetail | null> {
   try {
-    // Fetch pitches in batches (API has 500 limit) and find by symbol
-    // TODO: Add a dedicated /fat-pitch/pitches/symbol/{symbol} endpoint for efficiency
-    let allPitches: CompanyDetail[] = []
-    let offset = 0
-    const batchSize = 500
-
-    // Fetch up to 3 batches (1500 companies)
-    for (let i = 0; i < 3; i++) {
-      const response = await api.get('/fat-pitch/pitches', {
-        params: { limit: batchSize, offset }
-      })
-      const pitches = toCamelCase<CompanyDetail[]>(response.data)
-      allPitches = [...allPitches, ...pitches]
-
-      // Check if we found the company
-      const company = pitches.find(p => p.symbol === symbol)
-      if (company) return company
-
-      // If we got fewer than batchSize, we've fetched all
-      if (pitches.length < batchSize) break
-
-      offset += batchSize
-    }
-
-    // Final search through all fetched pitches
-    return allPitches.find(p => p.symbol === symbol) || null
+    const response = await api.get(`/fat-pitch/pitches/symbol/${encodeURIComponent(symbol)}`)
+    return toCamelCase<CompanyDetail>(response.data)
   } catch (error) {
+    // 404 means company not found or has insufficient data - this is expected for some companies
+    if ((error as { response?: { status?: number } })?.response?.status === 404) {
+      console.warn(`Company ${symbol} not found in Fat Pitch system`)
+      return null
+    }
     console.error('Failed to fetch company by symbol:', error)
     return null
   }
@@ -136,11 +118,14 @@ export async function fetchDocuments(symbol: string): Promise<DocumentsResponse 
 
 /**
  * Search companies by name or symbol
+ * Note: Fetches all pitches (up to 2000) to ensure complete search coverage
  */
 export async function searchCompanies(query: string): Promise<CompanyDetail[]> {
   try {
+    // Fetch all pitches to ensure we can find any company by name/symbol
+    // This is cached by React Query so subsequent searches are fast
     const response = await api.get('/fat-pitch/pitches', {
-      params: { limit: 500 }
+      params: { limit: 2000 }
     })
     const pitches = toCamelCase<CompanyDetail[]>(response.data)
     const q = query.toLowerCase()
@@ -164,5 +149,45 @@ export async function fetchDimensionDetails(companyId: string): Promise<Dimensio
   } catch (error) {
     console.warn('Failed to fetch dimension details:', error)
     return []
+  }
+}
+
+/**
+ * Fetch available weight profiles
+ */
+export async function fetchWeightProfiles(): Promise<WeightProfileListResponse> {
+  try {
+    const response = await api.get('/fat-pitch/weight-profiles')
+    return toCamelCase<WeightProfileListResponse>(response.data)
+  } catch (error) {
+    console.warn('Failed to fetch weight profiles:', error)
+    // Return default fallback
+    return {
+      profiles: [
+        { name: 'optimal', description: 'Best predictor from backtesting', weights: {}, isDefault: true }
+      ],
+      defaultProfile: 'optimal'
+    }
+  }
+}
+
+/**
+ * Fetch company by symbol with specific weight profile
+ */
+export async function fetchCompanyWithProfile(
+  symbol: string,
+  weightProfile?: string
+): Promise<CompanyDetail | null> {
+  try {
+    const params = weightProfile ? { weight_profile: weightProfile } : {}
+    const response = await api.get(`/fat-pitch/pitches/symbol/${encodeURIComponent(symbol)}`, { params })
+    return toCamelCase<CompanyDetail>(response.data)
+  } catch (error) {
+    if ((error as { response?: { status?: number } })?.response?.status === 404) {
+      console.warn(`Company ${symbol} not found in Fat Pitch system`)
+      return null
+    }
+    console.error('Failed to fetch company with profile:', error)
+    return null
   }
 }

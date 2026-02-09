@@ -38,7 +38,7 @@ export default function CompanyDetailPage() {
   const [priceRange, setPriceRange] = useState<PriceTimeRange>('1Y')
 
   // Fetch company data
-  const { data: company, isLoading, error } = useCompanyDetail(symbol || '')
+  const { data: company, isLoading } = useCompanyDetail(symbol || '')
   const { data: priceHistory, isLoading: pricesLoading } = usePriceHistory(symbol || '', priceRange)
   const { data: financials, isLoading: financialsLoading } = useFinancials(symbol)
   const { data: documentsData } = useDocuments(symbol)
@@ -48,8 +48,12 @@ export default function CompanyDetailPage() {
   const documents = documentsData?.documents ?? []
   const events = eventsData?.events ?? []
 
-  // Loading state
-  if (isLoading) {
+  // Determine if we have basic data (price history gives us company name)
+  const hasBasicData = priceHistory?.prices && priceHistory.prices.length > 0
+  const companyName = company?.companyName || priceHistory?.companyName || symbol
+
+  // Loading state - wait for at least one data source
+  if (isLoading && pricesLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
@@ -57,8 +61,8 @@ export default function CompanyDetailPage() {
     )
   }
 
-  // Error state
-  if (error || !company) {
+  // If no data at all, show error
+  if (!company && !hasBasicData && !pricesLoading) {
     return (
       <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6 text-center">
         <ExclamationTriangleIcon className="w-12 h-12 text-red-400 mx-auto mb-4" />
@@ -70,8 +74,11 @@ export default function CompanyDetailPage() {
     )
   }
 
-  // Prepare key metrics from dimension scores
-  const keyMetrics = [
+  // Basic view mode - no Fat Pitch data but have other data
+  const isBasicMode = !company
+
+  // Prepare key metrics from dimension scores (only if we have Fat Pitch data)
+  const keyMetrics = company ? [
     {
       label: 'Quality Score',
       value: company.qualityScore,
@@ -92,12 +99,40 @@ export default function CompanyDetailPage() {
       value: company.dimensionScores?.growth,
       format: 'number' as const,
     },
-  ]
+  ] : []
+
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <CompanyHeader company={company} />
+      {company ? (
+        <CompanyHeader company={company} />
+      ) : (
+        // Basic header when no Fat Pitch data
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">{companyName}</h1>
+            <p className="text-lg text-muted-foreground">{symbol}</p>
+            {isBasicMode && (
+              <p className="text-sm text-yellow-500 mt-2">
+                Limited data available - company not in screener rankings
+              </p>
+            )}
+          </div>
+          {priceHistory?.latestPrice && (
+            <div className="text-right">
+              <p className="text-2xl font-bold text-foreground">
+                {priceHistory.latestPrice.toFixed(2)} SEK
+              </p>
+              {priceHistory.priceChangePercent !== undefined && (
+                <p className={`text-sm ${priceHistory.priceChangePercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {priceHistory.priceChangePercent >= 0 ? '+' : ''}{priceHistory.priceChangePercent.toFixed(2)}%
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tabs */}
       <CompanyTabs
@@ -119,29 +154,45 @@ export default function CompanyDetailPage() {
               loading={pricesLoading}
             />
 
-            {/* Key Metrics */}
-            <div>
-              <h3 className="text-lg font-semibold text-foreground mb-4">Key Metrics</h3>
-              <MetricGrid metrics={keyMetrics} columns={4} />
-            </div>
+            {/* Key Metrics - only show if we have Fat Pitch data */}
+            {keyMetrics.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold text-foreground mb-4">Key Metrics</h3>
+                <MetricGrid metrics={keyMetrics} columns={4} />
+              </div>
+            )}
 
-            {/* Dimension Scores */}
-            <div className="bg-card border border-border rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-2">Dimension Scores</h3>
-              <p className="text-sm text-muted-foreground mb-6">Click on any dimension to see detailed breakdown</p>
-              <DimensionGrid
-                dimensionScores={company.dimensionScores}
-                dimensionContributions={company.dimensionContributions}
-                showContributions
-                companyId={company.companyId}
-              />
-            </div>
+            {/* Dimension Scores - only show if we have Fat Pitch data */}
+            {company && company.dimensionScores && (
+              <div className="bg-card border border-border rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-foreground mb-2">Dimension Scores</h3>
+                <p className="text-sm text-muted-foreground mb-6">Click on any dimension to see detailed breakdown</p>
+                <DimensionGrid
+                  dimensionScores={company.dimensionScores}
+                  dimensionContributions={company.dimensionContributions}
+                  showContributions
+                  companyId={company.companyId}
+                />
+              </div>
+            )}
 
-            {/* Pitch Summary */}
-            {company.pitchSummary && (
+            {/* Pitch Summary - only show if we have Fat Pitch data */}
+            {company?.pitchSummary && (
               <div className="bg-card border border-border rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-foreground mb-2">Summary</h3>
                 <p className="text-muted-foreground">{company.pitchSummary}</p>
+              </div>
+            )}
+
+            {/* Basic mode notice */}
+            {isBasicMode && (
+              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-yellow-500 mb-2">Limited Data</h3>
+                <p className="text-muted-foreground">
+                  This company is not currently in the Fat Pitch screener rankings.
+                  Scoring data, dimension analysis, and quality metrics are not available.
+                  Price data, financials, documents, and events may still be available.
+                </p>
               </div>
             )}
           </div>

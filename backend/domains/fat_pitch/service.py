@@ -48,6 +48,7 @@ class FatPitchService:
         score_date: date = None,
         min_quality_score: float = 0.0,
         limit: int = 100,
+        weight_profile: str = None,
     ) -> List[FatPitch]:
         """
         Get all fat pitches across all stages, ranked by score.
@@ -56,6 +57,7 @@ class FatPitchService:
             score_date: Date for scoring (default: today)
             min_quality_score: Minimum quality score filter
             limit: Max pitches to return
+            weight_profile: Weight profile to use (optimal, garp, buffett, etc.)
 
         Returns:
             List of FatPitch objects sorted by fat_pitch_score
@@ -67,7 +69,7 @@ class FatPitchService:
         logger.info(f"Found {len(company_ids)} companies")
 
         # Route and score
-        pitches = await self._route_and_score(company_ids, score_date)
+        pitches = await self._route_and_score(company_ids, score_date, weight_profile)
 
         # Filter by quality
         pitches = [p for p in pitches if p.quality_score >= min_quality_score]
@@ -194,6 +196,7 @@ class FatPitchService:
         self,
         company_ids: List[str],
         score_date: date,
+        weight_profile: str = None,
     ) -> List[FatPitch]:
         """Route companies and score them."""
 
@@ -206,14 +209,20 @@ class FatPitchService:
         # 2. Get dimension scores for all companies
         dimension_scores = await self._get_dimension_scores(company_ids, score_date)
 
-        # 3. Score each company
+        # 3. Create a scorer with the requested profile (or use instance default)
+        if weight_profile:
+            scorer = FatPitchScorer(self.db_conn, weight_profile=weight_profile)
+        else:
+            scorer = self.scorer
+
+        # 4. Score each company
         companies_to_score = [
             (cid, stage, confidence)
             for cid, (stage, confidence) in routes.items()
             if stage != BusinessStage.UNKNOWN
         ]
 
-        pitches = await self.scorer.score_companies(
+        pitches = await scorer.score_companies(
             companies=companies_to_score,
             dimension_scores=dimension_scores,
             score_date=score_date,

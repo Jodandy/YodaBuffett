@@ -9,6 +9,7 @@ const ScreenerPage = lazy(() => import('@/features/screener/pages/ScreenerPage')
 const CompanyDetailPage = lazy(() => import('@/features/company/pages/CompanyDetailPage'))
 const PortfolioListPage = lazy(() => import('@/features/portfolio/pages/PortfolioListPage'))
 const PortfolioDetailPage = lazy(() => import('@/features/portfolio/pages/PortfolioDetailPage'))
+const CalendarPage = lazy(() => import('@/features/calendar/pages/CalendarPage'))
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="/company/:symbol" element={<CompanyDetailPage />} />
           <Route path="/portfolios" element={<PortfolioListPage />} />
           <Route path="/portfolios/:portfolioId" element={<PortfolioDetailPage />} />
+          <Route path="/calendar" element={<CalendarPage />} />
         </Routes>
       </Suspense>
     </HubShell>

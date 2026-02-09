@@ -4,8 +4,8 @@
  */
 
 import { useState, useMemo } from 'react'
-import { ChartBarSquareIcon, SparklesIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
-import { usePitches } from '../hooks/usePitches'
+import { ChartBarSquareIcon, SparklesIcon, ExclamationTriangleIcon, BeakerIcon } from '@heroicons/react/24/outline'
+import { usePitches, useWeightProfiles } from '../hooks/usePitches'
 import { CompanyCard, CompanyCardExpanded } from '../components/CompanyCard'
 import { ScreenerFilters } from '../components/ScreenerFilters'
 import type { ScreenerFilters as Filters, SortDirection } from '../types'
@@ -44,9 +44,13 @@ export default function ScreenerPage() {
   const [sortField, setSortField] = useState<SortField>('fatPitchScore')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [viewMode, setViewMode] = useState<'grid' | 'expanded'>('grid')
+  const [selectedProfile, setSelectedProfile] = useState<string>('optimal')
 
-  // Fetch data
-  const { data: pitches = [], isLoading, error } = usePitches()
+  // Fetch weight profiles
+  const { data: profileData } = useWeightProfiles()
+
+  // Fetch data with selected profile
+  const { data: pitches = [], isLoading, error } = usePitches(selectedProfile)
 
   // Filter and sort pitches
   const filteredPitches = useMemo(() => {
@@ -169,27 +173,56 @@ export default function ScreenerPage() {
             Fat Pitch Machine - find quality companies at attractive prices
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setViewMode('grid')}
-            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-              viewMode === 'grid'
-                ? 'bg-blue-600 text-white'
-                : 'bg-muted text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Grid
-          </button>
-          <button
-            onClick={() => setViewMode('expanded')}
-            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-              viewMode === 'expanded'
-                ? 'bg-blue-600 text-white'
-                : 'bg-muted text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Expanded
-          </button>
+        <div className="flex items-center gap-4">
+          {/* Weight Profile Selector */}
+          <div className="flex items-center gap-2">
+            <BeakerIcon className="w-5 h-5 text-muted-foreground" />
+            <select
+              value={selectedProfile}
+              onChange={(e) => setSelectedProfile(e.target.value)}
+              className="bg-card border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {profileData?.profiles.map((profile) => (
+                <option key={profile.name} value={profile.name}>
+                  {profile.name.charAt(0).toUpperCase() + profile.name.slice(1)}
+                  {profile.isDefault && ' (Default)'}
+                </option>
+              )) || (
+                <>
+                  <option value="optimal">Optimal (Default)</option>
+                  <option value="garp">GARP</option>
+                  <option value="buffett">Buffett</option>
+                  <option value="quality">Quality</option>
+                  <option value="value">Value</option>
+                  <option value="equal">Equal</option>
+                </>
+              )}
+            </select>
+          </div>
+
+          {/* View Mode Toggle */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                viewMode === 'grid'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-muted text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Grid
+            </button>
+            <button
+              onClick={() => setViewMode('expanded')}
+              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                viewMode === 'expanded'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-muted text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Expanded
+            </button>
+          </div>
         </div>
       </div>
 

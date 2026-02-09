@@ -80,6 +80,7 @@ export interface PriceDataPoint {
 // Price history response
 export interface PriceHistory {
   symbol: string
+  companyName?: string
   prices: PriceDataPoint[]
   latestPrice?: number
   priceChange?: number
@@ -250,4 +251,18 @@ export interface MetricDetail {
   minHistorical?: number
   maxHistorical?: number
   trend?: string
+}
+
+// Weight profile for scoring
+export interface WeightProfile {
+  name: string
+  description: string
+  weights: Record<string, number>
+  isDefault: boolean
+}
+
+// Weight profile list response
+export interface WeightProfileListResponse {
+  profiles: WeightProfile[]
+  defaultProfile: string
 }

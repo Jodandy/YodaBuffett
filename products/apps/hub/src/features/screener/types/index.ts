@@ -93,3 +93,17 @@ export interface ScreenerFilters {
 
 // Sort options
 export type SortDirection = 'asc' | 'desc'
+
+// Weight profile for scoring
+export interface WeightProfile {
+  name: string
+  description: string
+  weights: Record<string, number>
+  isDefault: boolean
+}
+
+// Weight profile list response
+export interface WeightProfileListResponse {
+  profiles: WeightProfile[]
+  defaultProfile: string
+}

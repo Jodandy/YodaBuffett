@@ -74,21 +74,28 @@ python test_fat_pitch.py --profiles
 python test_fat_pitch.py --summary
 
 # BACKTESTING (see docs/BACKTESTING.md for full details)
-# Run backtest with NO look-ahead bias (recommended)
-python fat_pitch_backtest.py --lag 60
+# Run backtest with smart lag (actual publish dates - recommended)
+python fat_pitch_backtest.py --smart-lag
 
-# Compare all weight strategies
+# Compare all strategies by ranking predictive power (slope analysis)
+python fat_pitch_backtest.py --compare-slope --smart-lag
+
+# Compare with fixed lag (60 days = no look-ahead bias)
 python fat_pitch_backtest.py --compare --lag 60
+
+# Test specific strategy
+python fat_pitch_backtest.py --weights optimal --smart-lag
+python fat_pitch_backtest.py --weights garp --smart-lag
 
 # See actual top picks per quarter
 python show_quarterly_picks.py --lag 60 --top 10
 
-# ML feature importance analysis
-python dimension_ml_trainer.py --all-horizons
+# Liquidity filters (alpha is in small caps)
+python fat_pitch_backtest.py --weights optimal --max-liquidity 5 --smart-lag
 
 # EXPORT TO EXCEL (full data with charts)
-python fat_pitch_backtest.py --export --weights equal --lag 60
-python fat_pitch_backtest.py --export --weights ml --output my_analysis.xlsx
+python fat_pitch_backtest.py --export --weights optimal --smart-lag
+python fat_pitch_backtest.py --export --weights garp --output garp_analysis.xlsx
 ```
 
 ### Export Feature
@@ -111,23 +118,54 @@ The `--export` flag generates:
 
 **Data cleaning**: Returns >500% or <-90% are filtered (likely stock splits).
 
-### Backtesting Results (60-day lag, no look-ahead bias)
+### Backtesting Results (Smart Lag - actual publish dates)
 
-| Strategy | Med Alpha 12M | Win Rate 12M | Notes |
-|----------|---------------|--------------|-------|
-| equal | +7.9% | 83% | Best overall |
-| value | +4.8% | 83% | |
-| original | +3.8% | 83% | |
-| contrarian | +3.5% | 83% | Negative momentum weight |
-| ml | +3.1% | 67% | |
-| quality | +2.1% | 75% | |
+**Strategy Ranking by Predictive Power (Slope Analysis)**
 
-**Key findings:**
-- All strategies generate positive alpha vs market median
-- Simple equal weights outperform ML-optimized weights
-- Full Nordic coverage: 1,575 companies (SE, NO, DK, FI)
-- Data cleaning: 39 records filtered for stock splits (0.2%)
-- Beneish M-Score and Capital Allocation are most predictive dimensions
+Uses linear regression of rank vs 12M return. More negative slope = better predictor.
+
+| Strategy | Slope | P-value | Verdict |
+|----------|-------|---------|---------|
+| **optimal** | -0.0350 | 1.75e-13 | **BEST** - custom strategy from analysis |
+| garp | -0.0349 | 1.39e-13 | Peter Lynch style (growth + value) |
+| quality | -0.0326 | 7.53e-12 | Quality-focused |
+| buffett | -0.0322 | 1.30e-11 | Moat + returns + fair price |
+| equal | -0.0311 | 6.36e-11 | Equal weights baseline |
+| ml | -0.0304 | 1.59e-10 | ML-optimized weights |
+| magic_formula | -0.0281 | 3.15e-09 | Greenblatt (ROIC + cheap) |
+| piotroski | -0.0274 | 8.70e-09 | Improving fundamentals |
+| canslim | -0.0272 | 6.78e-09 | O'Neil growth + momentum |
+| minervini | -0.0211 | 6.27e-06 | Trend template |
+| value | -0.0201 | 2.29e-05 | Value-focused |
+| graham | -0.0053 | 0.26 | ❌ No signal |
+| horrible | -0.0032 | 0.50 | ❌ No signal (intentionally bad) |
+| momentum_only | -0.0024 | 0.60 | ❌ No signal |
+| deep_value | +0.0067 | 0.15 | ❌ **INVERSE** - value traps! |
+
+**Key Findings (2026-02-09):**
+
+1. **Optimal strategy weights** (best performer):
+   - Growth: 20%, Profitability: 18%, Returns: 15%
+   - Earnings Quality: 12%, Beneish: 12%, Quality: 10%
+   - Value: 8%, Capital Allocation: 5%
+   - Momentum: 0% (use as veto instead)
+
+2. **What works:**
+   - GARP (growth at reasonable price) is best named strategy
+   - Quality metrics are strong predictors (profitability, returns, earnings_quality)
+   - Beneish M-Score filters manipulation effectively
+   - Smart lag (actual publish dates) validates no look-ahead bias
+
+3. **What doesn't work:**
+   - Pure momentum has NO signal alone
+   - Deep value is actually INVERSE (value traps)
+   - Graham defensive has no signal in Nordic markets
+   - Historical cheapness (valuation_percentile) = falling knives
+
+4. **Alpha concentration:**
+   - Small caps (<5M daily volume): +8.2% alpha
+   - Large caps (>20M daily volume): +0.6% alpha
+   - Alpha is in smaller, less-followed stocks
 
 See `docs/BACKTESTING.md` for complete documentation.
 

@@ -16,6 +16,7 @@ import asyncpg
 
 from .models import BusinessStage, FatPitch as FatPitchModel, PitchRanking as PitchRankingModel
 from .service import FatPitchService
+from .scorer import WEIGHT_PROFILES, DEFAULT_WEIGHT_PROFILE
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,20 @@ class DimensionDetailResponse(BaseModel):
     metadata: Dict
 
 
+class WeightProfileResponse(BaseModel):
+    """Weight profile information."""
+    name: str
+    description: str
+    weights: Dict[str, float]
+    is_default: bool
+
+
+class WeightProfileListResponse(BaseModel):
+    """List of available weight profiles."""
+    profiles: List[WeightProfileResponse]
+    default_profile: str
+
+
 # ============================================================================
 # Dependency
 # ============================================================================
@@ -140,23 +155,42 @@ def _pitch_to_response(pitch: FatPitchModel) -> FatPitchResponse:
 @router.get("/pitches", response_model=List[FatPitchResponse])
 async def get_all_pitches(
     min_quality_score: float = Query(0.0, ge=0, le=100, description="Minimum quality score filter"),
-    limit: int = Query(100, ge=1, le=500, description="Maximum pitches to return"),
+    limit: int = Query(100, ge=1, le=2000, description="Maximum pitches to return"),
     score_date: Optional[str] = Query(None, description="Score date (YYYY-MM-DD), defaults to today"),
+    weight_profile: Optional[str] = Query(None, description="Weight profile (optimal, garp, buffett, quality, value, equal)"),
     service: FatPitchService = Depends(get_fat_pitch_service)
 ):
     """
     Get all fat pitches across all stages, ranked by score.
 
     Returns companies with highest fat_pitch_score combining quality and cheapness.
+
+    Weight profiles (backtested on Nordic markets 2021-2024):
+    - optimal: Best predictor from backtesting (growth + quality focus)
+    - garp: Growth at Reasonable Price (Peter Lynch style)
+    - buffett: Quality compounder (Buffett style)
+    - quality: Pure quality focus
+    - value: Deep value focus
+    - equal: Equal weights baseline
     """
     try:
+        # Validate weight profile if provided
+        if weight_profile and weight_profile not in WEIGHT_PROFILES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid weight profile '{weight_profile}'. Valid options: {list(WEIGHT_PROFILES.keys())}"
+            )
+
         parsed_date = date.fromisoformat(score_date) if score_date else None
         pitches = await service.get_all_pitches(
             score_date=parsed_date,
             min_quality_score=min_quality_score,
-            limit=limit
+            limit=limit,
+            weight_profile=weight_profile
         )
         return [_pitch_to_response(p) for p in pitches]
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting all pitches: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -295,6 +329,55 @@ async def analyze_company(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/pitches/symbol/{symbol}", response_model=FatPitchResponse)
+async def analyze_company_by_symbol(
+    symbol: str,
+    score_date: Optional[str] = Query(None, description="Score date (YYYY-MM-DD)"),
+    service: FatPitchService = Depends(get_fat_pitch_service)
+):
+    """
+    Analyze a specific company by symbol as a fat pitch candidate.
+
+    Looks up the company by primary_ticker or yahoo_symbol, then returns
+    detailed scoring, stage assignment, and dimension breakdown.
+    """
+    try:
+        # Look up company_id from symbol
+        company_row = await service.db_conn.fetchrow("""
+            SELECT id::text as company_id
+            FROM company_master
+            WHERE primary_ticker = $1 OR yahoo_symbol = $1
+            LIMIT 1
+        """, symbol)
+
+        if not company_row:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Company with symbol '{symbol}' not found"
+            )
+
+        company_id = company_row['company_id']
+        parsed_date = date.fromisoformat(score_date) if score_date else None
+
+        pitch = await service.analyze_company(
+            company_id=company_id,
+            score_date=parsed_date
+        )
+
+        if not pitch:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Company '{symbol}' found but has insufficient data for scoring"
+            )
+
+        return _pitch_to_response(pitch)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error analyzing company by symbol: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/dimensions/{company_id}", response_model=List[DimensionDetailResponse])
 async def get_dimension_details(
     company_id: str,
@@ -398,3 +481,67 @@ async def get_all_stage_profiles(
     except Exception as e:
         logger.error(f"Error getting all profiles: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# Weight Profile Endpoints
+# ============================================================================
+
+WEIGHT_PROFILE_DESCRIPTIONS = {
+    'optimal': 'Best predictor from backtesting (growth + quality focus)',
+    'garp': 'Growth at Reasonable Price (Peter Lynch style)',
+    'buffett': 'Quality compounder (Buffett style)',
+    'quality': 'Pure quality focus',
+    'value': 'Deep value focus',
+    'equal': 'Equal weights baseline',
+}
+
+
+@router.get("/weight-profiles", response_model=WeightProfileListResponse)
+async def get_weight_profiles():
+    """
+    Get all available weight profiles.
+
+    Weight profiles were backtested on Nordic markets 2021-2024.
+    Ranked by predictive power (slope of rank vs 12M return):
+    1. optimal (-0.0350) - BEST
+    2. garp (-0.0349)
+    3. quality (-0.0326)
+    4. buffett (-0.0322)
+    5. equal (-0.0311)
+    6. value (-0.0201)
+    """
+    profiles = []
+    for name, weights in WEIGHT_PROFILES.items():
+        profiles.append(WeightProfileResponse(
+            name=name,
+            description=WEIGHT_PROFILE_DESCRIPTIONS.get(name, ''),
+            weights=weights,
+            is_default=(name == DEFAULT_WEIGHT_PROFILE)
+        ))
+
+    return WeightProfileListResponse(
+        profiles=profiles,
+        default_profile=DEFAULT_WEIGHT_PROFILE
+    )
+
+
+@router.get("/weight-profiles/{profile_name}", response_model=WeightProfileResponse)
+async def get_weight_profile(profile_name: str):
+    """
+    Get a specific weight profile.
+
+    Shows dimension weights used for scoring.
+    """
+    if profile_name not in WEIGHT_PROFILES:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Weight profile '{profile_name}' not found. Valid options: {list(WEIGHT_PROFILES.keys())}"
+        )
+
+    return WeightProfileResponse(
+        name=profile_name,
+        description=WEIGHT_PROFILE_DESCRIPTIONS.get(profile_name, ''),
+        weights=WEIGHT_PROFILES[profile_name],
+        is_default=(profile_name == DEFAULT_WEIGHT_PROFILE)
+    )

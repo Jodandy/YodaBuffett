@@ -173,6 +173,210 @@ WEIGHT_PROFILES = {
         'valuation_percentile': 0,
         'sentiment': 0,
     },
+    # Benjamin Graham Defensive - cheap, safe, stable
+    # Focus: Low P/E, low P/B, strong balance sheet, earnings stability
+    'graham': {
+        'value': 30,                 # P/E < 15, P/B < 1.5
+        'valuation_percentile': 15,  # Historically cheap
+        'financial_health': 25,      # Current ratio > 2, low debt
+        'earnings_quality': 15,      # Stable earnings
+        'risk': -10,                 # Prefer LOW volatility (invert)
+        'profitability': 5,          # Must be profitable
+        'beneish_mscore': 10,        # No manipulation
+        'returns': 0,
+        'growth': 0,                 # Graham didn't chase growth
+        'capital_allocation': 0,
+        'working_capital': 0,
+        'momentum': 0,               # Ignored price trends
+        'quality': 0,
+        'sentiment': 0,
+    },
+    # Joel Greenblatt Magic Formula - high ROIC + cheap
+    # Rank by: Return on Capital + Earnings Yield (inverse P/E)
+    'magic_formula': {
+        'returns': 40,               # High ROIC/ROE
+        'value': 35,                 # High earnings yield (low P/E)
+        'profitability': 15,         # Profitable operations
+        'beneish_mscore': 10,        # No earnings manipulation
+        'financial_health': 0,
+        'earnings_quality': 0,
+        'capital_allocation': 0,
+        'working_capital': 0,
+        'growth': 0,
+        'risk': 0,
+        'momentum': 0,
+        'quality': 0,
+        'valuation_percentile': 0,
+        'sentiment': 0,
+    },
+    # Piotroski F-Score style - improving fundamentals + cheap
+    # Focus: Quality improvements, not just current state
+    'piotroski': {
+        'profitability': 20,         # Positive ROA, CFO
+        'earnings_quality': 20,      # CFO > Net Income (accruals)
+        'financial_health': 15,      # Improving leverage, liquidity
+        'capital_allocation': 15,    # No dilution, good reinvestment
+        'value': 20,                 # Must be cheap (low P/B originally)
+        'beneish_mscore': 10,        # No manipulation
+        'returns': 0,
+        'growth': 0,
+        'working_capital': 0,
+        'risk': 0,
+        'momentum': 0,
+        'quality': 0,
+        'valuation_percentile': 0,
+        'sentiment': 0,
+    },
+    # Warren Buffett / Quality Compounder - moat + returns + reasonable price
+    'buffett': {
+        'returns': 20,               # High sustainable ROE
+        'profitability': 15,         # Strong margins
+        'earnings_quality': 15,      # Real cash earnings
+        'capital_allocation': 15,    # Good capital deployment
+        'financial_health': 10,      # Conservative balance sheet
+        'beneish_mscore': 10,        # Honest accounting
+        'value': 10,                 # Fair price (not necessarily cheap)
+        'quality': 5,                # Overall quality
+        'growth': 0,                 # Sustainable, not hyper-growth
+        'working_capital': 0,
+        'risk': 0,
+        'momentum': 0,
+        'valuation_percentile': 0,
+        'sentiment': 0,
+    },
+    # Deep Value - extremely cheap, contrarian
+    'deep_value': {
+        'value': 40,                 # Very cheap on P/E, P/B, EV/EBITDA
+        'valuation_percentile': 30,  # At historical lows
+        'financial_health': 15,      # Must survive (not bankrupt)
+        'beneish_mscore': 10,        # Not fraudulent
+        'earnings_quality': 5,       # Some earnings quality
+        'profitability': 0,
+        'returns': 0,
+        'growth': 0,
+        'capital_allocation': 0,
+        'working_capital': 0,
+        'risk': 0,
+        'momentum': 0,               # Ignore (or could go negative)
+        'quality': 0,
+        'sentiment': 0,
+    },
+    # Mark Minervini SEPA / Trend Template
+    # Price in uptrend, near 52-week high, strong RS, earnings acceleration
+    'minervini': {
+        'momentum': 35,              # Strong uptrend, price > MAs, near highs
+        'growth': 25,                # Earnings acceleration
+        'profitability': 15,         # Must be profitable
+        'earnings_quality': 10,      # Real earnings, not accounting tricks
+        'quality': 10,               # Overall quality
+        'risk': -5,                  # Prefer controlled volatility (not wild)
+        'value': 0,                  # Doesn't care about valuation
+        'valuation_percentile': 0,
+        'financial_health': 0,
+        'returns': 0,
+        'capital_allocation': 0,
+        'working_capital': 0,
+        'beneish_mscore': 0,
+        'sentiment': 0,
+    },
+    # CANSLIM - William O'Neil
+    # C=Current earnings, A=Annual earnings, N=New highs, S=Supply, L=Leader, I=Institutional, M=Market
+    'canslim': {
+        'growth': 30,                # C + A: Strong earnings growth (25%+ quarterly/annual)
+        'momentum': 25,              # N + L: New highs, market leader, high relative strength
+        'profitability': 15,         # Must be profitable with good margins
+        'earnings_quality': 15,      # Quality earnings, not one-time gains
+        'returns': 10,               # High ROE typical of leaders
+        'quality': 5,                # Overall quality
+        'value': 0,                  # O'Neil: "Don't buy cheap stocks"
+        'valuation_percentile': 0,
+        'financial_health': 0,
+        'capital_allocation': 0,
+        'working_capital': 0,
+        'beneish_mscore': 0,
+        'risk': 0,
+        'sentiment': 0,
+    },
+    # Growth at Reasonable Price (GARP) - Peter Lynch style
+    # PEG ratio focus: growth but not overpaying
+    'garp': {
+        'growth': 30,                # Strong growth
+        'value': 25,                 # But reasonable valuation (PEG < 1)
+        'profitability': 15,         # Profitable
+        'earnings_quality': 10,      # Real earnings
+        'returns': 10,               # Good returns on capital
+        'quality': 5,                # Quality business
+        'momentum': 5,               # Some positive momentum
+        'financial_health': 0,
+        'capital_allocation': 0,
+        'working_capital': 0,
+        'beneish_mscore': 0,
+        'valuation_percentile': 0,
+        'risk': 0,
+        'sentiment': 0,
+    },
+    # High momentum + quality filter (avoid junk rallies)
+    'quality_momentum': {
+        'momentum': 40,              # Strong price momentum
+        'quality': 20,               # Must be quality company
+        'profitability': 15,         # Profitable
+        'earnings_quality': 10,      # Real earnings
+        'beneish_mscore': 10,        # No manipulation
+        'returns': 5,                # Good returns
+        'growth': 0,
+        'value': 0,
+        'valuation_percentile': 0,
+        'financial_health': 0,
+        'capital_allocation': 0,
+        'working_capital': 0,
+        'risk': 0,
+        'sentiment': 0,
+    },
+    # THEORETICALLY HORRIBLE - everything we learned NOT to do
+    # - Heavy deep value (shown to be INVERSE)
+    # - Heavy momentum (no signal)
+    # - Prefer HIGH risk/volatility (unstable)
+    # - Ignore quality metrics (profitability, returns, earnings_quality)
+    # - Ignore manipulation detection (beneish)
+    # - Heavy sentiment (no signal)
+    'horrible': {
+        'value': 30,                 # Deep value = value traps
+        'valuation_percentile': 25,  # Historically cheap = falling knives
+        'momentum': 20,              # No signal alone
+        'risk': 15,                  # HIGH risk = prefer volatile junk
+        'sentiment': 10,             # No signal
+        'profitability': 0,          # Ignore if profitable
+        'returns': 0,                # Ignore ROE/ROIC
+        'growth': 0,                 # Ignore growth
+        'quality': 0,                # Ignore quality
+        'earnings_quality': 0,       # Ignore earnings quality
+        'beneish_mscore': 0,         # Allow manipulation
+        'capital_allocation': 0,
+        'working_capital': 0,
+        'financial_health': 0,
+    },
+    # THEORETICALLY OPTIMAL - based on everything we learned
+    # - GARP works: growth + reasonable value
+    # - Quality metrics are strong predictors
+    # - Beneish filters manipulation (top predictor in ML analysis)
+    # - Small momentum to avoid falling knives
+    # - Ignore sentiment (no signal)
+    'optimal': {
+        'growth': 20,                # Growth matters (GARP insight)
+        'profitability': 18,         # Strong predictor
+        'returns': 15,               # ROE/ROIC matters
+        'earnings_quality': 12,      # Real earnings, not accounting tricks
+        'beneish_mscore': 12,        # Filter manipulation (top ML predictor)
+        'quality': 10,               # Overall quality composite
+        'value': 8,                  # Some value, but not extreme
+        'capital_allocation': 5,     # Good capital deployment
+        'momentum': 0,               # Skip - use as veto instead
+        'financial_health': 0,       # Didn't predict well
+        'working_capital': 0,
+        'valuation_percentile': 0,   # Historical cheapness = traps
+        'risk': 0,
+        'sentiment': 0,              # No signal
+    },
 }
 
 DIMENSIONS = list(WEIGHT_PROFILES['ml'].keys())
@@ -182,15 +386,20 @@ class FatPitchBacktester:
     """Backtest Fat Pitch strategy across quarters."""
 
     def __init__(self, top_n: int = 20, weight_profile: str = 'ml', lag_days: int = 0,
-                 select_bottom: bool = False, momentum_veto: int = None, min_momentum: int = None):
+                 select_bottom: bool = False, momentum_veto: int = None, min_momentum: int = None,
+                 min_liquidity: float = None, max_liquidity: float = None, smart_lag: bool = False):
         self.top_n = top_n
         self.weight_profile = weight_profile
         self.weights = WEIGHT_PROFILES[weight_profile]
         self.lag_days = lag_days  # Conservative lag to avoid look-ahead bias
+        self.smart_lag = smart_lag  # Use actual publish dates instead of fixed lag
         self.select_bottom = select_bottom  # Pick worst instead of best
         self.momentum_veto = momentum_veto  # Exclude companies with momentum below this threshold
         self.min_momentum = min_momentum  # Only include companies with momentum >= this (stricter)
+        self.min_liquidity = min_liquidity  # Min avg daily dollar volume in millions (price * volume)
+        self.max_liquidity = max_liquidity  # Max avg daily dollar volume in millions (exclude mega-caps)
         self.conn = None
+        self._publish_date_cache = {}  # Cache for publish date lookups
 
     async def connect(self):
         self.conn = await asyncpg.connect(DATABASE_URL)
@@ -198,6 +407,73 @@ class FatPitchBacktester:
     async def close(self):
         if self.conn:
             await self.conn.close()
+
+    async def _get_companies_with_public_financials(self, score_date: date) -> set:
+        """
+        Get company IDs whose financials were actually PUBLIC on score_date.
+
+        Logic: Only include companies where the financial statement's publish_date <= score_date.
+        This ensures NO LOOK-AHEAD BIAS - we only use data that was actually available.
+
+        Falls back to earnings calendar events if publish_date is missing.
+        """
+        # Method 1: Use publish_date from financial_statements (most accurate)
+        # Find companies whose most recent period had been published by score_date
+        rows = await self.conn.fetch("""
+            WITH latest_periods AS (
+                -- For each symbol, get the most recent period_date <= score_date
+                SELECT DISTINCT ON (symbol)
+                    symbol,
+                    period_date,
+                    publish_date
+                FROM financial_statements
+                WHERE period_date <= $1
+                ORDER BY symbol, period_date DESC
+            )
+            SELECT cm.id as company_id, lp.symbol, lp.period_date, lp.publish_date
+            FROM latest_periods lp
+            JOIN company_master cm ON cm.yahoo_symbol = lp.symbol
+                                   OR cm.yahoo_symbol = lp.symbol || '.ST'
+                                   OR cm.yahoo_symbol = lp.symbol || '.OL'
+                                   OR cm.yahoo_symbol = lp.symbol || '.CO'
+                                   OR cm.yahoo_symbol = lp.symbol || '.HE'
+            WHERE lp.publish_date IS NOT NULL
+              AND lp.publish_date <= $1
+        """, score_date)
+
+        companies_with_publish_date = {r['company_id'] for r in rows}
+
+        # Method 2: For companies without publish_date, use earnings calendar
+        # Find companies with earnings events before score_date
+        calendar_rows = await self.conn.fetch("""
+            WITH latest_earnings AS (
+                -- For each company, get the most recent earnings event <= score_date
+                SELECT DISTINCT ON (cm.id)
+                    cm.id as company_id,
+                    nce.event_date,
+                    nce.report_period
+                FROM nordic_calendar_events nce
+                JOIN nordic_companies nc ON nce.company_id = nc.id
+                JOIN company_master cm ON cm.yahoo_symbol LIKE nc.ticker || '.%'
+                                       OR cm.yahoo_symbol = nc.ticker
+                WHERE nce.event_type = 'earnings'
+                  AND nce.event_date <= $1
+                  AND nce.event_date >= $1 - INTERVAL '120 days'  -- Recent enough to be relevant
+                ORDER BY cm.id, nce.event_date DESC
+            )
+            SELECT company_id FROM latest_earnings
+        """, score_date)
+
+        companies_from_calendar = {r['company_id'] for r in calendar_rows}
+
+        # Combine both sources
+        all_public = companies_with_publish_date | companies_from_calendar
+
+        logger.debug(f"Smart lag: {len(companies_with_publish_date)} from publish_date, "
+                    f"{len(companies_from_calendar)} from calendar, "
+                    f"{len(all_public)} total with public financials on {score_date}")
+
+        return all_public
 
     async def get_quarterly_dates(self) -> List[date]:
         """Get all quarterly dates with sufficient data."""
@@ -216,19 +492,37 @@ class FatPitchBacktester:
     async def get_scored_companies(self, score_date: date) -> pd.DataFrame:
         """Get all companies with dimensions for a date, apply weighted scoring."""
 
-        # Apply lag to avoid look-ahead bias
-        # Use the most recent score_date that is at least lag_days before our target
-        if self.lag_days > 0:
+        # Determine which score_date to use for dimension lookup
+        if self.smart_lag:
+            # Smart lag: use dimension scores from the score_date itself,
+            # but filter to only include companies whose financials were PUBLIC
+            actual_score_date = await self.conn.fetchval("""
+                SELECT MAX(score_date) FROM daily_dimension_scores
+                WHERE score_date <= $1
+            """, score_date)
+            if not actual_score_date:
+                return pd.DataFrame()
+
+            # Get set of companies with public financials on score_date
+            public_companies = await self._get_companies_with_public_financials(score_date)
+            if not public_companies:
+                logger.warning(f"Smart lag: No companies with public financials on {score_date}")
+                return pd.DataFrame()
+
+        elif self.lag_days > 0:
+            # Fixed lag: use dimension scores from lag_days ago
             lagged_date = score_date - timedelta(days=self.lag_days)
-            # Find the most recent available score_date <= lagged_date
             actual_score_date = await self.conn.fetchval("""
                 SELECT MAX(score_date) FROM daily_dimension_scores
                 WHERE score_date <= $1
             """, lagged_date)
             if not actual_score_date:
                 return pd.DataFrame()
+            public_companies = None  # No filtering needed with fixed lag
         else:
+            # No lag (not recommended for backtesting)
             actual_score_date = score_date
+            public_companies = None
 
         pivot_cases = ",\n            ".join([
             f"MAX(CASE WHEN dimension_code = '{dim}' THEN score END) as {dim}"
@@ -253,6 +547,16 @@ class FatPitchBacktester:
 
         if df.empty:
             return df
+
+        # Apply smart lag filter - only keep companies with public financials
+        if self.smart_lag and public_companies:
+            before_count = len(df)
+            df = df[df['company_id'].isin(public_companies)]
+            filtered = before_count - len(df)
+            if filtered > 0:
+                logger.debug(f"Smart lag filtered {filtered} companies without public financials")
+            if df.empty:
+                return df
 
         # Convert to float
         for dim in DIMENSIONS:
@@ -285,6 +589,69 @@ class FatPitchBacktester:
             filtered = before_count - len(df)
             if filtered > 0:
                 logger.debug(f"Min momentum filter removed {filtered} companies (< {self.min_momentum})")
+
+        # Apply liquidity filter - exclude illiquid micro-caps or mega-caps
+        if (self.min_liquidity is not None or self.max_liquidity is not None) and not df.empty:
+            df = await self._apply_liquidity_filter(df, actual_score_date)
+
+        return df
+
+    async def _apply_liquidity_filter(self, df: pd.DataFrame, score_date: date) -> pd.DataFrame:
+        """Filter companies by average daily dollar volume (price * volume)."""
+        # Get 20-day average dollar volume for each company around the score date
+        symbols = df['yahoo_symbol'].dropna().tolist()
+        if not symbols:
+            return df
+
+        # Build symbol list for query (strip exchange suffix)
+        symbol_map = {}  # clean_symbol -> yahoo_symbol
+        for sym in symbols:
+            clean = sym.split('.')[0].replace('-', ' ') if '.' in sym else sym.replace('-', ' ')
+            symbol_map[clean] = sym
+
+        clean_symbols = list(symbol_map.keys())
+
+        # Query average dollar volume over last 20 trading days
+        lookback_start = score_date - timedelta(days=30)
+        rows = await self.conn.fetch("""
+            SELECT symbol, AVG(close_price * volume) as avg_dollar_volume
+            FROM daily_price_data
+            WHERE symbol = ANY($1)
+              AND date >= $2
+              AND date <= $3
+              AND volume > 0 AND close_price > 0
+            GROUP BY symbol
+        """, clean_symbols, lookback_start, score_date)
+
+        # Build liquidity lookup (in millions)
+        liquidity = {}
+        for row in rows:
+            yahoo_sym = symbol_map.get(row['symbol'])
+            if yahoo_sym:
+                liquidity[yahoo_sym] = float(row['avg_dollar_volume']) / 1_000_000  # Convert to millions
+
+        # Filter
+        before_count = len(df)
+        df['_liquidity'] = df['yahoo_symbol'].map(liquidity)
+
+        # Apply min liquidity filter
+        if self.min_liquidity is not None:
+            df = df[df['_liquidity'] >= self.min_liquidity]
+
+        # Apply max liquidity filter
+        if self.max_liquidity is not None:
+            df = df[df['_liquidity'] <= self.max_liquidity]
+
+        df = df.drop(columns=['_liquidity'])
+        filtered = before_count - len(df)
+
+        if filtered > 0:
+            filter_desc = []
+            if self.min_liquidity is not None:
+                filter_desc.append(f">= {self.min_liquidity}M")
+            if self.max_liquidity is not None:
+                filter_desc.append(f"<= {self.max_liquidity}M")
+            logger.debug(f"Liquidity filter removed {filtered} companies ({' and '.join(filter_desc)} daily volume)")
 
         return df
 
@@ -575,8 +942,11 @@ class FatPitchBacktester:
                 'weights': self.weights,
                 'top_n': self.top_n,
                 'lag_days': self.lag_days,
+                'smart_lag': self.smart_lag,
                 'momentum_veto': self.momentum_veto,
                 'min_momentum': self.min_momentum,
+                'min_liquidity': self.min_liquidity,
+                'max_liquidity': self.max_liquidity,
                 'quarters': len(quarterly_summaries),
                 'all_picks': all_results,
                 'quarterly_summaries': quarterly_summaries,
@@ -593,11 +963,21 @@ def print_results(results: Dict):
     print(f"FAT PITCH BACKTEST RESULTS")
     print(f"Weight Profile: {results['weight_profile'].upper()}")
     print(f"Top N: {results['top_n']}")
-    print(f"Lag Days: {results.get('lag_days', 0)} {'(NO LOOK-AHEAD BIAS)' if results.get('lag_days', 0) >= 60 else ''}")
+    if results.get('smart_lag'):
+        print(f"Lag Mode: SMART LAG (using actual publish dates - NO CHEATING)")
+    else:
+        print(f"Lag Days: {results.get('lag_days', 0)} {'(NO LOOK-AHEAD BIAS)' if results.get('lag_days', 0) >= 60 else ''}")
     if results.get('momentum_veto'):
         print(f"Momentum Veto: < {results['momentum_veto']} excluded (AVOID VALUE TRAPS)")
     if results.get('min_momentum'):
         print(f"Min Momentum: >= {results['min_momentum']} required (QUALITY + MOMENTUM)")
+    if results.get('min_liquidity') or results.get('max_liquidity'):
+        liq_parts = []
+        if results.get('min_liquidity'):
+            liq_parts.append(f">= {results['min_liquidity']}M")
+        if results.get('max_liquidity'):
+            liq_parts.append(f"<= {results['max_liquidity']}M")
+        print(f"Liquidity Filter: {' and '.join(liq_parts)} daily dollar volume")
     print(f"Quarters Tested: {results['quarters']}")
     print("=" * 100)
 
@@ -1049,6 +1429,267 @@ async def compare_veto(weight_profile: str = 'equal', lag_days: int = 60, top_n:
     print("\nIf veto helps, you'll see: higher alpha, higher win rate, less extreme worst pick")
 
 
+async def compare_strategies_slope(smart_lag: bool = True):
+    """
+    Compare strategies by how well their ranking predicts returns.
+
+    Uses linear regression: rank vs 12M return
+    - Negative slope = ranking predicts returns (good)
+    - Steeper slope = stronger predictive power
+    - R² = how much variance is explained
+    """
+    from scipy import stats
+
+    print("\n" + "=" * 100)
+    print(f"STRATEGY COMPARISON - RANKING PREDICTIVE POWER")
+    print(f"Method: Linear regression of Rank vs 12M Return (all companies)")
+    print(f"Lag Mode: {'SMART LAG (actual publish dates)' if smart_lag else 'None'}")
+    print("=" * 100)
+
+    profiles = ['equal', 'garp', 'piotroski', 'graham', 'magic_formula', 'buffett',
+                'minervini', 'canslim', 'quality_momentum', 'value', 'deep_value',
+                'contrarian', 'momentum_only', 'ml', 'quality', 'horrible', 'optimal']
+
+    results = {}
+
+    for profile in profiles:
+        logger.info(f"Running {profile} strategy...")
+        backtester = FatPitchBacktester(
+            top_n=9999,  # Get all companies
+            weight_profile=profile,
+            smart_lag=smart_lag
+        )
+
+        # Use export mode to get all company data with ranks
+        export_data = await backtester.run_backtest_with_export()
+        df = export_data['data']
+
+        if df.empty:
+            results[profile] = {'slope': 0, 'r_squared': 0, 'p_value': 1, 'n': 0}
+            continue
+
+        # Filter to valid 12M returns
+        valid = df[['rank', '12M_return']].dropna()
+
+        if len(valid) < 100:
+            results[profile] = {'slope': 0, 'r_squared': 0, 'p_value': 1, 'n': len(valid)}
+            continue
+
+        # Linear regression: rank vs return
+        slope, intercept, r_value, p_value, std_err = stats.linregress(
+            valid['rank'], valid['12M_return']
+        )
+
+        results[profile] = {
+            'slope': slope,
+            'r_squared': r_value ** 2,
+            'p_value': p_value,
+            'n': len(valid),
+            'intercept': intercept,
+        }
+
+    # Print results sorted by slope (most negative = best)
+    print(f"\n{'Strategy':<18} {'Slope':>10} {'R²':>8} {'P-value':>12} {'N':>8} {'Interpretation':<30}")
+    print("-" * 100)
+
+    sorted_results = sorted(results.items(), key=lambda x: x[1]['slope'])
+
+    for profile, r in sorted_results:
+        slope = r['slope']
+        r_sq = r['r_squared']
+        p_val = r['p_value']
+        n = r['n']
+
+        # Interpretation
+        if slope < -0.02 and p_val < 0.01:
+            interp = "✅ STRONG predictor"
+        elif slope < -0.01 and p_val < 0.05:
+            interp = "✅ Good predictor"
+        elif slope < 0 and p_val < 0.1:
+            interp = "⚠️ Weak predictor"
+        elif slope > 0:
+            interp = "❌ INVERSE (bad)"
+        else:
+            interp = "❌ No signal"
+
+        p_str = f"{p_val:.2e}" if p_val < 0.001 else f"{p_val:.4f}"
+        print(f"{profile:<18} {slope:>+10.4f} {r_sq:>7.3f} {p_str:>12} {n:>8} {interp:<30}")
+
+    # Explain the results
+    print("-" * 100)
+    print("\nInterpretation Guide:")
+    print("  Slope: How much 12M return changes per rank position")
+    print("         -0.02 means rank 1 has ~20% higher return than rank 1000")
+    print("  R²:    Fraction of return variance explained by rank (0-1)")
+    print("  P-val: Statistical significance (<0.05 = significant)")
+    print("\nBest strategy = Most negative slope with low p-value")
+
+
+async def run_ensemble_backtest(strategies: List[str] = None, smart_lag: bool = True, use_scores: bool = False):
+    """
+    Ensemble strategy: combine rankings from multiple strategies.
+
+    Two methods:
+    1. Rank sum (default): Sum ranks across strategies (lower = better)
+    2. Score average (use_scores=True): Average weighted scores (higher = better)
+
+    This is "wisdom of crowds" - companies that rank well across multiple
+    good strategies are probably solid picks.
+    """
+    from scipy import stats
+
+    if strategies is None:
+        # Default: top 5 from slope analysis
+        strategies = ['optimal', 'garp', 'quality', 'buffett', 'equal']
+
+    method = "Average of weighted scores" if use_scores else "Sum of ranks"
+    print("\n" + "=" * 100)
+    print(f"ENSEMBLE STRATEGY - Combining: {', '.join(strategies)}")
+    print(f"Method: {method}")
+    print(f"Lag Mode: {'SMART LAG (actual publish dates)' if smart_lag else 'None'}")
+    print("=" * 100)
+
+    # Collect rankings AND scores from each strategy
+    all_rankings = {}  # {strategy: {(symbol, quarter): rank}}
+    all_scores = {}    # {strategy: {(symbol, quarter): weighted_score}}
+    all_returns = {}   # {(symbol, quarter): 12M_return}
+
+    for strategy in strategies:
+        logger.info(f"Getting rankings from {strategy}...")
+        backtester = FatPitchBacktester(
+            top_n=9999,  # Get all companies
+            weight_profile=strategy,
+            smart_lag=smart_lag
+        )
+
+        export_data = await backtester.run_backtest_with_export()
+        df = export_data['data']
+
+        if df.empty:
+            continue
+
+        # Store rankings and scores: (symbol, quarter) -> value
+        for _, row in df.iterrows():
+            key = (row['yahoo_symbol'], row['quarter'])
+            if strategy not in all_rankings:
+                all_rankings[strategy] = {}
+                all_scores[strategy] = {}
+            all_rankings[strategy][key] = row['rank']
+            all_scores[strategy][key] = row['weighted_score']
+
+            # Store returns (same across strategies)
+            if pd.notna(row['12M_return']):
+                all_returns[key] = row['12M_return']
+
+    # Combine based on method
+    print(f"\nCombining {len(strategies)} strategy rankings...")
+
+    combined_values = {}  # {(symbol, quarter): combined_value}
+
+    # Get all unique (symbol, quarter) pairs
+    all_keys = set()
+    for strat_ranks in all_rankings.values():
+        all_keys.update(strat_ranks.keys())
+
+    for key in all_keys:
+        values = []
+        for strategy in strategies:
+            if use_scores:
+                if strategy in all_scores and key in all_scores[strategy]:
+                    values.append(all_scores[strategy][key])
+            else:
+                if strategy in all_rankings and key in all_rankings[strategy]:
+                    values.append(all_rankings[strategy][key])
+
+        if len(values) == len(strategies):  # Only if we have values from ALL strategies
+            if use_scores:
+                combined_values[key] = np.mean(values)  # Average score (higher = better)
+            else:
+                combined_values[key] = sum(values)  # Sum of ranks (lower = better)
+
+    print(f"Companies with complete data: {len(combined_values)}")
+
+    # Create final ranking from combined values
+    if use_scores:
+        # Higher score = better, so rank descending
+        sorted_keys = sorted(combined_values.keys(), key=lambda k: combined_values[k], reverse=True)
+    else:
+        # Lower rank sum = better, so rank ascending
+        sorted_keys = sorted(combined_values.keys(), key=lambda k: combined_values[k])
+
+    final_ranks = {key: i + 1 for i, key in enumerate(sorted_keys)}
+
+    # Prepare data for slope analysis
+    valid_data = []
+    for key, final_rank in final_ranks.items():
+        if key in all_returns:
+            valid_data.append({
+                'rank': final_rank,
+                '12M_return': all_returns[key],
+                'combined_value': combined_values[key]
+            })
+
+    df_ensemble = pd.DataFrame(valid_data)
+
+    if len(df_ensemble) < 100:
+        print("Not enough data for analysis")
+        return
+
+    # Linear regression
+    slope, intercept, r_value, p_value, std_err = stats.linregress(
+        df_ensemble['rank'], df_ensemble['12M_return']
+    )
+
+    print(f"\n{'='*60}")
+    print(f"ENSEMBLE RESULTS ({method})")
+    print(f"{'='*60}")
+    print(f"Strategies combined: {', '.join(strategies)}")
+    print(f"Sample size: {len(df_ensemble)}")
+    print(f"\nSlope:   {slope:+.4f}")
+    print(f"R²:      {r_value**2:.4f}")
+    print(f"P-value: {p_value:.2e}")
+
+    # Interpretation
+    if slope < -0.02 and p_value < 0.01:
+        print(f"\nVerdict: ✅ STRONG predictor")
+    elif slope < -0.01 and p_value < 0.05:
+        print(f"\nVerdict: ✅ Good predictor")
+    elif slope < 0 and p_value < 0.1:
+        print(f"\nVerdict: ⚠️ Weak predictor")
+    elif slope > 0:
+        print(f"\nVerdict: ❌ INVERSE (bad)")
+    else:
+        print(f"\nVerdict: ❌ No signal")
+
+    # Compare to individual strategies
+    print(f"\n{'='*60}")
+    print(f"COMPARISON TO INDIVIDUAL STRATEGIES")
+    print(f"{'='*60}")
+    print(f"{'Strategy':<20} {'Slope':>10}")
+    print(f"-" * 35)
+
+    for strategy in strategies:
+        strat_backtester = FatPitchBacktester(top_n=9999, weight_profile=strategy, smart_lag=smart_lag)
+        strat_data = await strat_backtester.run_backtest_with_export()
+        strat_df = strat_data['data']
+        valid = strat_df[['rank', '12M_return']].dropna()
+        if len(valid) >= 100:
+            s, _, _, _, _ = stats.linregress(valid['rank'], valid['12M_return'])
+            print(f"{strategy:<20} {s:>+10.4f}")
+
+    print(f"-" * 35)
+    print(f"{'ENSEMBLE':<20} {slope:>+10.4f}")
+
+    return {
+        'slope': slope,
+        'r_squared': r_value ** 2,
+        'p_value': p_value,
+        'n': len(df_ensemble),
+        'strategies': strategies,
+        'method': 'scores' if use_scores else 'ranks'
+    }
+
+
 async def compare_strategies(lag_days: int = 0, select_bottom: bool = False, momentum_veto: int = None):
     """Compare different weight profiles."""
     mode = "BOTTOM" if select_bottom else "TOP"
@@ -1058,7 +1699,10 @@ async def compare_strategies(lag_days: int = 0, select_bottom: bool = False, mom
     print("=" * 100)
 
     results = {}
-    profiles = ['ml', 'original', 'equal', 'value', 'quality', 'contrarian', 'anti', 'momentum_only']
+    profiles = ['equal', 'piotroski', 'graham', 'magic_formula', 'buffett',  # Value/Quality
+                'minervini', 'canslim', 'garp', 'quality_momentum', 'momentum_only',  # Growth/Momentum
+                'value', 'deep_value', 'contrarian',  # Deep value
+                'original', 'ml', 'quality']  # Other
     for profile in profiles:
         logger.info(f"Running {profile} strategy ({mode})...")
         backtester = FatPitchBacktester(
@@ -1101,27 +1745,50 @@ async def main():
     parser = argparse.ArgumentParser(description='Fat Pitch Strategy Backtest')
     parser.add_argument('--top', type=int, default=20, help='Number of top picks per quarter')
     parser.add_argument('--weights', type=str, default='ml',
-                        choices=['ml', 'original', 'equal', 'value', 'quality', 'contrarian', 'anti', 'momentum_only'],
+                        choices=['ml', 'original', 'equal', 'value', 'quality', 'contrarian', 'anti',
+                                 'momentum_only', 'graham', 'magic_formula', 'piotroski', 'buffett', 'deep_value',
+                                 'minervini', 'canslim', 'garp', 'quality_momentum', 'horrible', 'optimal'],
                         help='Weight profile to use')
     parser.add_argument('--compare', action='store_true', help='Compare all weight profiles')
+    parser.add_argument('--compare-slope', action='store_true', dest='compare_slope',
+                        help='Compare strategies by ranking predictive power (slope of rank vs return)')
     parser.add_argument('--compare-veto', action='store_true', dest='compare_veto',
                         help='Compare results with different momentum veto thresholds')
     parser.add_argument('--bottom', action='store_true',
                         help='Select BOTTOM N instead of top N (test if signal works both ways)')
     parser.add_argument('--lag', type=int, default=0,
                         help='Days to lag dimension scores (60 = no look-ahead bias)')
+    parser.add_argument('--smart-lag', action='store_true', dest='smart_lag',
+                        help='Use actual publish dates instead of fixed lag (NO CHEATING)')
     parser.add_argument('--momentum-veto', type=int, default=None, dest='momentum_veto',
                         help='Exclude companies with momentum score below this threshold (e.g., 40)')
     parser.add_argument('--min-momentum', type=int, default=None, dest='min_momentum',
                         help='Only include companies with momentum >= this (e.g., 60 for high momentum)')
+    parser.add_argument('--min-liquidity', type=float, default=None, dest='min_liquidity',
+                        help='Min avg daily dollar volume in millions (e.g., 1 = 1M daily turnover)')
+    parser.add_argument('--max-liquidity', type=float, default=None, dest='max_liquidity',
+                        help='Max avg daily dollar volume in millions (e.g., 50 = exclude mega-caps)')
     parser.add_argument('--export', action='store_true',
                         help='Export full data to Excel (all companies, all dimensions, all returns)')
     parser.add_argument('--output', type=str, default=None,
                         help='Output filename for export (default: auto-generated)')
+    parser.add_argument('--ensemble', action='store_true',
+                        help='Run ensemble strategy combining top 5 strategies')
+    parser.add_argument('--ensemble-strategies', type=str, default=None, dest='ensemble_strategies',
+                        help='Comma-separated list of strategies to combine (default: optimal,garp,quality,buffett,equal)')
+    parser.add_argument('--ensemble-scores', action='store_true', dest='ensemble_scores',
+                        help='Use average of weighted scores instead of sum of ranks for ensemble')
 
     args = parser.parse_args()
 
-    if args.compare_veto:
+    if args.ensemble:
+        strategies = None
+        if args.ensemble_strategies:
+            strategies = [s.strip() for s in args.ensemble_strategies.split(',')]
+        await run_ensemble_backtest(strategies=strategies, smart_lag=args.smart_lag, use_scores=args.ensemble_scores)
+    elif args.compare_slope:
+        await compare_strategies_slope(smart_lag=args.smart_lag)
+    elif args.compare_veto:
         await compare_veto(weight_profile=args.weights, lag_days=args.lag, top_n=args.top)
     elif args.compare:
         await compare_strategies(lag_days=args.lag, select_bottom=args.bottom,
@@ -1133,7 +1800,10 @@ async def main():
             lag_days=args.lag,
             select_bottom=args.bottom,
             momentum_veto=args.momentum_veto,
-            min_momentum=args.min_momentum
+            min_momentum=args.min_momentum,
+            min_liquidity=args.min_liquidity,
+            max_liquidity=args.max_liquidity,
+            smart_lag=args.smart_lag
         )
         results = await backtester.run_backtest_with_export()
         export_to_excel(results, args.output)
@@ -1144,7 +1814,10 @@ async def main():
             lag_days=args.lag,
             select_bottom=args.bottom,
             momentum_veto=args.momentum_veto,
-            min_momentum=args.min_momentum
+            min_momentum=args.min_momentum,
+            min_liquidity=args.min_liquidity,
+            max_liquidity=args.max_liquidity,
+            smart_lag=args.smart_lag
         )
         results = await backtester.run_backtest()
         print_results(results)
