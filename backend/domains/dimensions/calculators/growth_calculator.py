@@ -232,7 +232,11 @@ class GrowthCalculator(BaseDimensionCalculator):
                 currency
             FROM financial_statements
             WHERE symbol = $1
-            AND period_date <= $2
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
             AND period_date >= $3
             AND statement_type = 'annual'
             ORDER BY period_date DESC
@@ -257,7 +261,11 @@ class GrowthCalculator(BaseDimensionCalculator):
                 total_assets
             FROM balance_sheet_data
             WHERE symbol = $1
-            AND period_date <= $2
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
             AND period_date >= $3
             AND statement_type = 'annual'
             ORDER BY period_date DESC
@@ -600,7 +608,11 @@ class GrowthCalculator(BaseDimensionCalculator):
                     FROM financial_statements fs
                     JOIN company_master cm ON fs.symbol = cm.primary_ticker
                     WHERE cm.sector = $1
-                    AND fs.period_date <= $2
+                    AND (
+                        (fs.publish_date IS NOT NULL AND fs.publish_date <= $2)
+                        OR
+                        (fs.publish_date IS NULL AND fs.period_date + INTERVAL '75 days' <= $2)
+                    )
                     AND fs.total_revenue > 0
                     AND fs.statement_type = 'annual'
                 ),
@@ -626,7 +638,11 @@ class GrowthCalculator(BaseDimensionCalculator):
                     FROM financial_statements fs
                     JOIN company_master cm ON fs.symbol = cm.primary_ticker
                     WHERE cm.sector = $1
-                    AND fs.period_date <= $2
+                    AND (
+                        (fs.publish_date IS NOT NULL AND fs.publish_date <= $2)
+                        OR
+                        (fs.publish_date IS NULL AND fs.period_date + INTERVAL '75 days' <= $2)
+                    )
                     AND fs.net_income IS NOT NULL
                     AND fs.statement_type = 'annual'
                 ),

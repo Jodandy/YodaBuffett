@@ -100,6 +100,22 @@ class DimensionDetailResponse(BaseModel):
     metadata: Dict
 
 
+class HistoricalScorePoint(BaseModel):
+    """A single historical score data point."""
+    score_date: str
+    score: float
+    dimension_code: Optional[str] = None
+
+
+class HistoricalScoresResponse(BaseModel):
+    """Historical scores for a company."""
+    company_id: str
+    symbol: str
+    company_name: str
+    fat_pitch_scores: List[HistoricalScorePoint]
+    dimension_scores: Dict[str, List[HistoricalScorePoint]]  # dimension_code -> scores over time
+
+
 class WeightProfileResponse(BaseModel):
     """Weight profile information."""
     name: str
@@ -545,3 +561,110 @@ async def get_weight_profile(profile_name: str):
         weights=WEIGHT_PROFILES[profile_name],
         is_default=(profile_name == DEFAULT_WEIGHT_PROFILE)
     )
+
+
+# ============================================================================
+# Historical Scores Endpoint
+# ============================================================================
+
+@router.get("/history/{symbol}", response_model=HistoricalScoresResponse)
+async def get_historical_scores(
+    symbol: str,
+    weight_profile: Optional[str] = Query(None, description="Weight profile for fat pitch score calculation"),
+    service: FatPitchService = Depends(get_fat_pitch_service)
+):
+    """
+    Get historical dimension scores and calculated fat pitch scores for a company.
+
+    Returns all available historical scores, useful for:
+    - Seeing dimension trends (improving/declining)
+    - Overlaying score on price chart
+    - Understanding if score changes predict price movements
+    """
+    try:
+        # Look up company
+        company_row = await service.db_conn.fetchrow("""
+            SELECT id::text as company_id, company_name, primary_ticker as symbol
+            FROM company_master
+            WHERE primary_ticker = $1 OR yahoo_symbol = $1
+            LIMIT 1
+        """, symbol)
+
+        if not company_row:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Company with symbol '{symbol}' not found"
+            )
+
+        company_id = company_row['company_id']
+        company_name = company_row['company_name']
+
+        # Get all historical dimension scores
+        rows = await service.db_conn.fetch("""
+            SELECT score_date, dimension_code, score
+            FROM daily_dimension_scores
+            WHERE company_id = $1::uuid
+            ORDER BY score_date ASC, dimension_code
+        """, company_id)
+
+        if not rows:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No historical scores found for {symbol}"
+            )
+
+        # Organize by date and dimension
+        scores_by_date: Dict[str, Dict[str, float]] = {}
+        for row in rows:
+            date_str = str(row['score_date'])
+            if date_str not in scores_by_date:
+                scores_by_date[date_str] = {}
+            scores_by_date[date_str][row['dimension_code']] = float(row['score'])
+
+        # Get weight profile
+        profile_name = weight_profile or DEFAULT_WEIGHT_PROFILE
+        weights = WEIGHT_PROFILES.get(profile_name, WEIGHT_PROFILES[DEFAULT_WEIGHT_PROFILE])
+
+        # Calculate fat pitch scores for each date
+        fat_pitch_scores = []
+        dimension_scores: Dict[str, List[HistoricalScorePoint]] = {}
+
+        for date_str, dims in sorted(scores_by_date.items()):
+            # Calculate weighted fat pitch score
+            weighted_sum = 0.0
+            total_weight = 0.0
+            for dim, weight in weights.items():
+                if weight > 0 and dim in dims:
+                    weighted_sum += dims[dim] * weight
+                    total_weight += weight
+
+            if total_weight > 0:
+                fat_pitch_score = weighted_sum / total_weight
+                fat_pitch_scores.append(HistoricalScorePoint(
+                    score_date=date_str,
+                    score=round(fat_pitch_score, 1)
+                ))
+
+            # Collect dimension scores
+            for dim, score in dims.items():
+                if dim not in dimension_scores:
+                    dimension_scores[dim] = []
+                dimension_scores[dim].append(HistoricalScorePoint(
+                    score_date=date_str,
+                    score=round(score, 1),
+                    dimension_code=dim
+                ))
+
+        return HistoricalScoresResponse(
+            company_id=company_id,
+            symbol=symbol,
+            company_name=company_name,
+            fat_pitch_scores=fat_pitch_scores,
+            dimension_scores=dimension_scores
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting historical scores for {symbol}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

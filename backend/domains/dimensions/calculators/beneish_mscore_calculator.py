@@ -346,13 +346,18 @@ class BeneishMScoreCalculator(BaseDimensionCalculator):
         offset=0 is most recent, offset=1 is prior year.
         """
 
-        # Get the Nth most recent annual statement
+        # Get the Nth most recent annual statement (point-in-time safe)
         fs = await self.db_conn.fetchrow("""
             SELECT
                 period_date, total_revenue, gross_profit, net_income,
                 selling_general_administrative
             FROM financial_statements
-            WHERE symbol = $1 AND period_date <= $2
+            WHERE symbol = $1
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
             AND statement_type = 'annual'
             ORDER BY period_date DESC
             OFFSET $3 LIMIT 1

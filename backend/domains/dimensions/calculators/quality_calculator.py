@@ -237,7 +237,7 @@ class QualityCalculator(BaseDimensionCalculator):
         if not symbol:
             return {}
 
-        # Fetch latest annual financial statement and balance sheet
+        # Fetch latest annual financial statement and balance sheet (point-in-time safe)
         row = await self.db_conn.fetchrow("""
             WITH latest_financials AS (
                 SELECT
@@ -247,7 +247,11 @@ class QualityCalculator(BaseDimensionCalculator):
                     fs.period_date
                 FROM financial_statements fs
                 WHERE fs.symbol = $1
-                AND fs.period_date <= $2
+                AND (
+                    (fs.publish_date IS NOT NULL AND fs.publish_date <= $2)
+                    OR
+                    (fs.publish_date IS NULL AND fs.period_date + INTERVAL '75 days' <= $2)
+                )
                 AND fs.statement_type = 'annual'
                 ORDER BY fs.period_date DESC
                 LIMIT 1
@@ -261,7 +265,11 @@ class QualityCalculator(BaseDimensionCalculator):
                     bs.period_date
                 FROM balance_sheet_data bs
                 WHERE bs.symbol = $1
-                AND bs.period_date <= $2
+                AND (
+                    (bs.publish_date IS NOT NULL AND bs.publish_date <= $2)
+                    OR
+                    (bs.publish_date IS NULL AND bs.period_date + INTERVAL '75 days' <= $2)
+                )
                 AND bs.statement_type = 'annual'
                 ORDER BY bs.period_date DESC
                 LIMIT 1
@@ -326,7 +334,11 @@ class QualityCalculator(BaseDimensionCalculator):
                     fs.total_revenue,
                     fs.operating_income
                 FROM financial_statements fs
-                WHERE fs.period_date <= $1
+                WHERE (
+                    (fs.publish_date IS NOT NULL AND fs.publish_date <= $1)
+                    OR
+                    (fs.publish_date IS NULL AND fs.period_date + INTERVAL '75 days' <= $1)
+                )
                 AND fs.statement_type = 'annual'
                 ORDER BY fs.symbol, fs.period_date DESC
             ),
@@ -338,7 +350,11 @@ class QualityCalculator(BaseDimensionCalculator):
                     bs.current_assets,
                     bs.current_liabilities
                 FROM balance_sheet_data bs
-                WHERE bs.period_date <= $1
+                WHERE (
+                    (bs.publish_date IS NOT NULL AND bs.publish_date <= $1)
+                    OR
+                    (bs.publish_date IS NULL AND bs.period_date + INTERVAL '75 days' <= $1)
+                )
                 AND bs.statement_type = 'annual'
                 ORDER BY bs.symbol, bs.period_date DESC
             )

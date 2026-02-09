@@ -13,6 +13,7 @@ import type {
   DocumentsResponse,
   DimensionDetail,
   WeightProfileListResponse,
+  HistoricalScoresResponse,
 } from './types'
 
 /**
@@ -188,6 +189,23 @@ export async function fetchCompanyWithProfile(
       return null
     }
     console.error('Failed to fetch company with profile:', error)
+    return null
+  }
+}
+
+/**
+ * Fetch historical scores for a company
+ */
+export async function fetchHistoricalScores(
+  symbol: string,
+  weightProfile?: string
+): Promise<HistoricalScoresResponse | null> {
+  try {
+    const params = weightProfile ? { weight_profile: weightProfile } : {}
+    const response = await api.get(`/fat-pitch/history/${encodeURIComponent(symbol)}`, { params })
+    return toCamelCase<HistoricalScoresResponse>(response.data)
+  } catch (error) {
+    console.warn('Failed to fetch historical scores:', error)
     return null
   }
 }

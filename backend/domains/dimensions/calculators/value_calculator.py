@@ -271,7 +271,7 @@ class ValueCalculator(BaseDimensionCalculator):
         symbol: str,
         score_date: date
     ) -> Optional[Dict]:
-        """Get most recent annual financial statement."""
+        """Get most recent annual financial statement (point-in-time safe)."""
         row = await self.db_conn.fetchrow("""
             SELECT
                 period_date,
@@ -279,7 +279,12 @@ class ValueCalculator(BaseDimensionCalculator):
                 net_income,
                 ebitda
             FROM financial_statements
-            WHERE symbol = $1 AND period_date <= $2
+            WHERE symbol = $1
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
             AND statement_type = 'annual'
             ORDER BY period_date DESC
             LIMIT 1
@@ -291,7 +296,7 @@ class ValueCalculator(BaseDimensionCalculator):
         symbol: str,
         score_date: date
     ) -> Optional[Dict]:
-        """Get most recent annual balance sheet."""
+        """Get most recent annual balance sheet (point-in-time safe)."""
         row = await self.db_conn.fetchrow("""
             SELECT
                 period_date,
@@ -301,7 +306,12 @@ class ValueCalculator(BaseDimensionCalculator):
                 shares_outstanding,
                 cash_and_equivalents
             FROM balance_sheet_data
-            WHERE symbol = $1 AND period_date <= $2
+            WHERE symbol = $1
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
             AND statement_type = 'annual'
             ORDER BY period_date DESC
             LIMIT 1
@@ -440,16 +450,21 @@ class ValueCalculator(BaseDimensionCalculator):
         score_date: date,
         years: int = 3
     ) -> List[Dict]:
-        """Get historical annual financial statements."""
+        """Get historical annual financial statements (point-in-time safe)."""
         start_date = score_date - timedelta(days=years * 365)
         rows = await self.db_conn.fetch("""
             SELECT period_date, total_revenue, net_income, ebitda
             FROM financial_statements
             WHERE symbol = $1
-            AND period_date BETWEEN $2 AND $3
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
+            AND period_date >= $3
             AND statement_type = 'annual'
             ORDER BY period_date DESC
-        """, symbol, start_date, score_date)
+        """, symbol, score_date, start_date)
         return [dict(row) for row in rows]
 
     async def _get_historical_balance(
@@ -458,16 +473,21 @@ class ValueCalculator(BaseDimensionCalculator):
         score_date: date,
         years: int = 3
     ) -> List[Dict]:
-        """Get historical annual balance sheets."""
+        """Get historical annual balance sheets (point-in-time safe)."""
         start_date = score_date - timedelta(days=years * 365)
         rows = await self.db_conn.fetch("""
             SELECT period_date, total_equity, total_debt, shares_outstanding, cash_and_equivalents
             FROM balance_sheet_data
             WHERE symbol = $1
-            AND period_date BETWEEN $2 AND $3
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
+            AND period_date >= $3
             AND statement_type = 'annual'
             ORDER BY period_date DESC
-        """, symbol, start_date, score_date)
+        """, symbol, score_date, start_date)
         return [dict(row) for row in rows]
 
     async def _analyze_metric(
@@ -575,7 +595,11 @@ class ValueCalculator(BaseDimensionCalculator):
                     JOIN balance_sheet_data bs ON cm.primary_ticker = bs.symbol AND fs.period_date = bs.period_date
                     JOIN daily_price_data dp ON cm.primary_ticker = dp.symbol
                     WHERE cm.sector = $1
-                    AND fs.period_date <= $2
+                    AND (
+                        (fs.publish_date IS NOT NULL AND fs.publish_date <= $2)
+                        OR
+                        (fs.publish_date IS NULL AND fs.period_date + INTERVAL '75 days' <= $2)
+                    )
                     AND fs.net_income > 0
                     AND bs.shares_outstanding > 0
                     AND dp.date <= $2
@@ -594,7 +618,11 @@ class ValueCalculator(BaseDimensionCalculator):
                     JOIN balance_sheet_data bs ON cm.primary_ticker = bs.symbol
                     JOIN daily_price_data dp ON cm.primary_ticker = dp.symbol
                     WHERE cm.sector = $1
-                    AND bs.period_date <= $2
+                    AND (
+                        (bs.publish_date IS NOT NULL AND bs.publish_date <= $2)
+                        OR
+                        (bs.publish_date IS NULL AND bs.period_date + INTERVAL '75 days' <= $2)
+                    )
                     AND bs.total_equity > 0
                     AND bs.shares_outstanding > 0
                     AND dp.date <= $2

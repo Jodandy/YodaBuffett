@@ -382,7 +382,12 @@ class WorkingCapitalCalculator(BaseDimensionCalculator):
         rows = await self.db_conn.fetch("""
             SELECT period_date, total_revenue, gross_profit
             FROM financial_statements
-            WHERE symbol = $1 AND period_date <= $2
+            WHERE symbol = $1
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
             AND period_date >= $2 - INTERVAL '%s years'
             AND statement_type = 'annual'
             ORDER BY period_date DESC
@@ -393,7 +398,12 @@ class WorkingCapitalCalculator(BaseDimensionCalculator):
         rows = await self.db_conn.fetch("""
             SELECT period_date, accounts_receivable, inventory, accounts_payable
             FROM balance_sheet_data
-            WHERE symbol = $1 AND period_date <= $2
+            WHERE symbol = $1
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
             AND period_date >= $2 - INTERVAL '%s years'
             AND statement_type = 'annual'
             ORDER BY period_date DESC

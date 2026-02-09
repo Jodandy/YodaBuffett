@@ -196,7 +196,12 @@ class ProfitabilityCalculator(BaseDimensionCalculator):
         score_date: date,
         years: int = 5
     ) -> List[Dict]:
-        """Get historical financial statements."""
+        """Get historical financial statements.
+
+        Uses point-in-time filtering to avoid look-ahead bias:
+        Only includes statements that were PUBLISHED before score_date.
+        Annual reports: 75-day lag from period_date (conservative estimate)
+        """
         start_date = score_date - timedelta(days=years * 365)
 
         rows = await self.db_conn.fetch("""
@@ -211,7 +216,11 @@ class ProfitabilityCalculator(BaseDimensionCalculator):
                 currency
             FROM financial_statements
             WHERE symbol = $1
-            AND period_date <= $2
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
             AND period_date >= $3
             AND statement_type = 'annual'
             ORDER BY period_date DESC
@@ -362,7 +371,11 @@ class ProfitabilityCalculator(BaseDimensionCalculator):
                 FROM financial_statements fs
                 JOIN company_master cm ON fs.symbol = cm.primary_ticker
                 WHERE cm.sector = $1
-                AND fs.period_date <= $2
+                AND (
+                    (fs.publish_date IS NOT NULL AND fs.publish_date <= $2)
+                    OR
+                    (fs.publish_date IS NULL AND fs.period_date + INTERVAL '75 days' <= $2)
+                )
                 AND fs.total_revenue > 0
                 AND fs.statement_type = 'annual'
                 ORDER BY fs.symbol, fs.period_date DESC

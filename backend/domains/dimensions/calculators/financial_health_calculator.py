@@ -229,7 +229,11 @@ class FinancialHealthCalculator(BaseDimensionCalculator):
                 currency
             FROM balance_sheet_data
             WHERE symbol = $1
-            AND period_date <= $2
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
             AND period_date >= $3
             AND statement_type = 'annual'
             ORDER BY period_date DESC
@@ -257,7 +261,11 @@ class FinancialHealthCalculator(BaseDimensionCalculator):
                 currency
             FROM financial_statements
             WHERE symbol = $1
-            AND period_date <= $2
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
             AND period_date >= $3
             AND statement_type = 'annual'
             ORDER BY period_date DESC
@@ -546,7 +554,11 @@ class FinancialHealthCalculator(BaseDimensionCalculator):
                 FROM balance_sheet_data bs
                 JOIN company_master cm ON bs.symbol = cm.primary_ticker
                 WHERE cm.sector = $1
-                AND bs.period_date <= $2
+                AND (
+                    (bs.publish_date IS NOT NULL AND bs.publish_date <= $2)
+                    OR
+                    (bs.publish_date IS NULL AND bs.period_date + INTERVAL '75 days' <= $2)
+                )
                 AND bs.statement_type = 'annual'
                 ORDER BY bs.symbol, bs.period_date DESC
             )

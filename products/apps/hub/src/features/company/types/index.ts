@@ -266,3 +266,19 @@ export interface WeightProfileListResponse {
   profiles: WeightProfile[]
   defaultProfile: string
 }
+
+// Historical score point
+export interface HistoricalScorePoint {
+  scoreDate: string
+  score: number
+  dimensionCode?: string
+}
+
+// Historical scores response
+export interface HistoricalScoresResponse {
+  companyId: string
+  symbol: string
+  companyName: string
+  fatPitchScores: HistoricalScorePoint[]
+  dimensionScores: Record<string, HistoricalScorePoint[]>
+}

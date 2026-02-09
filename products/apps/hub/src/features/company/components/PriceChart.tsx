@@ -1,6 +1,6 @@
 /**
  * PriceChart Component
- * Interactive price chart using recharts
+ * Interactive price chart using recharts with optional score overlay
  */
 
 import { useMemo } from 'react'
@@ -13,16 +13,20 @@ import {
   Tooltip,
   ResponsiveContainer,
   Area,
-  AreaChart,
+  ComposedChart,
 } from 'recharts'
 import { cn } from '@yodabuffett/ui'
-import type { PriceDataPoint, PriceTimeRange } from '../types'
+import type { PriceDataPoint, PriceTimeRange, HistoricalScorePoint } from '../types'
 
 interface PriceChartProps {
   prices: PriceDataPoint[]
   currentRange: PriceTimeRange
   onRangeChange: (range: PriceTimeRange) => void
   loading?: boolean
+  // Score overlay props
+  historicalScores?: HistoricalScorePoint[]
+  showScoreOverlay?: boolean
+  onToggleScoreOverlay?: () => void
 }
 
 const timeRanges: PriceTimeRange[] = ['1M', '3M', '6M', '1Y', '3Y', '5Y', 'MAX']
@@ -47,11 +51,17 @@ function formatPrice(value: number): string {
   })
 }
 
+// Extended data point with score
+interface ChartDataPoint extends PriceDataPoint {
+  dateFormatted: string
+  fatPitchScore?: number
+}
+
 // Custom tooltip component
 function CustomTooltip({ active, payload }: any) {
   if (!active || !payload || !payload.length) return null
 
-  const data = payload[0].payload as PriceDataPoint
+  const data = payload[0].payload as ChartDataPoint
   const date = new Date(data.date)
 
   return (
@@ -83,6 +93,19 @@ function CustomTooltip({ active, payload }: any) {
             {(data.volume / 1e6).toFixed(1)}M
           </span>
         </div>
+        {data.fatPitchScore !== undefined && (
+          <div className="flex justify-between gap-4 pt-1 border-t border-border/50 mt-1">
+            <span className={cn(
+              data.fatPitchScore >= 70 ? 'text-green-500' :
+              data.fatPitchScore >= 60 ? 'text-blue-500' : 'text-red-500'
+            )}>Fat Pitch Score:</span>
+            <span className={cn(
+              'font-mono',
+              data.fatPitchScore >= 70 ? 'text-green-500' :
+              data.fatPitchScore >= 60 ? 'text-blue-500' : 'text-red-500'
+            )}>{data.fatPitchScore.toFixed(1)}</span>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -93,6 +116,9 @@ export function PriceChart({
   currentRange,
   onRangeChange,
   loading = false,
+  historicalScores,
+  showScoreOverlay = false,
+  onToggleScoreOverlay,
 }: PriceChartProps) {
   // Calculate performance stats
   const stats = useMemo(() => {
@@ -114,14 +140,53 @@ export function PriceChart({
     }
   }, [prices])
 
-  // Prepare chart data
+  // Create a map of scores by date for efficient lookup
+  const scoresByDate = useMemo(() => {
+    if (!historicalScores) return new Map<string, number>()
+    const map = new Map<string, number>()
+    for (const s of historicalScores) {
+      map.set(s.scoreDate, s.score)
+    }
+    return map
+  }, [historicalScores])
+
+  // Prepare chart data with optional score overlay
   const chartData = useMemo(() => {
     if (!prices) return []
-    return prices.map(p => ({
-      ...p,
-      dateFormatted: formatDate(p.date, currentRange),
-    }))
-  }, [prices, currentRange])
+
+    return prices.map(p => {
+      const baseData: ChartDataPoint = {
+        ...p,
+        dateFormatted: formatDate(p.date, currentRange),
+      }
+
+      // Add score if overlay is enabled and we have score data
+      if (showScoreOverlay && scoresByDate.size > 0) {
+        // Find the most recent score on or before this date
+        const priceDate = p.date
+        let latestScore: number | undefined
+        let latestScoreDate: string | undefined
+
+        for (const [scoreDate, score] of scoresByDate.entries()) {
+          if (scoreDate <= priceDate) {
+            if (!latestScoreDate || scoreDate > latestScoreDate) {
+              latestScoreDate = scoreDate
+              latestScore = score
+            }
+          }
+        }
+
+        if (latestScore !== undefined) {
+          baseData.fatPitchScore = latestScore
+        }
+      }
+
+      return baseData
+    })
+  }, [prices, currentRange, showScoreOverlay, scoresByDate])
+
+  // Check if we have score data available
+  const hasScoreData = historicalScores && historicalScores.length > 0
 
   // Determine chart color based on performance
   const isPositive = stats ? stats.changePercent >= 0 : true
@@ -168,33 +233,73 @@ export function PriceChart({
           )}
         </div>
 
-        {/* Time range selector */}
-        <div className="flex gap-1">
-          {timeRanges.map(range => (
+        <div className="flex items-center gap-4">
+          {/* Score overlay toggle */}
+          {hasScoreData && onToggleScoreOverlay && (
             <button
-              key={range}
-              onClick={() => onRangeChange(range)}
+              onClick={onToggleScoreOverlay}
               className={cn(
-                'px-3 py-1 text-sm rounded-lg transition-colors',
-                currentRange === range
+                'px-3 py-1.5 text-sm rounded-lg transition-colors flex items-center gap-2',
+                showScoreOverlay
                   ? 'bg-blue-600 text-white'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  : 'bg-muted text-muted-foreground hover:text-foreground'
               )}
             >
-              {range}
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
+              </svg>
+              Score
             </button>
-          ))}
+          )}
+
+          {/* Time range selector */}
+          <div className="flex gap-1">
+            {timeRanges.map(range => (
+              <button
+                key={range}
+                onClick={() => onRangeChange(range)}
+                className={cn(
+                  'px-3 py-1 text-sm rounded-lg transition-colors',
+                  currentRange === range
+                    ? 'bg-blue-600 text-white'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                )}
+              >
+                {range}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Chart */}
       <div className="h-[300px]">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+          <ComposedChart data={chartData} margin={{ top: 10, right: showScoreOverlay ? 60 : 10, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor={chartColor} stopOpacity={0.3} />
                 <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
+              </linearGradient>
+              {/* Score color gradient: green (>=70), blue (60-70), red (<60) */}
+              <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
+                {/* Top = 100, bottom = 0 */}
+                <stop offset="0%" stopColor="#22c55e" />      {/* score 100 - green */}
+                <stop offset="30%" stopColor="#22c55e" />     {/* score 70 - green */}
+                <stop offset="30%" stopColor="#3b82f6" />     {/* score 70 - blue */}
+                <stop offset="40%" stopColor="#3b82f6" />     {/* score 60 - blue */}
+                <stop offset="40%" stopColor="#ef4444" />     {/* score 60 - red */}
+                <stop offset="100%" stopColor="#ef4444" />    {/* score 0 - red */}
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" className="opacity-20" />
@@ -208,6 +313,7 @@ export function PriceChart({
               minTickGap={50}
             />
             <YAxis
+              yAxisId="price"
               domain={['auto', 'auto']}
               tick={{ fill: 'currentColor', fontSize: 11 }}
               className="text-muted-foreground"
@@ -216,31 +322,83 @@ export function PriceChart({
               tickFormatter={formatPrice}
               width={60}
             />
+            {showScoreOverlay && (
+              <YAxis
+                yAxisId="score"
+                orientation="right"
+                domain={[0, 100]}
+                tick={{ fill: 'currentColor', fontSize: 11 }}
+                className="text-muted-foreground"
+                tickLine={false}
+                axisLine={false}
+                width={40}
+                ticks={[0, 60, 70, 100]}
+              />
+            )}
             <Tooltip content={<CustomTooltip />} />
             <Area
+              yAxisId="price"
               type="monotone"
               dataKey="close"
               stroke={chartColor}
               strokeWidth={2}
               fill="url(#colorPrice)"
             />
-          </AreaChart>
+            {showScoreOverlay && (
+              <Line
+                yAxisId="score"
+                type="stepAfter"
+                dataKey="fatPitchScore"
+                stroke="url(#scoreGradient)"
+                strokeWidth={2}
+                dot={false}
+                connectNulls
+              />
+            )}
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
 
-      {/* High/Low stats */}
-      {stats && (
-        <div className="flex gap-6 mt-4 text-sm">
-          <div>
-            <span className="text-muted-foreground">Period High: </span>
-            <span className="font-mono text-foreground">{formatPrice(stats.high)}</span>
+      {/* High/Low stats and legend */}
+      <div className="flex justify-between items-start mt-4 text-sm">
+        {stats && (
+          <div className="flex gap-6">
+            <div>
+              <span className="text-muted-foreground">Period High: </span>
+              <span className="font-mono text-foreground">{formatPrice(stats.high)}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Period Low: </span>
+              <span className="font-mono text-foreground">{formatPrice(stats.low)}</span>
+            </div>
           </div>
-          <div>
-            <span className="text-muted-foreground">Period Low: </span>
-            <span className="font-mono text-foreground">{formatPrice(stats.low)}</span>
+        )}
+        {showScoreOverlay && (
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <div className={cn(
+                'w-4 h-0.5',
+                isPositive ? 'bg-green-500' : 'bg-red-500'
+              )} />
+              <span className="text-muted-foreground">Price</span>
+            </div>
+            <span className="text-muted-foreground">|</span>
+            <span className="text-xs text-muted-foreground">Score:</span>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-0.5 bg-green-500" />
+              <span className="text-green-500 text-xs">&ge;70</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-0.5 bg-blue-500" />
+              <span className="text-blue-500 text-xs">60-70</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-0.5 bg-red-500" />
+              <span className="text-red-500 text-xs">&lt;60</span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

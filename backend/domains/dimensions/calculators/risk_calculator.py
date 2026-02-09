@@ -510,7 +510,11 @@ class RiskCalculator(BaseDimensionCalculator):
         FROM balance_sheet_data bs
         JOIN company_master cm ON bs.symbol = cm.primary_ticker
         WHERE cm.id = $1
-        AND bs.period_date <= $2
+        AND (
+            (bs.publish_date IS NOT NULL AND bs.publish_date <= $2)
+            OR
+            (bs.publish_date IS NULL AND bs.period_date + INTERVAL '75 days' <= $2)
+        )
         AND bs.statement_type = 'annual'
         ORDER BY bs.period_date DESC
         LIMIT 1
@@ -566,7 +570,11 @@ class RiskCalculator(BaseDimensionCalculator):
         FROM balance_sheet_data bs
         JOIN company_master cm ON bs.symbol = cm.primary_ticker
         WHERE cm.id = $1
-        AND bs.period_date <= $2
+        AND (
+            (bs.publish_date IS NOT NULL AND bs.publish_date <= $2)
+            OR
+            (bs.publish_date IS NULL AND bs.period_date + INTERVAL '75 days' <= $2)
+        )
         AND bs.statement_type = 'annual'
         ORDER BY bs.period_date DESC
         LIMIT 1
@@ -619,7 +627,11 @@ class RiskCalculator(BaseDimensionCalculator):
         FROM balance_sheet_data bs
         JOIN company_master cm ON bs.symbol = cm.primary_ticker
         WHERE cm.id = $1
-        AND bs.period_date <= $2
+        AND (
+            (bs.publish_date IS NOT NULL AND bs.publish_date <= $2)
+            OR
+            (bs.publish_date IS NULL AND bs.period_date + INTERVAL '75 days' <= $2)
+        )
         AND bs.statement_type = 'annual'
         ORDER BY bs.period_date DESC
         LIMIT 1
@@ -674,7 +686,11 @@ class RiskCalculator(BaseDimensionCalculator):
             FROM balance_sheet_data bs
             JOIN company_master cm ON bs.symbol = cm.primary_ticker
             WHERE cm.id = $1
-            AND bs.period_date <= $2
+            AND (
+                (bs.publish_date IS NOT NULL AND bs.publish_date <= $2)
+                OR
+                (bs.publish_date IS NULL AND bs.period_date + INTERVAL '75 days' <= $2)
+            )
             AND bs.statement_type = 'annual'
             ORDER BY bs.period_date DESC
             LIMIT 2
@@ -686,7 +702,11 @@ class RiskCalculator(BaseDimensionCalculator):
             FROM financial_statements fs
             JOIN company_master cm ON fs.symbol = cm.primary_ticker
             WHERE cm.id = $1
-            AND fs.period_date <= $2
+            AND (
+                (fs.publish_date IS NOT NULL AND fs.publish_date <= $2)
+                OR
+                (fs.publish_date IS NULL AND fs.period_date + INTERVAL '75 days' <= $2)
+            )
             AND fs.statement_type = 'annual'
             ORDER BY fs.period_date DESC
             LIMIT 2

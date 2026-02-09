@@ -459,7 +459,11 @@ class EarningsQualityCalculator(BaseDimensionCalculator):
                 net_income, ebit, ebitda, interest_expense
             FROM financial_statements
             WHERE symbol = $1
-            AND period_date <= $2
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
             AND period_date >= $2 - INTERVAL '%s years'
             AND statement_type = 'annual'
             ORDER BY period_date DESC
@@ -477,7 +481,11 @@ class EarningsQualityCalculator(BaseDimensionCalculator):
                 depreciation_amortization
             FROM cash_flow_data
             WHERE symbol = $1
-            AND period_date <= $2
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
             AND period_date >= $2 - INTERVAL '%s years'
             AND statement_type = 'annual'
             ORDER BY period_date DESC
@@ -495,7 +503,11 @@ class EarningsQualityCalculator(BaseDimensionCalculator):
                 total_equity, total_debt, accounts_receivable, inventory
             FROM balance_sheet_data
             WHERE symbol = $1
-            AND period_date <= $2
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
             AND period_date >= $2 - INTERVAL '%s years'
             AND statement_type = 'annual'
             ORDER BY period_date DESC

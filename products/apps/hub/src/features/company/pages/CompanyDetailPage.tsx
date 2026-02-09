@@ -6,7 +6,7 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { ExclamationTriangleIcon, DocumentTextIcon, CalendarIcon } from '@heroicons/react/24/outline'
-import { useCompanyDetail, usePriceHistory, useFinancials, useDocuments, useCalendarEvents } from '../hooks/useCompanyDetail'
+import { useCompanyDetail, usePriceHistory, useFinancials, useDocuments, useCalendarEvents, useHistoricalScores } from '../hooks/useCompanyDetail'
 import { CompanyHeader } from '../components/CompanyHeader'
 import { DimensionGrid } from '../components/DimensionGrid'
 import { PriceChart } from '../components/PriceChart'
@@ -36,6 +36,7 @@ export default function CompanyDetailPage() {
   const { symbol } = useParams<{ symbol: string }>()
   const [activeTab, setActiveTab] = useState<CompanyTab>('overview')
   const [priceRange, setPriceRange] = useState<PriceTimeRange>('1Y')
+  const [showScoreOverlay, setShowScoreOverlay] = useState(false)
 
   // Fetch company data
   const { data: company, isLoading } = useCompanyDetail(symbol || '')
@@ -43,6 +44,7 @@ export default function CompanyDetailPage() {
   const { data: financials, isLoading: financialsLoading } = useFinancials(symbol)
   const { data: documentsData } = useDocuments(symbol)
   const { data: eventsData } = useCalendarEvents(symbol)
+  const { data: historicalScoresData } = useHistoricalScores(symbol)
 
   // Extract arrays from response objects
   const documents = documentsData?.documents ?? []
@@ -152,6 +154,9 @@ export default function CompanyDetailPage() {
               currentRange={priceRange}
               onRangeChange={setPriceRange}
               loading={pricesLoading}
+              historicalScores={historicalScoresData?.fatPitchScores}
+              showScoreOverlay={showScoreOverlay}
+              onToggleScoreOverlay={() => setShowScoreOverlay(!showScoreOverlay)}
             />
 
             {/* Key Metrics - only show if we have Fat Pitch data */}

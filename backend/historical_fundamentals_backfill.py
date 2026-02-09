@@ -626,10 +626,11 @@ class HistoricalFundamentalsBackfill:
     async def backfill_symbol_complete(self, symbol: str) -> Dict:
         """Complete backfill for a single symbol.
 
-        Fetches 3 components from Yahoo Finance:
+        Fetches 4 components from Yahoo Finance:
         1. Financial statements (income statement)
         2. Balance sheet
         3. Cash flow statement
+        4. Earnings dates (for publication dates)
         """
 
         logger.info(f"🚀 Starting complete backfill for {symbol}")
@@ -639,6 +640,7 @@ class HistoricalFundamentalsBackfill:
             'financial_statements': False,
             'balance_sheet': False,
             'cash_flow': False,
+            'earnings_dates': False,
         }
 
         # 1. Financial statements
@@ -653,10 +655,84 @@ class HistoricalFundamentalsBackfill:
         results['cash_flow'] = await self.backfill_cash_flow(symbol)
         await asyncio.sleep(1)
 
+        # 4. Earnings dates (for publication dates)
+        results['earnings_dates'] = await self.backfill_earnings_dates(symbol)
+        await asyncio.sleep(1)
+
         success_count = sum(1 for k, v in results.items() if k != 'symbol' and v is True)
-        logger.info(f"✅ Backfill complete for {symbol}: {success_count}/3 successful")
+        logger.info(f"✅ Backfill complete for {symbol}: {success_count}/4 successful")
 
         return results
+
+    async def backfill_earnings_dates(self, symbol: str) -> bool:
+        """Backfill publication dates using earnings_dates endpoint."""
+
+        yahoo_symbol = await self.get_yahoo_symbol(symbol)
+        if not yahoo_symbol:
+            return False
+
+        try:
+            ticker = yf.Ticker(yahoo_symbol)
+            earnings_dates = ticker.earnings_dates
+
+            if earnings_dates is None or earnings_dates.empty:
+                logger.debug(f"No earnings dates for {symbol}")
+                return False
+
+            # Convert earnings dates to a list of dates
+            earnings_list = []
+            for dt in earnings_dates.index:
+                if pd.notna(dt):
+                    earnings_list.append(dt.date() if hasattr(dt, 'date') else dt)
+
+            if not earnings_list:
+                return False
+
+            earnings_list.sort()
+
+            # Get periods needing publish dates from all 3 tables
+            update_count = 0
+            for table in ['financial_statements', 'balance_sheet_data', 'cash_flow_data']:
+                rows = await self.db_conn.fetch(f"""
+                    SELECT period_date FROM {table}
+                    WHERE symbol = $1 AND publish_date IS NULL
+                """, symbol)
+
+                for row in rows:
+                    period_date = row['period_date']
+                    publish_date = self._match_earnings_date(period_date, earnings_list)
+
+                    if publish_date:
+                        await self.db_conn.execute(f"""
+                            UPDATE {table}
+                            SET publish_date = $1
+                            WHERE symbol = $2 AND period_date = $3 AND publish_date IS NULL
+                        """, publish_date, symbol, period_date)
+                        update_count += 1
+
+            if update_count > 0:
+                logger.info(f"✅ Updated {update_count} publish dates for {symbol}")
+            return update_count > 0
+
+        except Exception as e:
+            logger.debug(f"Error backfilling earnings dates for {symbol}: {e}")
+            return False
+
+    def _match_earnings_date(self, period_date: date, earnings_list: List[date]) -> Optional[date]:
+        """Match a period to its earnings announcement date."""
+        from datetime import datetime
+
+        period_dt = datetime.combine(period_date, datetime.min.time())
+
+        for earn_date in earnings_list:
+            earn_dt = datetime.combine(earn_date, datetime.min.time()) if not isinstance(earn_date, datetime) else earn_date
+            days_after = (earn_dt - period_dt).days
+
+            # Publication should be 15-120 days after period end
+            if 15 <= days_after <= 120:
+                return earn_date
+
+        return None
         
     async def get_symbols_for_backfill(self, limit: Optional[int] = None, only_missing: bool = False) -> List[str]:
         """Get symbols for backfilling.
@@ -751,6 +827,7 @@ async def main():
                 'financial_statements': results.get('financial_statements', False),
                 'balance_sheet': results.get('balance_sheet', False),
                 'cash_flow': results.get('cash_flow', False),
+                'earnings_dates': results.get('earnings_dates', False),
                 'components_success': success_count,
                 'processed_at': datetime.now().isoformat()
             }
@@ -765,7 +842,7 @@ async def main():
                 run_results['failed'].append(result_entry)
                 status = "❌ FAILED"
 
-            print(f"   {status} ({success_count}/3 components)")
+            print(f"   {status} ({success_count}/4 components)")
 
         # Final summary
         run_results['end_time'] = datetime.now().isoformat()

@@ -13,6 +13,7 @@ import {
   fetchCalendarEvents,
   fetchDocuments,
   fetchDimensionDetails,
+  fetchHistoricalScores,
 } from '../api'
 import type { PriceTimeRange } from '../types'
 
@@ -27,6 +28,7 @@ export const companyKeys = {
   events: (symbol: string) => [...companyKeys.all, 'events', symbol] as const,
   documents: (symbol: string) => [...companyKeys.all, 'documents', symbol] as const,
   dimensions: (companyId: string) => [...companyKeys.all, 'dimensions', companyId] as const,
+  history: (symbol: string) => [...companyKeys.all, 'history', symbol] as const,
 }
 
 // Map time range to days
@@ -133,5 +135,17 @@ export function useDimensionDetails(companyId: string | undefined) {
     queryFn: () => fetchDimensionDetails(companyId!),
     enabled: !!companyId,
     staleTime: 5 * 60 * 1000,
+  })
+}
+
+/**
+ * Fetch historical scores by symbol
+ */
+export function useHistoricalScores(symbol: string | undefined) {
+  return useQuery({
+    queryKey: companyKeys.history(symbol || ''),
+    queryFn: () => fetchHistoricalScores(symbol!),
+    enabled: !!symbol,
+    staleTime: 10 * 60 * 1000, // 10 minutes - historical data doesn't change often
   })
 }

@@ -314,7 +314,12 @@ class ValuationPercentileCalculator(BaseDimensionCalculator):
         row = await self.db_conn.fetchrow("""
             SELECT total_revenue, net_income, ebitda
             FROM financial_statements
-            WHERE symbol = $1 AND period_date <= $2
+            WHERE symbol = $1
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
             AND statement_type = 'annual'
             ORDER BY period_date DESC LIMIT 1
         """, symbol, score_date)
@@ -324,7 +329,12 @@ class ValuationPercentileCalculator(BaseDimensionCalculator):
         row = await self.db_conn.fetchrow("""
             SELECT total_equity, total_debt, cash_and_equivalents, shares_outstanding
             FROM balance_sheet_data
-            WHERE symbol = $1 AND period_date <= $2
+            WHERE symbol = $1
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
             AND statement_type = 'annual'
             ORDER BY period_date DESC LIMIT 1
         """, symbol, score_date)
@@ -352,12 +362,16 @@ class ValuationPercentileCalculator(BaseDimensionCalculator):
         if not prices:
             return []
 
-        # Get all annual financial periods
+        # Get all annual financial periods (point-in-time safe)
         financials = await self.db_conn.fetch("""
             SELECT period_date, total_revenue, net_income, ebitda
             FROM financial_statements
             WHERE symbol = $1
-            AND period_date <= $2
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
             AND period_date >= $2 - INTERVAL '%s years'
             AND statement_type = 'annual'
             ORDER BY period_date
@@ -367,7 +381,11 @@ class ValuationPercentileCalculator(BaseDimensionCalculator):
             SELECT period_date, total_equity, total_debt, cash_and_equivalents, shares_outstanding
             FROM balance_sheet_data
             WHERE symbol = $1
-            AND period_date <= $2
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
             AND period_date >= $2 - INTERVAL '%s years'
             AND statement_type = 'annual'
             ORDER BY period_date

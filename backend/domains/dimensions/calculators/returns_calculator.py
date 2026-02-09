@@ -225,7 +225,11 @@ class ReturnsCalculator(BaseDimensionCalculator):
                 currency
             FROM financial_statements
             WHERE symbol = $1
-            AND period_date <= $2
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
             AND period_date >= $3
             AND statement_type = 'annual'
             ORDER BY period_date DESC
@@ -253,7 +257,11 @@ class ReturnsCalculator(BaseDimensionCalculator):
                 currency
             FROM balance_sheet_data
             WHERE symbol = $1
-            AND period_date <= $2
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
             AND period_date >= $3
             AND statement_type = 'annual'
             ORDER BY period_date DESC
@@ -567,7 +575,11 @@ class ReturnsCalculator(BaseDimensionCalculator):
                     JOIN balance_sheet_data bs ON fs.symbol = bs.symbol AND fs.period_date = bs.period_date
                     JOIN company_master cm ON fs.symbol = cm.primary_ticker
                     WHERE cm.sector = $1
-                    AND fs.period_date <= $2
+                    AND (
+                        (fs.publish_date IS NOT NULL AND fs.publish_date <= $2)
+                        OR
+                        (fs.publish_date IS NULL AND fs.period_date + INTERVAL '75 days' <= $2)
+                    )
                     AND bs.total_equity > 0
                     AND fs.statement_type = 'annual'
                     ORDER BY fs.symbol, fs.period_date DESC
@@ -586,7 +598,11 @@ class ReturnsCalculator(BaseDimensionCalculator):
                     JOIN balance_sheet_data bs ON fs.symbol = bs.symbol AND fs.period_date = bs.period_date
                     JOIN company_master cm ON fs.symbol = cm.primary_ticker
                     WHERE cm.sector = $1
-                    AND fs.period_date <= $2
+                    AND (
+                        (fs.publish_date IS NOT NULL AND fs.publish_date <= $2)
+                        OR
+                        (fs.publish_date IS NULL AND fs.period_date + INTERVAL '75 days' <= $2)
+                    )
                     AND bs.total_assets > 0
                     AND fs.statement_type = 'annual'
                     ORDER BY fs.symbol, fs.period_date DESC
@@ -606,7 +622,11 @@ class ReturnsCalculator(BaseDimensionCalculator):
                     JOIN balance_sheet_data bs ON fs.symbol = bs.symbol AND fs.period_date = bs.period_date
                     JOIN company_master cm ON fs.symbol = cm.primary_ticker
                     WHERE cm.sector = $1
-                    AND fs.period_date <= $2
+                    AND (
+                        (fs.publish_date IS NOT NULL AND fs.publish_date <= $2)
+                        OR
+                        (fs.publish_date IS NULL AND fs.period_date + INTERVAL '75 days' <= $2)
+                    )
                     AND bs.total_equity > 0
                     AND fs.statement_type = 'annual'
                     ORDER BY fs.symbol, fs.period_date DESC

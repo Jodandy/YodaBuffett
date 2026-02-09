@@ -364,7 +364,12 @@ class CapitalAllocationCalculator(BaseDimensionCalculator):
         rows = await self.db_conn.fetch("""
             SELECT period_date, total_revenue, operating_income, net_income
             FROM financial_statements
-            WHERE symbol = $1 AND period_date <= $2
+            WHERE symbol = $1
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
             AND period_date >= $2 - INTERVAL '%s years'
             AND statement_type = 'annual'
             ORDER BY period_date DESC
@@ -376,7 +381,12 @@ class CapitalAllocationCalculator(BaseDimensionCalculator):
             SELECT period_date, operating_cash_flow, capital_expenditure,
                    free_cash_flow, dividends_paid, depreciation_amortization
             FROM cash_flow_data
-            WHERE symbol = $1 AND period_date <= $2
+            WHERE symbol = $1
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
             AND period_date >= $2 - INTERVAL '%s years'
             AND statement_type = 'annual'
             ORDER BY period_date DESC
@@ -387,7 +397,12 @@ class CapitalAllocationCalculator(BaseDimensionCalculator):
         rows = await self.db_conn.fetch("""
             SELECT period_date, total_assets, total_debt, total_equity
             FROM balance_sheet_data
-            WHERE symbol = $1 AND period_date <= $2
+            WHERE symbol = $1
+            AND (
+                (publish_date IS NOT NULL AND publish_date <= $2)
+                OR
+                (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $2)
+            )
             AND period_date >= $2 - INTERVAL '%s years'
             AND statement_type = 'annual'
             ORDER BY period_date DESC
