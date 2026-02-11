@@ -58,6 +58,53 @@ When backtesting, scores must be calculated using only data available at that ti
 
 ---
 
+## ⚠️ CRITICAL: Currency Conversion for Financial Ratios
+
+**ALWAYS convert financials when report_currency differs from stock price currency.**
+
+Nordic stocks trade in their local currency:
+- Swedish (.ST) → SEK
+- Norwegian (.OL) → NOK
+- Danish (.CO) → DKK
+- Finnish (.HE) → EUR
+
+But financial statements may be reported in a different currency (check the `currency` column). When calculating ratios like P/E, EV/EBITDA, etc., **both sides must be in the same currency**.
+
+### The Rule
+
+```python
+from domains.dimensions.calculators.currency_utils import get_exchange_rate
+
+# 1. Get stock currency from exchange suffix
+stock_currency = 'SEK' if yahoo_symbol.endswith('.ST') else ...
+
+# 2. Get report currency from financials
+report_currency = financials[-1].get('currency')
+
+# 3. Calculate fx_rate
+fx_rate = 1.0
+if report_currency != stock_currency:
+    fx_rate = get_exchange_rate(report_currency, stock_currency) or 1.0
+
+# 4. ALWAYS apply fx_rate to financial values
+net_income = float(row['net_income']) * fx_rate
+revenue = float(row['total_revenue']) * fx_rate
+equity = float(row['total_equity']) * fx_rate
+# ... all financial values
+
+# 5. Price stays as-is (already in stock_currency)
+market_cap = price * shares  # No conversion
+pe = market_cap / net_income  # ✅ Both in same currency
+```
+
+### Red Flags
+
+- ❌ `pe = market_cap / net_income` without checking currencies
+- ❌ Mixing converted and unconverted values in same calculation
+- ❌ Assuming all financials are in SEK
+
+---
+
 ## 🔑 Name & Symbol Resolution (IMPORTANT)
 
 Different tables use different symbol formats. Always resolve properly when querying.
@@ -115,6 +162,81 @@ prices = await conn.fetch("""
 # Find symbol variants for a company
 python smart_symbol_matcher.py
 ```
+
+---
+
+## 💱 Currency Handling (CRITICAL)
+
+**Price data is in stock_currency (determined by exchange). Financial data has a currency column (report_currency) that may differ.**
+
+### The Pattern (Same as valuation_percentile_calculator.py)
+
+```python
+from domains.dimensions.calculators.currency_utils import get_exchange_rate
+
+# 1. Determine stock trading currency from exchange suffix
+def get_stock_currency_from_symbol(ticker: str, yahoo_symbol: str = None) -> str:
+    symbol = yahoo_symbol or ticker
+    if symbol.endswith('.ST'): return 'SEK'
+    elif symbol.endswith('.OL'): return 'NOK'
+    elif symbol.endswith('.CO'): return 'DKK'
+    elif symbol.endswith('.HE'): return 'EUR'
+    return 'SEK'  # Default
+
+# 2. Get report currency from financial statements
+report_currency = financials[-1].get('currency')  # e.g., 'SEK', 'EUR', 'USD'
+
+# 3. Calculate exchange rate
+fx_rate = 1.0
+if report_currency and stock_currency and report_currency != stock_currency:
+    fx_rate = get_exchange_rate(report_currency, stock_currency) or 1.0
+
+# 4. Apply fx_rate to ALL financial values before calculating ratios
+revenue = float(latest['total_revenue']) * fx_rate
+net_income = float(latest['net_income']) * fx_rate
+equity = float(balance['total_equity']) * fx_rate
+debt = float(balance['total_debt']) * fx_rate
+# etc.
+
+# Price is already in stock_currency
+market_cap = price * shares  # No conversion needed
+
+# Now ratios are correct (both sides in same currency)
+pe = market_cap / net_income  # ✅ Both in stock_currency
+```
+
+### What to Convert
+
+**Always apply fx_rate to:**
+- Income statement items (revenue, net_income, gross_profit, operating_income, ebitda)
+- Balance sheet items (equity, debt, cash, assets, receivables, payables)
+- Cash flow items (fcf, ocf, capex, depreciation, dividends)
+
+**Never convert:**
+- Share count (currency-agnostic)
+- Price (already in stock_currency)
+- Ratios (calculated after conversion)
+
+### Exchange Rates
+
+Located in `domains/dimensions/calculators/currency_utils.py`:
+
+```python
+EXCHANGE_RATES_TO_SEK = {
+    "SEK": 1.0,
+    "EUR": 11.50,  # 1 EUR = 11.50 SEK
+    "USD": 10.80,  # 1 USD = 10.80 SEK
+    "NOK": 0.95,   # 1 NOK = 0.95 SEK
+    "DKK": 1.54,   # 1 DKK = 1.54 SEK
+}
+```
+
+### Red Flags
+
+- ❌ `market_cap / net_income` without checking currencies match
+- ❌ Converting only some values (e.g., market_cap to USD but not net_income)
+- ❌ Forgetting to convert capex/depreciation when revenue is converted
+- ❌ Assuming all data is in SEK without checking the currency column
 
 ---
 

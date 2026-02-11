@@ -9,6 +9,7 @@ import {
   ChevronRightIcon,
   FunnelIcon,
   CalendarIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline'
 
 interface SidebarProps {
@@ -18,7 +19,8 @@ interface SidebarProps {
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
-  { name: 'Screener', href: '/screener', icon: FunnelIcon },
+  { name: 'Fat Pitch', href: '/screener', icon: FunnelIcon },
+  { name: 'Quality', href: '/quality', icon: SparklesIcon },
   { name: 'Calendar', href: '/calendar', icon: CalendarIcon },
   { name: 'Portfolios', href: '/portfolios', icon: BriefcaseIcon },
   { name: 'Watchlist', href: '/watchlist', icon: EyeIcon, disabled: true },
