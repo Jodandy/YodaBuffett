@@ -14,6 +14,7 @@ import type {
   DimensionDetail,
   WeightProfileListResponse,
   HistoricalScoresResponse,
+  AnomalyResponse,
 } from './types'
 
 /**
@@ -206,6 +207,31 @@ export async function fetchHistoricalScores(
     return toCamelCase<HistoricalScoresResponse>(response.data)
   } catch (error) {
     console.warn('Failed to fetch historical scores:', error)
+    return null
+  }
+}
+
+/**
+ * Fetch temporal anomaly data for a company
+ *
+ * Anomalies measure how different a company's documents are from their historical patterns.
+ * Higher anomaly score = more different from prior year's communication.
+ *
+ * Research shows:
+ * - High anomalies (>=40) correlate with -3.63% avg 60d return
+ * - Low anomalies (<40) correlate with +2.26% avg 60d return
+ */
+export async function fetchAnomalies(
+  symbol: string,
+  minYear: number = 2018
+): Promise<AnomalyResponse | null> {
+  try {
+    const response = await api.get(`/fat-pitch/anomalies/${encodeURIComponent(symbol)}`, {
+      params: { min_year: minYear }
+    })
+    return toCamelCase<AnomalyResponse>(response.data)
+  } catch (error) {
+    console.warn('Failed to fetch anomalies:', error)
     return null
   }
 }

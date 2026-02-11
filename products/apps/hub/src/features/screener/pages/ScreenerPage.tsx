@@ -18,7 +18,7 @@ function formatDateLabel(dateStr: string | null): string {
 }
 
 // Sort field type - includes main fields and dimensions
-type SortField = 'fatPitchScore' | 'qualityScore' | 'cheapnessScore' | 'companyName' | 'qualityTier' | string
+type SortField = 'fatPitchScore' | 'qualityScore' | 'cheapnessScore' | 'companyName' | 'qualityTier' | 'scoreMomentum' | string
 
 // Stats summary component
 function StatCard({ label, value, icon: Icon, color }: {
@@ -51,7 +51,7 @@ export default function ScreenerPage() {
   const [sortField, setSortField] = useState<SortField>('fatPitchScore')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [viewMode, setViewMode] = useState<'grid' | 'expanded'>('grid')
-  const [selectedProfile, setSelectedProfile] = useState<string>('optimal')
+  const [selectedProfile, setSelectedProfile] = useState<string>('garp')
   const [selectedDate, setSelectedDate] = useState<string | null>(null) // null = today
 
   // Fetch weight profiles
@@ -92,6 +92,11 @@ export default function ScreenerPage() {
       result = result.filter((p) => p.isActionable)
     }
 
+    // Momentum filter
+    if (filters.minMomentum) {
+      result = result.filter((p) => (p.scoreMomentum ?? -999) >= filters.minMomentum!)
+    }
+
     // Sort
     result.sort((a, b) => {
       let aVal: number | string
@@ -112,6 +117,9 @@ export default function ScreenerPage() {
       } else if (sortField === 'qualityTier') {
         aVal = a.qualityTier ?? 5
         bVal = b.qualityTier ?? 5
+      } else if (sortField === 'scoreMomentum') {
+        aVal = a.scoreMomentum ?? -999
+        bVal = b.scoreMomentum ?? -999
       } else {
         // Dimension field
         aVal = a.dimensionScores?.[sortField] ?? 0
@@ -234,8 +242,8 @@ export default function ScreenerPage() {
                 </option>
               )) || (
                 <>
-                  <option value="optimal">Optimal (Default)</option>
-                  <option value="garp">GARP</option>
+                  <option value="garp">GARP (Default)</option>
+                  <option value="optimal">Optimal</option>
                   <option value="buffett">Buffett</option>
                   <option value="quality">Quality</option>
                   <option value="value">Value</option>

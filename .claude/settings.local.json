@@ -39,7 +39,8 @@
       "Bash(PGPASSWORD=password psql:*)",
       "Bash(xargs:*)",
       "Bash(timeout 5 python:*)",
-      "Bash(pnpm --filter yodabuffett-hub type-check:*)"
+      "Bash(pnpm --filter yodabuffett-hub type-check:*)",
+      "Bash(launchctl unload:*)"
     ],
     "deny": []
   }

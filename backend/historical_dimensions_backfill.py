@@ -125,6 +125,20 @@ def generate_weekly_dates(start_date: date, end_date: date) -> List[date]:
     return dates
 
 
+def generate_daily_dates(start_date: date, end_date: date) -> List[date]:
+    """Generate all weekday dates (trading days) between start and end."""
+    dates = []
+    current = start_date
+
+    while current <= end_date:
+        # Skip weekends (5=Saturday, 6=Sunday)
+        if current.weekday() < 5:
+            dates.append(current)
+        current += timedelta(days=1)
+
+    return dates
+
+
 def generate_quarterly_dates(start_date: date, end_date: date) -> List[date]:
     """Generate quarter-end dates between start and end."""
     quarter_ends = [
@@ -224,6 +238,7 @@ async def calculate_dimensions_for_date(
     score_date: date,
     existing_scores: Set[Tuple[str, date, str]],
     resume: bool = True,
+    dimension_filter: Optional[str] = None,
 ) -> Dict[str, int]:
     """Calculate all dimensions for all companies on a specific date."""
 
@@ -234,11 +249,19 @@ async def calculate_dimensions_for_date(
         'no_data': 0,
     }
 
+    # Filter calculators if dimension_filter is set
+    calculators_to_run = CALCULATORS
+    if dimension_filter:
+        if dimension_filter not in CALCULATORS:
+            logger.error(f"Unknown dimension: {dimension_filter}. Available: {list(CALCULATORS.keys())}")
+            return stats
+        calculators_to_run = {dimension_filter: CALCULATORS[dimension_filter]}
+
     for company in companies:
         company_id = str(company['id'])
         company_name = company['company_name']
 
-        for dim_code, calculator_class in CALCULATORS.items():
+        for dim_code, calculator_class in calculators_to_run.items():
             # Skip if already calculated (resume mode)
             if resume and (company_id, score_date, dim_code) in existing_scores:
                 stats['skipped'] += 1
@@ -269,7 +292,7 @@ async def main():
     parser = argparse.ArgumentParser(description='Historical dimensions backfill')
     parser.add_argument('--start-date', help='Start date (YYYY-MM-DD), default: 3 years ago')
     parser.add_argument('--end-date', help='End date (YYYY-MM-DD), default: yesterday')
-    parser.add_argument('--frequency', choices=['monthly', 'weekly', 'quarterly'],
+    parser.add_argument('--frequency', choices=['daily', 'weekly', 'monthly', 'quarterly'],
                         default='monthly', help='Snapshot frequency')
     parser.add_argument('--limit', type=int, help='Max companies to process')
     parser.add_argument('--company', help='Process specific company only')
@@ -278,6 +301,7 @@ async def main():
     parser.add_argument('--no-resume', action='store_true', help='Recalculate everything')
     parser.add_argument('--dry-run', action='store_true', help='Show what would be calculated')
     parser.add_argument('--verbose', '-v', action='store_true', help='Verbose output')
+    parser.add_argument('--dimension', help='Only calculate specific dimension (e.g., "value")')
     args = parser.parse_args()
 
     # Set logging level based on verbose flag
@@ -298,10 +322,12 @@ async def main():
     resume = not args.no_resume
 
     # Generate snapshot dates
-    if args.frequency == 'monthly':
-        snapshot_dates = generate_monthly_dates(start_date, end_date)
+    if args.frequency == 'daily':
+        snapshot_dates = generate_daily_dates(start_date, end_date)
     elif args.frequency == 'weekly':
         snapshot_dates = generate_weekly_dates(start_date, end_date)
+    elif args.frequency == 'monthly':
+        snapshot_dates = generate_monthly_dates(start_date, end_date)
     else:
         snapshot_dates = generate_quarterly_dates(start_date, end_date)
 
@@ -385,7 +411,8 @@ async def main():
             date_start = time.time()
 
             stats = await calculate_dimensions_for_date(
-                conn, repo, companies, score_date, existing_scores, resume
+                conn, repo, companies, score_date, existing_scores, resume,
+                dimension_filter=args.dimension
             )
 
             # Update overall stats
@@ -417,7 +444,8 @@ async def main():
         print(f"Total time: {total_time/60:.1f} minutes")
         print(f"Dates processed: {len(snapshot_dates)}")
         print(f"Companies: {len(companies)}")
-        print(f"Dimensions: {len(CALCULATORS)}")
+        dim_count = 1 if args.dimension else len(CALCULATORS)
+        print(f"Dimensions: {dim_count}" + (f" ({args.dimension} only)" if args.dimension else ""))
         print(f"\nScores:")
         print(f"  Calculated: {overall_stats['calculated']:,}")
         print(f"  Skipped (existing): {overall_stats['skipped']:,}")

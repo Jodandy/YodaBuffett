@@ -59,3 +59,23 @@ export async function fetchCompanyPitch(companyId: string): Promise<FatPitch> {
   const response = await api.get(`/fat-pitch/pitches/company/${companyId}`)
   return toCamelCase<FatPitch>(response.data)
 }
+
+// Fetch momentum pitches (companies with improving scores)
+export async function fetchMomentumPitches(
+  minScoreChange: number = 5,
+  weightProfile?: string,
+  scoreDate?: string
+): Promise<FatPitch[]> {
+  const params: Record<string, string | number> = {
+    min_score_change: minScoreChange,
+    limit: 100
+  }
+  if (weightProfile) {
+    params.weight_profile = weightProfile
+  }
+  if (scoreDate) {
+    params.score_date = scoreDate
+  }
+  const response = await api.get('/fat-pitch/pitches/momentum', { params })
+  return toCamelCase<FatPitch[]>(response.data)
+}

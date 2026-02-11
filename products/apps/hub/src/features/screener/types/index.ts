@@ -55,6 +55,10 @@ export interface FatPitch {
   warnings: string[]
   isActionable: boolean
   pitchSummary: string
+  // Score momentum fields
+  scoreMomentum?: number | null  // Score change from prior period
+  priorScore?: number | null     // Previous fat pitch score
+  priorScoreDate?: string | null // Date of prior score
 }
 
 // Summary statistics per stage
@@ -89,6 +93,8 @@ export interface ScreenerFilters {
   maxTier?: QualityTier
   actionableOnly?: boolean
   searchQuery?: string
+  minMomentum?: number  // Minimum score change from prior period
+  momentumOnly?: boolean // Only show companies with momentum data
 }
 
 // Sort options

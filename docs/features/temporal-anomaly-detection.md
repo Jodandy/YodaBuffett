@@ -4,264 +4,201 @@
 
 A powerful edge-finding approach that detects significant changes in individual companies' communication patterns over time. By analyzing how a company's reports deviate from their own historical baseline, we can identify potential inflection points before the market fully prices them in.
 
-## Why This Approach Works - PRODUCTION VALIDATED ✅
+## Current Data State (as of 2026-02)
+
+| Resource | Count |
+|----------|-------|
+| Section embeddings | 383,991 |
+| Document embeddings | 50,050 |
+| Document sections | 383,991 |
+| Extracted documents | 106,683 |
+| Year coverage | 2014-2025 |
+| Embedding model | local/all-MiniLM-L6-v2 |
+
+**Top companies by document count:**
+- Nordic Semiconductor: 708 docs (12 years)
+- Troax Group: 566 docs (11 years)
+- Scandi Standard: 520 docs (7 years)
+- Nederman: 505 docs (11 years)
+- Dometic: 490 docs (8 years)
+
+## Why This Approach Works - PRODUCTION VALIDATED
 
 ### The Edge (PROVEN)
 - **Company-specific patterns**: Each company has consistent communication styles and topics
-- **Early signals**: Management tone/topic changes often precede financial impacts  ✅ **VALIDATED**
+- **Early signals**: Management tone/topic changes often precede financial impacts
 - **Less competition**: Most analysis compares across companies, not within company timelines
-- **Subtle shifts**: Embeddings can detect nuanced language changes humans might miss ✅ **VALIDATED**
+- **Subtle shifts**: Embeddings can detect nuanced language changes humans might miss
 
 ### Real Results Achieved
 - **AAK 2020-2021**: Balance sheet embedding similarity dropped to 0.110 → Detected major asset/debt spike
-- **AcadeMedia 2017-2018**: Risk factors similarity 0.969→0.345 → Detected Swedish schooling law changes  
+- **AcadeMedia 2017-2018**: Risk factors similarity 0.969→0.345 → Detected Swedish schooling law changes
 - **AddLife 2018-2019**: Income statement similarity 0.206 → Detected 40% revenue growth inflection
 
-### No Infrastructure Changes Needed
-This approach uses the **exact same embeddings** we're already generating:
-- Same document sections (balance sheet, risks, management discussion)
-- Same embedding vectors (OpenAI, Cohere, or local)
-- Same storage (pgvector)
-- Just different analysis!
+## Code Architecture
 
-## Implementation Architecture
+### Core Components
 
-```python
-class TemporalAnomalyDetector:
-    """
-    Detects anomalies in company communications over time
-    using existing section embeddings
-    """
-    
-    def __init__(self, similarity_threshold: float = 0.85):
-        self.similarity_threshold = similarity_threshold
-    
-    async def analyze_company_timeline(
-        self, 
-        company_name: str,
-        lookback_quarters: int = 8
-    ) -> List[AnomalyReport]:
-        """
-        Analyze a company's reporting timeline for anomalies
-        
-        Steps:
-        1. Fetch all historical embeddings for company
-        2. Build baseline clusters for each section type
-        3. Compare recent reports to baseline
-        4. Flag significant deviations
-        """
-        pass
+| File | Purpose |
+|------|---------|
+| `domains/analytics/services/temporal_anomaly_strategy.py` | Trading strategy implementation using anomalies |
+| `services/technical_analysis/strategies/document_anomaly_strategy.py` | Combined document + technical signals |
+| `workers/daily_anomaly_detection.py` | Daily automated detection (scheduled 12 PM) |
+| `backtest_document_anomaly_strategy.py` | Full backtesting infrastructure |
+| `anomaly_cli.py` | CLI for viewing anomalies |
+| `test_temporal_patterns.py` | Section-level anomaly testing |
+| `test_document_temporal_patterns.py` | Document-level anomaly testing |
+
+### Database Tables
+
+```sql
+-- Anomaly results (created by daily worker on first run)
+CREATE TABLE temporal_anomalies (
+    id SERIAL PRIMARY KEY,
+    detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    anomaly_type VARCHAR(50),       -- 'document' or 'section'
+    severity VARCHAR(20),           -- 'significant', 'moderate', 'minor'
+    score FLOAT,                    -- Anomaly score (0-1)
+    company_id VARCHAR(100),
+    document_id UUID,
+    section_id UUID,
+    description TEXT,
+    metadata JSONB,
+    session_id VARCHAR(50)
+);
+```
+
+### Section Embeddings Schema
+```sql
+-- Already populated with 383,991 rows
+section_embeddings (
+    id UUID PRIMARY KEY,
+    document_section_id UUID REFERENCES document_sections(id),
+    embedding_model VARCHAR(100),    -- 'local/all-MiniLM-L6-v2'
+    embedding_vector FLOAT[],        -- 384 dimensions
+    created_at TIMESTAMP
+);
 ```
 
 ## Detection Methodology
 
 ### 1. Baseline Establishment
-For each company and section type:
+For each company and section type, fetch historical embeddings:
 ```sql
--- Get historical embeddings for "risk_factors" sections
-SELECT ds.section_content, de.embedding_vector
-FROM document_sections ds
-JOIN document_embeddings de ON ds.id = de.section_id
-WHERE ds.company_name = 'Volvo'
+SELECT ds.section_type, se.embedding_vector
+FROM section_embeddings se
+JOIN document_sections ds ON ds.id = se.document_section_id
+JOIN extracted_documents ed ON ed.id = ds.extracted_document_id
+WHERE ed.company_name = 'Volvo'
   AND ds.section_type = 'risk_factors'
-  AND ds.created_at < NOW() - INTERVAL '1 year'
-ORDER BY ds.year, ds.quarter;
+  AND ed.year < 2024
+ORDER BY ed.year;
 ```
 
-### 2. Clustering Normal Patterns
-- Use embeddings to cluster similar historical sections
-- Identify recurring themes (normal operations, standard risks)
-- Calculate centroid for each cluster
-
-### 3. Anomaly Detection
-For new reports:
+### 2. Anomaly Scoring
 ```python
-def detect_anomalies(new_section_embedding, historical_clusters):
-    # Calculate distance to nearest historical cluster
-    min_similarity = min([
-        cosine_similarity(new_section_embedding, cluster.centroid)
-        for cluster in historical_clusters
-    ])
-    
-    if min_similarity < ANOMALY_THRESHOLD:
-        return Anomaly(
-            severity=1 - min_similarity,
-            nearest_cluster=closest_cluster,
-            deviation_topics=extract_key_differences()
-        )
+def calculate_anomaly_score(current_embedding, historical_embeddings):
+    # Calculate cosine similarity to each historical embedding
+    similarities = [cosine_similarity(current_embedding, hist)
+                   for hist in historical_embeddings]
+
+    # Average similarity to baseline
+    avg_similarity = np.mean(similarities)
+
+    # Anomaly score = 1 - similarity (higher = more anomalous)
+    anomaly_score = 1 - avg_similarity
+
+    return anomaly_score
 ```
 
-### 4. Types of Detectable Anomalies
+### 3. Severity Classification
+| Severity | Score Range | Description |
+|----------|-------------|-------------|
+| Significant | ≥ 0.8 | Major pattern shift - investigate immediately |
+| Moderate | 0.6 - 0.8 | Notable change - worth monitoring |
+| Minor | 0.4 - 0.6 | Small deviation - likely normal variation |
 
-#### Content Anomalies
-- **New risk factors**: Sudden appearance of previously unmentioned risks
-- **Topic shifts**: Change in business focus or concerns
-- **Missing topics**: Regular discussions that disappear
+## Quick Commands
 
-#### Style Anomalies  
-- **Tone changes**: Shift from confident to cautious language
-- **Complexity changes**: Sudden increase in vague or complex language
-- **Length changes**: Unusual expansion/contraction of sections
-
-## Backtesting Framework
-
-### Historical Analysis
-```python
-async def backtest_anomaly_detection(
-    company: str,
-    start_date: date,
-    end_date: date,
-    forward_days: int = 60
-) -> BacktestResults:
-    """
-    Test if anomalies preceded significant stock movements
-    """
-    # 1. Detect all historical anomalies
-    anomalies = await detect_historical_anomalies(company, start_date, end_date)
-    
-    # 2. For each anomaly, check subsequent stock performance
-    for anomaly in anomalies:
-        stock_return = calculate_forward_return(
-            company, 
-            anomaly.date, 
-            forward_days
-        )
-        
-        # 3. Compare to baseline periods
-        if abs(stock_return) > SIGNIFICANT_MOVE_THRESHOLD:
-            anomaly.predicted_move = True
-    
-    # 4. Calculate prediction accuracy
-    return calculate_metrics(anomalies)
-```
-
-### Metrics to Track
-- **Precision**: What % of flagged anomalies preceded moves?
-- **Recall**: What % of significant moves had anomaly warnings?
-- **Lead time**: How early did anomalies appear before moves?
-- **Severity correlation**: Do bigger anomalies → bigger moves?
-
-## Example Anomaly Patterns
-
-### Case 1: Volvo Q2 2024 - New Risk Factor
-```json
-{
-  "company": "Volvo",
-  "report": "Q2-2024",
-  "section": "risk_factors",
-  "anomaly_score": 0.92,
-  "description": "First mention of 'semiconductor shortage' and 'supply chain disruption'",
-  "historical_similarity": 0.62,
-  "subsequent_stock_move": -8.3%
-}
-```
-
-### Case 2: Ericsson Annual 2023 - Tone Shift
-```json
-{
-  "company": "Ericsson",
-  "report": "Annual-2023",
-  "section": "management_discussion",
-  "anomaly_score": 0.87,
-  "description": "Shift from 'growth' language to 'optimization' and 'efficiency'",
-  "historical_similarity": 0.71,
-  "subsequent_stock_move": -12.1%
-}
-```
-
-## Integration with Existing Pipeline
-
-### No Changes Needed!
-```bash
-# 1. Continue generating embeddings as normal
-python domains/document_intelligence/cli_multi_embeddings.py batch
-
-# 2. Run anomaly detection on accumulated embeddings
-python domains/analytics/cli_temporal_anomaly.py analyze --company=Volvo
-
-# 3. Backtest historical performance
-python domains/analytics/cli_temporal_anomaly.py backtest --years=5
-```
-
-### Storage Optimization
-- Embeddings are already stored with metadata (company, year, section_type)
-- Just need to add anomaly detection results table:
-
-```sql
-CREATE TABLE temporal_anomalies (
-    id UUID PRIMARY KEY,
-    company_name VARCHAR(200),
-    report_date DATE,
-    section_type VARCHAR(50),
-    anomaly_score FLOAT,
-    baseline_similarity FLOAT,
-    deviation_summary TEXT,
-    detected_at TIMESTAMP DEFAULT NOW()
-);
-```
-
-## Competitive Advantages
-
-1. **Unique approach**: Most competitors compare across companies, not within
-2. **Early detection**: Language changes precede reported numbers
-3. **Scalable**: Works automatically across all companies
-4. **Interpretable**: Can explain what changed and why it matters
-5. **Low false positives**: Company-specific baselines reduce noise
-
-## Production Commands
-
-### Complete Setup (From Scratch)
+### Run Anomaly Detection
 ```bash
 cd /Users/jdandemar/Documents/YodaBuffett/backend
+source venv/bin/activate
 
-# 1. Generate smart sections from documents
-python domains/document_intelligence/cli_section_chunking.py process 1000
+# Run daily detector manually
+python workers/daily_anomaly_detection.py
 
-# 2. Create local embeddings (FREE)  
-python domains/document_intelligence/cli_multi_embeddings.py local setup
-python domains/document_intelligence/cli_multi_embeddings.py local process 10000
+# View existing anomalies
+python anomaly_cli.py stats
+python anomaly_cli.py latest
+python anomaly_cli.py search "Volvo"
 
-# 3. Run temporal anomaly detection
+# Test temporal patterns
 python test_temporal_patterns.py
+python test_document_temporal_patterns.py
 ```
 
-### Quality Validation
+### Check Data State
 ```bash
-# Test embedding quality
-python test_embedding_quality.py
-
-# Debug issues
-python debug_embeddings.py
-
-# Clean dummy embeddings
-python count_dummy_embeddings.py
-python clean_dummy_embeddings.py
+# Embedding counts
+python -c "
+import asyncio, asyncpg
+async def check():
+    conn = await asyncpg.connect('postgresql://yodabuffett:password@localhost:5432/yodabuffett')
+    for table in ['section_embeddings', 'document_embeddings', 'extracted_documents']:
+        count = await conn.fetchval(f'SELECT COUNT(*) FROM {table}')
+        print(f'{table}: {count:,}')
+    await conn.close()
+asyncio.run(check())
+"
 ```
 
-### Monitoring & Analysis
+### Run Backtest
 ```bash
-# Check system status
-python domains/document_intelligence/cli_section_chunking.py status
-python domains/document_intelligence/cli_multi_embeddings.py local status
+# Full document anomaly strategy backtest
+python backtest_document_anomaly_strategy.py
 
-# Investigate specific anomalies
-python investigate_embeddings.py
-
-# Semantic search
-python test_embedding_search.py
+# Test temporal anomaly strategy
+python -c "
+from domains.analytics.services.temporal_anomaly_strategy import TemporalAnomalyStrategy
+strategy = TemporalAnomalyStrategy(min_confidence=0.6, anomaly_threshold=0.4)
+print(strategy.get_description())
+"
 ```
+
+## Integration with Fat Pitch
+
+Anomaly detection can be used as:
+
+1. **Veto signal**: Exclude companies with significant risk factor anomalies
+2. **Boost signal**: Prioritize companies with positive financial anomalies
+3. **Timing signal**: Enter/exit based on communication pattern shifts
+
+## Automation
+
+### Daily Worker (macOS LaunchAgent)
+The anomaly detection runs daily at 12:00 PM via LaunchAgent:
+```
+~/Library/LaunchAgents/com.yodabuffett.daily-anomaly-detection.plist
+```
+
+### Pipeline
+1. Documents collected (7 AM, 9 AM)
+2. PDFs downloaded (10 AM)
+3. Text extracted, sections created, embeddings generated (11 AM)
+4. **Anomaly detection runs (12 PM)**
+5. Results stored to `temporal_anomalies` table
+6. Notifications sent for significant findings
 
 ## Next Steps
 
-1. ✅ **Generate embeddings** for historical documents (COMPLETED)
-2. ✅ **Build prototype** anomaly detector for single company (COMPLETED)
-3. ✅ **Validate** on real companies with known events (COMPLETED)
-4. **Scale up** to all Nordic companies (in progress)
-5. **Backtest** correlation with stock price movements
-6. **Deploy monitoring** for real-time anomaly alerts
+1. **Price Correlation Analysis**: Check if anomalies predict subsequent stock moves
+2. **Chart Overlay**: Add anomaly markers to price charts (like fat pitch scoring)
+3. **Real-time Alerts**: Push notifications for significant anomalies
+4. **Dimension Integration**: Create `anomaly_dimension` calculator for fat pitch
 
 ## Key Insight
 
-The brilliant realization is that **temporal patterns within a company** are often more predictive than **cross-sectional patterns across companies**. A sudden change in how Volvo discusses risks is more meaningful than comparing Volvo's risks to Ericsson's risks.
+Temporal patterns **within a company** are often more predictive than cross-sectional patterns **across companies**. A sudden change in how Volvo discusses risks is more meaningful than comparing Volvo's risks to Ericsson's.
 
-This approach finds the **delta** - the change that matters - rather than the **absolute** comparison that everyone else is doing.
+This approach finds the **delta** - the change that matters - rather than the absolute comparison that everyone else is doing.

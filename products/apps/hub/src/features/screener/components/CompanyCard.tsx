@@ -4,7 +4,7 @@
  */
 
 import { Link } from 'react-router-dom'
-import { StarIcon, SparklesIcon, ChartBarIcon } from '@heroicons/react/24/solid'
+import { StarIcon, SparklesIcon, ChartBarIcon, ArrowTrendingUpIcon, ArrowTrendingDownIcon } from '@heroicons/react/24/solid'
 import { DimensionBar } from './DimensionBar'
 import type { FatPitch, BusinessStage, DimensionCode } from '../types'
 
@@ -101,6 +101,17 @@ export function CompanyCard({ pitch }: CompanyCardProps) {
           <span className="text-muted-foreground">Tier</span>
           <span className="font-medium text-foreground">{pitch.qualityTier}</span>
         </div>
+        {pitch.scoreMomentum !== null && pitch.scoreMomentum !== undefined && (
+          <div className="flex items-center gap-1">
+            {pitch.scoreMomentum >= 0
+              ? <ArrowTrendingUpIcon className="w-4 h-4 text-green-400" />
+              : <ArrowTrendingDownIcon className="w-4 h-4 text-red-400" />
+            }
+            <span className={pitch.scoreMomentum >= 5 ? "text-green-400 font-medium" : pitch.scoreMomentum <= -5 ? "text-red-400 font-medium" : "text-muted-foreground"}>
+              {pitch.scoreMomentum >= 0 ? '+' : ''}{pitch.scoreMomentum?.toFixed(1)}
+            </span>
+          </div>
+        )}
         {pitch.cheapnessScore > 60 && (
           <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-400">
             Cheap
@@ -153,6 +164,17 @@ export function CompanyCardExpanded({ pitch }: CompanyCardProps) {
               <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-400">
                 Cheap
               </span>
+            )}
+            {pitch.scoreMomentum !== null && pitch.scoreMomentum !== undefined && (
+              <div className="flex items-center gap-1">
+                {pitch.scoreMomentum >= 0
+                  ? <ArrowTrendingUpIcon className="w-4 h-4 text-green-400" />
+                  : <ArrowTrendingDownIcon className="w-4 h-4 text-red-400" />
+                }
+                <span className={pitch.scoreMomentum >= 5 ? "text-green-400 font-medium" : pitch.scoreMomentum <= -5 ? "text-red-400 font-medium" : "text-muted-foreground"}>
+                  {pitch.scoreMomentum >= 0 ? '+' : ''}{pitch.scoreMomentum?.toFixed(1)}
+                </span>
+              </div>
             )}
           </div>
         </div>

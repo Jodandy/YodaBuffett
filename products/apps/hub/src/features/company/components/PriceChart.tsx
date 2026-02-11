@@ -16,7 +16,7 @@ import {
   ComposedChart,
 } from 'recharts'
 import { cn } from '@yodabuffett/ui'
-import type { PriceDataPoint, PriceTimeRange, HistoricalScorePoint } from '../types'
+import type { PriceDataPoint, PriceTimeRange, HistoricalScorePoint, AnomalyPoint } from '../types'
 
 interface PriceChartProps {
   prices: PriceDataPoint[]
@@ -27,6 +27,10 @@ interface PriceChartProps {
   historicalScores?: HistoricalScorePoint[]
   showScoreOverlay?: boolean
   onToggleScoreOverlay?: () => void
+  // Anomaly overlay props
+  anomalies?: AnomalyPoint[]
+  showAnomalyOverlay?: boolean
+  onToggleAnomalyOverlay?: () => void
 }
 
 const timeRanges: PriceTimeRange[] = ['1M', '3M', '6M', '1Y', '3Y', '5Y', 'MAX']
@@ -51,10 +55,11 @@ function formatPrice(value: number): string {
   })
 }
 
-// Extended data point with score
+// Extended data point with score and anomaly
 interface ChartDataPoint extends PriceDataPoint {
   dateFormatted: string
   fatPitchScore?: number
+  anomalyScore?: number
 }
 
 // Custom tooltip component
@@ -106,6 +111,19 @@ function CustomTooltip({ active, payload }: any) {
             )}>{data.fatPitchScore.toFixed(1)}</span>
           </div>
         )}
+        {data.anomalyScore !== undefined && (
+          <div className="flex justify-between gap-4 pt-1 border-t border-border/50 mt-1">
+            <span className={cn(
+              data.anomalyScore >= 40 ? 'text-orange-500' :
+              data.anomalyScore >= 25 ? 'text-yellow-500' : 'text-green-500'
+            )}>Anomaly Score:</span>
+            <span className={cn(
+              'font-mono',
+              data.anomalyScore >= 40 ? 'text-orange-500' :
+              data.anomalyScore >= 25 ? 'text-yellow-500' : 'text-green-500'
+            )}>{data.anomalyScore.toFixed(1)}</span>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -119,6 +137,9 @@ export function PriceChart({
   historicalScores,
   showScoreOverlay = false,
   onToggleScoreOverlay,
+  anomalies,
+  showAnomalyOverlay = false,
+  onToggleAnomalyOverlay,
 }: PriceChartProps) {
   // Calculate performance stats
   const stats = useMemo(() => {
@@ -150,7 +171,17 @@ export function PriceChart({
     return map
   }, [historicalScores])
 
-  // Prepare chart data with optional score overlay
+  // Create a map of anomalies by date for efficient lookup
+  const anomaliesByDate = useMemo(() => {
+    if (!anomalies) return new Map<string, number>()
+    const map = new Map<string, number>()
+    for (const a of anomalies) {
+      map.set(a.date, a.anomalyScore)
+    }
+    return map
+  }, [anomalies])
+
+  // Prepare chart data with optional score and anomaly overlay
   const chartData = useMemo(() => {
     if (!prices) return []
 
@@ -181,12 +212,36 @@ export function PriceChart({
         }
       }
 
+      // Add anomaly if overlay is enabled and we have anomaly data
+      if (showAnomalyOverlay && anomaliesByDate.size > 0) {
+        // Find the most recent anomaly on or before this date
+        const priceDate = p.date
+        let latestAnomaly: number | undefined
+        let latestAnomalyDate: string | undefined
+
+        for (const [anomalyDate, score] of anomaliesByDate.entries()) {
+          if (anomalyDate <= priceDate) {
+            if (!latestAnomalyDate || anomalyDate > latestAnomalyDate) {
+              latestAnomalyDate = anomalyDate
+              latestAnomaly = score
+            }
+          }
+        }
+
+        if (latestAnomaly !== undefined) {
+          baseData.anomalyScore = latestAnomaly
+        }
+      }
+
       return baseData
     })
-  }, [prices, currentRange, showScoreOverlay, scoresByDate])
+  }, [prices, currentRange, showScoreOverlay, scoresByDate, showAnomalyOverlay, anomaliesByDate])
 
   // Check if we have score data available
   const hasScoreData = historicalScores && historicalScores.length > 0
+
+  // Check if we have anomaly data available
+  const hasAnomalyData = anomalies && anomalies.length > 0
 
   // Determine chart color based on performance
   const isPositive = stats ? stats.changePercent >= 0 : true
@@ -262,6 +317,34 @@ export function PriceChart({
             </button>
           )}
 
+          {/* Anomaly overlay toggle */}
+          {hasAnomalyData && onToggleAnomalyOverlay && (
+            <button
+              onClick={onToggleAnomalyOverlay}
+              className={cn(
+                'px-3 py-1.5 text-sm rounded-lg transition-colors flex items-center gap-2',
+                showAnomalyOverlay
+                  ? 'bg-orange-600 text-white'
+                  : 'bg-muted text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+              Anomaly
+            </button>
+          )}
+
           {/* Time range selector */}
           <div className="flex gap-1">
             {timeRanges.map(range => (
@@ -285,7 +368,7 @@ export function PriceChart({
       {/* Chart */}
       <div className="h-[300px]">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={chartData} margin={{ top: 10, right: showScoreOverlay ? 60 : 10, left: 0, bottom: 0 }}>
+          <ComposedChart data={chartData} margin={{ top: 10, right: (showScoreOverlay || showAnomalyOverlay) ? 60 : 10, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor={chartColor} stopOpacity={0.3} />
@@ -300,6 +383,16 @@ export function PriceChart({
                 <stop offset="40%" stopColor="#3b82f6" />     {/* score 60 - blue */}
                 <stop offset="40%" stopColor="#ef4444" />     {/* score 60 - red */}
                 <stop offset="100%" stopColor="#ef4444" />    {/* score 0 - red */}
+              </linearGradient>
+              {/* Anomaly color gradient: green (<25), yellow (25-40), orange (>=40) */}
+              <linearGradient id="anomalyGradient" x1="0" y1="0" x2="0" y2="1">
+                {/* Top = 100 (high anomaly = bad), bottom = 0 (low anomaly = good) */}
+                <stop offset="0%" stopColor="#f97316" />      {/* anomaly 100 - orange (bad) */}
+                <stop offset="60%" stopColor="#f97316" />     {/* anomaly 40 - orange */}
+                <stop offset="60%" stopColor="#eab308" />     {/* anomaly 40 - yellow */}
+                <stop offset="75%" stopColor="#eab308" />     {/* anomaly 25 - yellow */}
+                <stop offset="75%" stopColor="#22c55e" />     {/* anomaly 25 - green */}
+                <stop offset="100%" stopColor="#22c55e" />    {/* anomaly 0 - green (good) */}
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" className="opacity-20" />
@@ -322,9 +415,9 @@ export function PriceChart({
               tickFormatter={formatPrice}
               width={60}
             />
-            {showScoreOverlay && (
+            {(showScoreOverlay || showAnomalyOverlay) && (
               <YAxis
-                yAxisId="score"
+                yAxisId="overlay"
                 orientation="right"
                 domain={[0, 100]}
                 tick={{ fill: 'currentColor', fontSize: 11 }}
@@ -332,7 +425,7 @@ export function PriceChart({
                 tickLine={false}
                 axisLine={false}
                 width={40}
-                ticks={[0, 60, 70, 100]}
+                ticks={showAnomalyOverlay ? [0, 25, 40, 100] : [0, 60, 70, 100]}
               />
             )}
             <Tooltip content={<CustomTooltip />} />
@@ -346,13 +439,25 @@ export function PriceChart({
             />
             {showScoreOverlay && (
               <Line
-                yAxisId="score"
+                yAxisId="overlay"
                 type="stepAfter"
                 dataKey="fatPitchScore"
                 stroke="url(#scoreGradient)"
                 strokeWidth={2}
                 dot={false}
                 connectNulls
+              />
+            )}
+            {showAnomalyOverlay && (
+              <Line
+                yAxisId="overlay"
+                type="stepAfter"
+                dataKey="anomalyScore"
+                stroke="url(#anomalyGradient)"
+                strokeWidth={2}
+                dot={false}
+                connectNulls
+                strokeDasharray="5 3"
               />
             )}
           </ComposedChart>
@@ -373,7 +478,7 @@ export function PriceChart({
             </div>
           </div>
         )}
-        {showScoreOverlay && (
+        {(showScoreOverlay || showAnomalyOverlay) && (
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
               <div className={cn(
@@ -382,20 +487,42 @@ export function PriceChart({
               )} />
               <span className="text-muted-foreground">Price</span>
             </div>
-            <span className="text-muted-foreground">|</span>
-            <span className="text-xs text-muted-foreground">Score:</span>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-0.5 bg-green-500" />
-              <span className="text-green-500 text-xs">&ge;70</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-0.5 bg-blue-500" />
-              <span className="text-blue-500 text-xs">60-70</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-0.5 bg-red-500" />
-              <span className="text-red-500 text-xs">&lt;60</span>
-            </div>
+            {showScoreOverlay && (
+              <>
+                <span className="text-muted-foreground">|</span>
+                <span className="text-xs text-muted-foreground">Score:</span>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-0.5 bg-green-500" />
+                  <span className="text-green-500 text-xs">&ge;70</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-0.5 bg-blue-500" />
+                  <span className="text-blue-500 text-xs">60-70</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-0.5 bg-red-500" />
+                  <span className="text-red-500 text-xs">&lt;60</span>
+                </div>
+              </>
+            )}
+            {showAnomalyOverlay && (
+              <>
+                <span className="text-muted-foreground">|</span>
+                <span className="text-xs text-muted-foreground">Anomaly:</span>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-0.5 bg-green-500" style={{ borderStyle: 'dashed' }} />
+                  <span className="text-green-500 text-xs">&lt;25</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-0.5 bg-yellow-500" style={{ borderStyle: 'dashed' }} />
+                  <span className="text-yellow-500 text-xs">25-40</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-0.5 bg-orange-500" style={{ borderStyle: 'dashed' }} />
+                  <span className="text-orange-500 text-xs">&ge;40</span>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

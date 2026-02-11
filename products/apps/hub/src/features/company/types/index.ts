@@ -282,3 +282,23 @@ export interface HistoricalScoresResponse {
   fatPitchScores: HistoricalScorePoint[]
   dimensionScores: Record<string, HistoricalScorePoint[]>
 }
+
+// Anomaly data point
+export interface AnomalyPoint {
+  date: string
+  anomalyScore: number  // 0-100, higher = more anomalous
+  sectionType?: string
+  similarityToPrior?: number
+  year?: number
+}
+
+// Anomaly response
+export interface AnomalyResponse {
+  companyId: string
+  symbol: string
+  companyName: string
+  anomalies: AnomalyPoint[]
+  avgAnomalyScore: number
+  maxAnomalyScore: number
+  anomalyCount: number
+}

@@ -150,7 +150,8 @@ class DailyMarketDataWorker:
             success = await self.ingestor.ingest_historical_data(
                 symbol=company['primary_ticker'],
                 days_back=7,  # Only get recent data
-                calculate_metrics=True
+                calculate_metrics=True,
+                yahoo_symbol=company['yahoo_symbol']  # Pass yahoo_symbol directly
             )
             
             if success:

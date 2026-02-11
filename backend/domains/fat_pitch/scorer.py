@@ -152,7 +152,7 @@ WEIGHT_PROFILES: Dict[str, Dict[str, float]] = {
 }
 
 # Default profile to use
-DEFAULT_WEIGHT_PROFILE = 'optimal'
+DEFAULT_WEIGHT_PROFILE = 'garp'
 
 
 # ============================================================================

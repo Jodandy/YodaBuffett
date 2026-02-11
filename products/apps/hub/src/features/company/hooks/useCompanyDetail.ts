@@ -14,6 +14,7 @@ import {
   fetchDocuments,
   fetchDimensionDetails,
   fetchHistoricalScores,
+  fetchAnomalies,
 } from '../api'
 import type { PriceTimeRange } from '../types'
 
@@ -29,6 +30,7 @@ export const companyKeys = {
   documents: (symbol: string) => [...companyKeys.all, 'documents', symbol] as const,
   dimensions: (companyId: string) => [...companyKeys.all, 'dimensions', companyId] as const,
   history: (symbol: string) => [...companyKeys.all, 'history', symbol] as const,
+  anomalies: (symbol: string) => [...companyKeys.all, 'anomalies', symbol] as const,
 }
 
 // Map time range to days
@@ -147,5 +149,20 @@ export function useHistoricalScores(symbol: string | undefined) {
     queryFn: () => fetchHistoricalScores(symbol!),
     enabled: !!symbol,
     staleTime: 10 * 60 * 1000, // 10 minutes - historical data doesn't change often
+  })
+}
+
+/**
+ * Fetch temporal anomaly data by symbol
+ *
+ * Returns anomaly scores showing how different each year's documents
+ * are from the prior year. Use as a risk indicator.
+ */
+export function useAnomalies(symbol: string | undefined) {
+  return useQuery({
+    queryKey: companyKeys.anomalies(symbol || ''),
+    queryFn: () => fetchAnomalies(symbol!),
+    enabled: !!symbol,
+    staleTime: 10 * 60 * 1000, // 10 minutes - anomaly data doesn't change often
   })
 }

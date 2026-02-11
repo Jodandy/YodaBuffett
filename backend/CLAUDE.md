@@ -4,6 +4,120 @@ Python backend with FastAPI, PostgreSQL 15, and asyncpg.
 
 ---
 
+## ⚠️ CRITICAL: Avoid Look-Ahead Bias
+
+**This applies to EVERYTHING we do.** Never use data that wouldn't have been available at the time.
+
+### Price Data
+
+**Always use `daily_price_data`** for any price lookups. When exact date not available, use **closest PRIOR date**:
+
+```python
+# CORRECT: Get price on or before target date (no look-ahead)
+price = await conn.fetchval("""
+    SELECT close_price FROM daily_price_data
+    WHERE symbol = $1 AND date <= $2
+    ORDER BY date DESC LIMIT 1
+""", symbol, target_date)
+
+# WRONG: Could get future price
+price = await conn.fetchval("""
+    SELECT close_price FROM daily_price_data
+    WHERE symbol = $1 AND date = $2
+""", symbol, target_date)  # Fails silently if no exact match
+```
+
+### Financial Data
+
+Use `publish_date` (or `period_date + 75 days` fallback) - never assume data is available at period_date:
+
+```python
+# CORRECT: Point-in-time safe
+WHERE (
+    (publish_date IS NOT NULL AND publish_date <= $score_date)
+    OR (publish_date IS NULL AND period_date + INTERVAL '75 days' <= $score_date)
+)
+
+# WRONG: Look-ahead bias - uses data before it was public
+WHERE period_date <= $score_date
+```
+
+### Dimension Scores
+
+When backtesting, scores must be calculated using only data available at that time:
+- Price: from `daily_price_data` with `date <= score_date`
+- Financials: with publish_date check as above
+- Never query "latest" - always filter by date
+
+### Red Flags (Review if you see these patterns)
+
+- `ORDER BY date DESC LIMIT 1` without `WHERE date <= target`
+- `WHERE period_date <= X` without publish_date check
+- Any query without a date constraint when calculating historical values
+- Using "current" or "latest" data in backtests
+
+---
+
+## 🔑 Name & Symbol Resolution (IMPORTANT)
+
+Different tables use different symbol formats. Always resolve properly when querying.
+
+### Symbol Format Differences
+
+| Table | Symbol Format | Example |
+|-------|--------------|---------|
+| `company_master.primary_ticker` | Hyphen format | `VOLV-B` |
+| `company_master.yahoo_symbol` | Yahoo format with suffix | `VOLV-B.ST` |
+| `financial_statements.symbol` | Space format | `VOLV B` |
+| `daily_price_data.symbol` | Hyphen format | `VOLV-B` |
+
+### Resolution Strategy
+
+When looking up a company, always:
+
+1. **Start with company_master** - the source of truth for company info
+2. **Get both ticker formats** - `primary_ticker` and check for space variant
+3. **Use appropriate format per table**
+
+```python
+# CORRECT: Get company info then resolve symbol per table
+company = await conn.fetchrow("""
+    SELECT id, company_name, primary_ticker, yahoo_symbol
+    FROM company_master
+    WHERE company_name ILIKE $1
+""", f"%{search_term}%")
+
+# For financial_statements - try both formats
+ticker = company['primary_ticker']  # e.g., 'VOLV-B'
+ticker_space = ticker.replace('-', ' ')  # e.g., 'VOLV B'
+
+financials = await conn.fetchrow("""
+    SELECT * FROM financial_statements
+    WHERE symbol = $1 OR symbol = $2
+    ORDER BY period_date DESC LIMIT 1
+""", ticker, ticker_space)
+
+# For daily_price_data - use primary_ticker format
+prices = await conn.fetch("""
+    SELECT * FROM daily_price_data WHERE symbol = $1
+""", ticker)
+```
+
+### Common Pitfalls
+
+- ❌ `WHERE company_name = 'Volvo'` - Use ILIKE and partial match
+- ❌ Assuming symbol format - Always check both hyphen and space
+- ❌ Hardcoding symbols - Resolve from company_master first
+
+### Helper Script
+
+```bash
+# Find symbol variants for a company
+python smart_symbol_matcher.py
+```
+
+---
+
 ## 🎯 Fat Pitch Machine (Investment Filter)
 
 The Fat Pitch Machine is a multi-stage investment opportunity filter that:

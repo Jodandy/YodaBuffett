@@ -13,6 +13,16 @@ Extensible platform for institutional-grade financial research. AI-assisted anal
 ## Current Focus
 Building extensible platform for any financial analysis, not just specific features.
 
+## ⚠️ CRITICAL: No Look-Ahead Bias
+
+**This applies to ALL data operations.** Never use data that wouldn't have been available at the time.
+
+- **Prices**: Always from `daily_price_data` with `date <= target_date` (closest prior if no exact match)
+- **Financials**: Use `publish_date` (or `period_date + 75 days` fallback), never just `period_date`
+- **Backtests**: Every calculation must be point-in-time safe
+
+See `backend/CLAUDE.md` for detailed code patterns.
+
 ## Current Development Status
 ✅ **AI-Powered Report Analysis Platform**
 - Successfully extracts & analyzes SEC filings + international reports

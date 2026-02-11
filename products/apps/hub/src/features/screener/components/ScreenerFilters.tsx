@@ -34,6 +34,7 @@ const tiers = [
 
 const sortOptions: { value: SortField; label: string }[] = [
   { value: 'fatPitchScore', label: 'Fat Pitch Score' },
+  { value: 'scoreMomentum', label: 'Score Momentum' },
   { value: 'qualityScore', label: 'Quality Score' },
   { value: 'cheapnessScore', label: 'Cheapness' },
   { value: 'qualityTier', label: 'Tier' },
@@ -44,6 +45,13 @@ const sortOptions: { value: SortField; label: string }[] = [
   { value: 'value', label: 'Value' },
   { value: 'momentum', label: 'Momentum' },
   { value: 'beneish_mscore', label: 'Beneish' },
+]
+
+const momentumOptions = [
+  { value: undefined, label: 'All' },
+  { value: 5, label: '+5 or more' },
+  { value: 10, label: '+10 or more' },
+  { value: 15, label: '+15 or more' },
 ]
 
 export function ScreenerFilters({
@@ -106,6 +114,24 @@ export function ScreenerFilters({
           {tiers.map((t) => (
             <option key={t.label} value={t.value || ''}>
               {t.label}
+            </option>
+          ))}
+        </select>
+
+        {/* Min Score Momentum Filter */}
+        <select
+          value={filters.minMomentum || ''}
+          onChange={(e) =>
+            onFiltersChange({
+              ...filters,
+              minMomentum: e.target.value ? Number(e.target.value) : undefined,
+            })
+          }
+          className="px-3 py-1.5 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          {momentumOptions.map((m) => (
+            <option key={m.label} value={m.value || ''}>
+              Momentum: {m.label}
             </option>
           ))}
         </select>

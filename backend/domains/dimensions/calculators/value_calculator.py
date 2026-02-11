@@ -362,27 +362,40 @@ class ValueCalculator(BaseDimensionCalculator):
         fin_by_period = {f["period_date"]: f for f in historical_financials}
         bs_by_period = {b["period_date"]: b for b in historical_balance}
 
+        # Index prices by date for quick lookup
+        prices_by_date = {p["date"]: p["close_price"] for p in historical_prices}
+        sorted_price_dates = sorted(prices_by_date.keys(), reverse=True)
+
         # Calculate ratios for each period where we have matching data
         for fin in historical_financials:
             period = fin["period_date"]
             bs = bs_by_period.get(period)
 
-            # Find price around this period
-            price_at_period = None
-            for p in historical_prices:
-                if abs((p["date"] - period).days) <= 30:  # Within a month
-                    price_at_period = p["close_price"]
-                    break
+            # Use effective_date (publish_date or period_date + 75 days)
+            effective_date = fin.get("effective_date")
+            if not effective_date:
+                continue
 
-            if not price_at_period:
+            # Find price on effective_date or closest prior trading day
+            price_at_effective = None
+            if effective_date in prices_by_date:
+                price_at_effective = prices_by_date[effective_date]
+            else:
+                # Find closest prior date
+                for price_date in sorted_price_dates:
+                    if price_date <= effective_date:
+                        price_at_effective = prices_by_date[price_date]
+                        break
+
+            if not price_at_effective:
                 continue
 
             shares = bs.get("shares_outstanding") if bs else None
             if not shares or shares <= 0:
                 continue
 
-            # Market cap is in stock_currency
-            market_cap = float(price_at_period) * float(shares)
+            # Market cap is in stock_currency (using price at effective/publish date)
+            market_cap = float(price_at_effective) * float(shares)
 
             # P/E ratio - convert net_income to stock_currency
             net_income = fin.get("net_income")
@@ -453,7 +466,14 @@ class ValueCalculator(BaseDimensionCalculator):
         """Get historical annual financial statements (point-in-time safe)."""
         start_date = score_date - timedelta(days=years * 365)
         rows = await self.db_conn.fetch("""
-            SELECT period_date, total_revenue, net_income, ebitda
+            SELECT
+                period_date,
+                total_revenue,
+                net_income,
+                ebitda,
+                publish_date,
+                -- Effective date: publish_date if available, else period_date + 75 days
+                COALESCE(publish_date, period_date + INTERVAL '75 days')::date as effective_date
             FROM financial_statements
             WHERE symbol = $1
             AND (
@@ -476,7 +496,15 @@ class ValueCalculator(BaseDimensionCalculator):
         """Get historical annual balance sheets (point-in-time safe)."""
         start_date = score_date - timedelta(days=years * 365)
         rows = await self.db_conn.fetch("""
-            SELECT period_date, total_equity, total_debt, shares_outstanding, cash_and_equivalents
+            SELECT
+                period_date,
+                total_equity,
+                total_debt,
+                shares_outstanding,
+                cash_and_equivalents,
+                publish_date,
+                -- Effective date: publish_date if available, else period_date + 75 days
+                COALESCE(publish_date, period_date + INTERVAL '75 days')::date as effective_date
             FROM balance_sheet_data
             WHERE symbol = $1
             AND (

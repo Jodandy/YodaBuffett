@@ -157,6 +157,7 @@ class FatPitchService:
         self,
         company_id: str,
         score_date: date = None,
+        weight_profile: str = None,
     ) -> Optional[FatPitch]:
         """
         Analyze a specific company as a fat pitch candidate.
@@ -165,7 +166,7 @@ class FatPitchService:
         """
         score_date = score_date or date.today()
 
-        pitches = await self._route_and_score([company_id], score_date)
+        pitches = await self._route_and_score([company_id], score_date, weight_profile=weight_profile)
 
         return pitches[0] if pitches else None
 

@@ -24,6 +24,49 @@ ENTRY_THRESHOLD = 70  # Buy when score >= this
 EXIT_THRESHOLD = 60   # Sell when score < this
 HOLD_MINIMUM_DAYS = 30  # Minimum hold period to avoid whipsaws
 
+# Weight profiles
+WEIGHT_PROFILES = {
+    'garp': {
+        'growth': 0.30,           # Strong growth
+        'value': 0.25,            # But reasonable valuation
+        'profitability': 0.15,    # Profitable
+        'earnings_quality': 0.10, # Real earnings
+        'returns': 0.10,          # Good returns on capital
+        'quality': 0.05,          # Quality business
+        'momentum': 0.05,         # Some positive momentum
+    },
+    'optimal': {
+        'value': 0.20,
+        'momentum': 0.15,
+        'quality': 0.15,
+        'profitability': 0.10,
+        'growth': 0.10,
+        'financial_health': 0.08,
+        'returns': 0.07,
+        'earnings_quality': 0.05,
+        'capital_allocation': 0.05,
+        'risk': 0.03,
+        'sentiment': 0.02,
+    }
+}
+
+def build_weight_sql(profile: str = 'garp') -> tuple:
+    """Build SQL CASE statements for weighted score calculation."""
+    weights = WEIGHT_PROFILES.get(profile, WEIGHT_PROFILES['garp'])
+
+    weight_cases = []
+    weight_sum_cases = []
+
+    for dim, weight in weights.items():
+        if weight > 0:
+            weight_cases.append(f"WHEN dimension_code = '{dim}' THEN score * {weight}")
+            weight_sum_cases.append(f"WHEN dimension_code = '{dim}' THEN {weight}")
+
+    weight_sql = " ".join(weight_cases)
+    weight_sum_sql = " ".join(weight_sum_cases)
+
+    return weight_sql, weight_sum_sql
+
 
 @dataclass
 class Trade:
@@ -40,6 +83,11 @@ class Trade:
     hold_days: int
     return_pct: float
 
+    @property
+    def return_per_day(self) -> float:
+        """Return percentage per day held"""
+        return self.return_pct / self.hold_days if self.hold_days > 0 else 0.0
+
 
 @dataclass
 class OpenPosition:
@@ -52,34 +100,24 @@ class OpenPosition:
     entry_score: float
 
 
-async def get_historical_scores(conn: asyncpg.Connection) -> dict:
+async def get_historical_scores(conn: asyncpg.Connection, weight_profile: str = 'garp') -> dict:
     """
     Get all historical fat pitch scores with company info.
     Returns dict: company_id -> [(score_date, score, symbol, name), ...]
     """
-    # We need to calculate fat pitch scores from dimension scores
-    # Using the optimal weights from the scorer
-    query = """
+    # Build weight SQL based on profile
+    weight_sql, weight_sum_sql = build_weight_sql(weight_profile)
+
+    query = f"""
     WITH company_scores AS (
         SELECT
             dds.company_id,
             dds.score_date,
             cm.primary_ticker as symbol,
             cm.company_name,
-            -- Calculate weighted fat pitch score using optimal weights
-            (
-                COALESCE(MAX(CASE WHEN dimension_code = 'value' THEN score END) * 0.20, 0) +
-                COALESCE(MAX(CASE WHEN dimension_code = 'momentum' THEN score END) * 0.15, 0) +
-                COALESCE(MAX(CASE WHEN dimension_code = 'quality' THEN score END) * 0.15, 0) +
-                COALESCE(MAX(CASE WHEN dimension_code = 'profitability' THEN score END) * 0.10, 0) +
-                COALESCE(MAX(CASE WHEN dimension_code = 'growth' THEN score END) * 0.10, 0) +
-                COALESCE(MAX(CASE WHEN dimension_code = 'financial_health' THEN score END) * 0.08, 0) +
-                COALESCE(MAX(CASE WHEN dimension_code = 'returns' THEN score END) * 0.07, 0) +
-                COALESCE(MAX(CASE WHEN dimension_code = 'earnings_quality' THEN score END) * 0.05, 0) +
-                COALESCE(MAX(CASE WHEN dimension_code = 'capital_allocation' THEN score END) * 0.05, 0) +
-                COALESCE(MAX(CASE WHEN dimension_code = 'risk' THEN score END) * 0.03, 0) +
-                COALESCE(MAX(CASE WHEN dimension_code = 'sentiment' THEN score END) * 0.02, 0)
-            ) as fat_pitch_score
+            -- Calculate weighted fat pitch score with proper normalization
+            SUM(CASE {weight_sql} ELSE 0 END) /
+            NULLIF(SUM(CASE {weight_sum_sql} ELSE 0 END), 0) as fat_pitch_score
         FROM daily_dimension_scores dds
         JOIN company_master cm ON cm.id = dds.company_id
         WHERE cm.primary_ticker IS NOT NULL
@@ -139,29 +177,30 @@ async def get_latest_price(conn: asyncpg.Connection, symbol: str) -> Optional[tu
 async def run_backtest(
     entry_threshold: float = ENTRY_THRESHOLD,
     exit_threshold: float = EXIT_THRESHOLD,
-    min_hold_days: int = HOLD_MINIMUM_DAYS
+    min_hold_days: int = HOLD_MINIMUM_DAYS,
+    weight_profile: str = 'garp'
 ):
     """Run the threshold-based backtest"""
 
     print(f"\n{'='*60}")
-    print("FAT PITCH THRESHOLD STRATEGY BACKTEST")
+    print(f"FAT PITCH THRESHOLD STRATEGY BACKTEST - {weight_profile.upper()} WEIGHTS")
     print(f"{'='*60}")
     print(f"Entry threshold: >= {entry_threshold}")
     print(f"Exit threshold:  < {exit_threshold}")
     print(f"Min hold period: {min_hold_days} days")
+    print(f"Weight profile: {weight_profile}")
     print(f"{'='*60}\n")
 
     conn = await asyncpg.connect(DATABASE_URL)
 
     try:
         # Get all historical scores
-        print("Loading historical scores...")
-        scores_by_company = await get_historical_scores(conn)
+        print(f"Loading historical scores with {weight_profile} weights...")
+        scores_by_company = await get_historical_scores(conn, weight_profile)
         print(f"Found {len(scores_by_company)} companies with score history\n")
 
-        # Track trades and positions
+        # Track completed trades
         completed_trades: list[Trade] = []
-        open_positions: dict[str, OpenPosition] = {}
 
         # Process each company
         companies_with_signals = 0
@@ -223,9 +262,29 @@ async def run_backtest(
 
                 prev_score = current_score
 
-            # Track still-open positions
+            # Close any open position at end of backtest period
             if position is not None:
-                open_positions[company_id] = position
+                # Get the latest price to close the position
+                last_score_date = score_history[-1]['date']
+                exit_price = await get_price_on_date(conn, symbol, last_score_date)
+                if exit_price:
+                    hold_days = (last_score_date - position.entry_date).days
+                    return_pct = ((exit_price - position.entry_price) / position.entry_price) * 100
+
+                    trade = Trade(
+                        company_id=company_id,
+                        symbol=symbol,
+                        company_name=name,
+                        entry_date=position.entry_date,
+                        entry_price=position.entry_price,
+                        entry_score=position.entry_score,
+                        exit_date=last_score_date,
+                        exit_price=exit_price,
+                        exit_score=score_history[-1]['score'],
+                        hold_days=hold_days,
+                        return_pct=return_pct
+                    )
+                    completed_trades.append(trade)
 
         # Print results
         print(f"\n{'='*60}")
@@ -253,43 +312,23 @@ async def run_backtest(
             print(f"\n{'='*60}")
             print("TOP 10 TRADES")
             print(f"{'='*60}")
-            print(f"{'Symbol':<12} {'Entry':<12} {'Exit':<12} {'Days':<6} {'Return':<10} {'Entry Score':<12}")
-            print("-" * 70)
+            print(f"{'Symbol':<12} {'Entry':<12} {'Exit':<12} {'Days':<6} {'Return':<10} {'Ret/Day':<10} {'Entry Score':<12}")
+            print("-" * 80)
             for trade in completed_trades[:10]:
                 print(f"{trade.symbol:<12} {str(trade.entry_date):<12} {str(trade.exit_date):<12} "
-                      f"{trade.hold_days:<6} {trade.return_pct:>+7.2f}%   {trade.entry_score:.1f}")
+                      f"{trade.hold_days:<6} {trade.return_pct:>+7.2f}%   {trade.return_per_day:>+6.3f}%   {trade.entry_score:.1f}")
 
             # Show worst 10 trades
             print(f"\n{'='*60}")
             print("WORST 10 TRADES")
             print(f"{'='*60}")
-            print(f"{'Symbol':<12} {'Entry':<12} {'Exit':<12} {'Days':<6} {'Return':<10} {'Exit Score':<12}")
-            print("-" * 70)
+            print(f"{'Symbol':<12} {'Entry':<12} {'Exit':<12} {'Days':<6} {'Return':<10} {'Ret/Day':<10} {'Exit Score':<12}")
+            print("-" * 80)
             for trade in completed_trades[-10:]:
                 print(f"{trade.symbol:<12} {str(trade.entry_date):<12} {str(trade.exit_date):<12} "
-                      f"{trade.hold_days:<6} {trade.return_pct:>+7.2f}%   {trade.exit_score:.1f}")
+                      f"{trade.hold_days:<6} {trade.return_pct:>+7.2f}%   {trade.return_per_day:>+6.3f}%   {trade.exit_score:.1f}")
         else:
             print("No completed trades found.")
-
-        # Show open positions
-        if open_positions:
-            print(f"\n{'='*60}")
-            print(f"OPEN POSITIONS ({len(open_positions)})")
-            print(f"{'='*60}")
-            print(f"{'Symbol':<12} {'Entry Date':<12} {'Entry $':<10} {'Entry Score':<12} {'Current $':<10} {'Return':<10}")
-            print("-" * 70)
-
-            open_returns = []
-            for pos in sorted(open_positions.values(), key=lambda p: p.entry_date):
-                current_price, price_date = await get_latest_price(conn, pos.symbol)
-                if current_price:
-                    ret = ((current_price - pos.entry_price) / pos.entry_price) * 100
-                    open_returns.append(ret)
-                    print(f"{pos.symbol:<12} {str(pos.entry_date):<12} {pos.entry_price:<10.2f} "
-                          f"{pos.entry_score:<12.1f} {current_price:<10.2f} {ret:>+7.2f}%")
-
-            if open_returns:
-                print(f"\nOpen positions avg return: {sum(open_returns)/len(open_returns):.2f}%")
 
         # Summary by year
         if completed_trades:
@@ -312,10 +351,10 @@ async def run_backtest(
         await conn.close()
 
 
-async def test_thresholds():
+async def test_thresholds(weight_profile: str = 'garp'):
     """Test different threshold combinations - FULL MATRIX"""
     print("\n" + "="*70)
-    print("THRESHOLD SENSITIVITY ANALYSIS - FULL MATRIX")
+    print(f"THRESHOLD SENSITIVITY ANALYSIS - {weight_profile.upper()} WEIGHTS")
     print("="*70 + "\n")
 
     results = []
@@ -329,6 +368,7 @@ async def test_thresholds():
     print(f"Testing {total_combos} entry/exit combinations...")
     print(f"Entry range: {min(thresholds)}-{max(thresholds)}")
     print(f"Exit range: {min(thresholds)}-{max(thresholds)}")
+    print(f"Weight profile: {weight_profile}")
     print()
 
     for entry in thresholds:
@@ -338,7 +378,7 @@ async def test_thresholds():
 
             conn = await asyncpg.connect(DATABASE_URL)
             try:
-                scores_by_company = await get_historical_scores(conn)
+                scores_by_company = await get_historical_scores(conn, weight_profile)
 
                 trades = []
                 for company_id, score_history in scores_by_company.items():
@@ -372,6 +412,14 @@ async def test_thresholds():
                                     position = None
 
                         prev_score = current_score
+
+                    # Close any open position at end of backtest period
+                    if position is not None:
+                        last_score_date = score_history[-1]['date']
+                        exit_price = await get_price_on_date(conn, symbol, last_score_date)
+                        if exit_price:
+                            ret = ((exit_price - position['entry_price']) / position['entry_price']) * 100
+                            trades.append(ret)
 
                 if trades:
                     avg_ret = sum(trades) / len(trades)
@@ -514,8 +562,13 @@ async def test_thresholds():
               f"{most_trades['avg_return']:+.2f}% avg, {most_trades['win_rate']:.1f}% win rate")
 
 
-async def export_all_trades_to_excel(output_file: str = "fat_pitch_threshold_trades.xlsx"):
-    """Export all trades for all threshold combinations to Excel"""
+async def export_all_trades_to_excel(output_file: str = "fat_pitch_threshold_trades.xlsx", filter_combos: bool = True):
+    """Export all trades for all threshold combinations to Excel
+
+    Args:
+        output_file: Output Excel filename
+        filter_combos: If True, only export best + worst combos (not all 105+)
+    """
     try:
         import pandas as pd
         from openpyxl import Workbook
@@ -526,8 +579,30 @@ async def export_all_trades_to_excel(output_file: str = "fat_pitch_threshold_tra
         return
 
     print("\n" + "="*70)
-    print("EXPORTING ALL TRADES TO EXCEL")
+    print("EXPORTING TRADES TO EXCEL")
     print("="*70 + "\n")
+
+    # Outlier thresholds - filter likely bad data (reverse splits, etc.)
+    MAX_RETURN = 200.0  # Filter trades > 200%
+    MIN_RETURN = -80.0  # Filter trades < -80%
+
+    # Selected threshold combos to include (best + worst for comparison)
+    # These are chosen based on prior analysis with outliers filtered
+    SELECTED_COMBOS = [
+        # Higher thresholds (more selective entry)
+        (80, 70), (78, 68), (76, 66), (74, 64), (72, 62), (70, 60), (68, 58),
+        # Mid thresholds
+        (66, 56), (64, 54), (62, 52), (60, 50),
+        # Lower thresholds (wider net)
+        (58, 48), (55, 45), (50, 40),
+    ] if filter_combos else None
+
+    print(f"Outlier filter: Excluding returns > {MAX_RETURN}% or < {MIN_RETURN}%")
+    if filter_combos:
+        print(f"Selected combos: {len(SELECTED_COMBOS)} combinations")
+    else:
+        print("Including ALL combinations")
+    print()
 
     conn = await asyncpg.connect(DATABASE_URL)
 
@@ -537,93 +612,129 @@ async def export_all_trades_to_excel(output_file: str = "fat_pitch_threshold_tra
         scores_by_company = await get_historical_scores(conn)
         print(f"Found {len(scores_by_company)} companies with score history\n")
 
-        # Thresholds to test - fine granularity at top end
-        thresholds = [40, 45, 50, 55] + list(range(58, 82, 2))
+        # Thresholds to test
+        if filter_combos:
+            # Use selected combos
+            threshold_pairs = SELECTED_COMBOS
+        else:
+            # Full matrix
+            thresholds = [40, 45, 50, 55] + list(range(58, 82, 2))
+            threshold_pairs = [(e, x) for e in thresholds for x in thresholds if x < e]
 
         # Store all results
         all_results = []
         all_trades_by_combo = {}
+        outliers_filtered = 0
 
-        total_combos = sum(1 for e in thresholds for x in thresholds if x < e)
+        total_combos = len(threshold_pairs)
         print(f"Processing {total_combos} combinations...")
 
         combo_count = 0
-        for entry in thresholds:
-            for exit in thresholds:
-                if exit >= entry:
+        for entry, exit in threshold_pairs:
+            combo_count += 1
+            combo_key = f"E{entry}_X{exit}"
+            trades = []
+
+            for company_id, score_history in scores_by_company.items():
+                if len(score_history) < 2:
                     continue
 
-                combo_count += 1
-                combo_key = f"E{entry}_X{exit}"
-                trades = []
+                symbol = score_history[0]['symbol']
+                name = score_history[0]['name']
 
-                for company_id, score_history in scores_by_company.items():
-                    if len(score_history) < 2:
-                        continue
+                position = None
+                prev_score = score_history[0]['score']
 
-                    symbol = score_history[0]['symbol']
-                    name = score_history[0]['name']
+                for data in score_history[1:]:
+                    current_date = data['date']
+                    current_score = data['score']
 
-                    position = None
-                    prev_score = score_history[0]['score']
+                    # Entry signal
+                    if position is None and prev_score < entry and current_score >= entry:
+                        entry_price = await get_price_on_date(conn, symbol, current_date)
+                        if entry_price:
+                            position = {
+                                'symbol': symbol,
+                                'name': name,
+                                'entry_date': current_date,
+                                'entry_price': entry_price,
+                                'entry_score': current_score
+                            }
 
-                    for data in score_history[1:]:
-                        current_date = data['date']
-                        current_score = data['score']
-
-                        # Entry signal
-                        if position is None and prev_score < entry and current_score >= entry:
-                            entry_price = await get_price_on_date(conn, symbol, current_date)
-                            if entry_price:
-                                position = {
-                                    'symbol': symbol,
-                                    'name': name,
-                                    'entry_date': current_date,
-                                    'entry_price': entry_price,
-                                    'entry_score': current_score
-                                }
-
-                        # Exit signal
-                        elif position is not None:
-                            hold_days = (current_date - position['entry_date']).days
-                            if current_score < exit and hold_days >= 30:
-                                exit_price = await get_price_on_date(conn, symbol, current_date)
-                                if exit_price:
-                                    ret = ((exit_price - position['entry_price']) / position['entry_price']) * 100
-                                    trades.append({
-                                        'Symbol': position['symbol'],
-                                        'Company': position['name'],
-                                        'Entry Date': position['entry_date'],
-                                        'Entry Price': position['entry_price'],
-                                        'Entry Score': position['entry_score'],
-                                        'Exit Date': current_date,
-                                        'Exit Price': exit_price,
-                                        'Exit Score': current_score,
-                                        'Hold Days': hold_days,
-                                        'Return %': ret
-                                    })
+                    # Exit signal
+                    elif position is not None:
+                        hold_days = (current_date - position['entry_date']).days
+                        if current_score < exit and hold_days >= 30:
+                            exit_price = await get_price_on_date(conn, symbol, current_date)
+                            if exit_price:
+                                ret = ((exit_price - position['entry_price']) / position['entry_price']) * 100
+                                # Filter outliers (likely bad data from splits)
+                                if ret > MAX_RETURN or ret < MIN_RETURN:
+                                    outliers_filtered += 1
                                     position = None
+                                    prev_score = current_score
+                                    continue
+                                trades.append({
+                                    'Symbol': position['symbol'],
+                                    'Company': position['name'],
+                                    'Entry Date': position['entry_date'],
+                                    'Entry Price': position['entry_price'],
+                                    'Entry Score': position['entry_score'],
+                                    'Exit Date': current_date,
+                                    'Exit Price': exit_price,
+                                    'Exit Score': current_score,
+                                    'Hold Days': hold_days,
+                                    'Return %': ret,
+                                    'Return/Day %': ret / hold_days if hold_days > 0 else 0
+                                })
+                                position = None
 
-                        prev_score = current_score
+                    prev_score = current_score
 
-                if trades:
-                    all_trades_by_combo[combo_key] = trades
-                    returns = [t['Return %'] for t in trades]
-                    all_results.append({
-                        'Entry': entry,
-                        'Exit': exit,
-                        'Trades': len(trades),
-                        'Win Rate %': len([r for r in returns if r > 0]) / len(returns) * 100,
-                        'Avg Return %': sum(returns) / len(returns),
-                        'Total Return %': sum(returns),
-                        'Best Trade %': max(returns),
-                        'Worst Trade %': min(returns)
-                    })
+                # Close any open position at end of backtest period
+                if position is not None:
+                    last_score_date = score_history[-1]['date']
+                    exit_price = await get_price_on_date(conn, symbol, last_score_date)
+                    if exit_price:
+                        hold_days = (last_score_date - position['entry_date']).days
+                        ret = ((exit_price - position['entry_price']) / position['entry_price']) * 100
+                        # Filter outliers (likely bad data from splits)
+                        if ret <= MAX_RETURN and ret >= MIN_RETURN:
+                            trades.append({
+                                'Symbol': position['symbol'],
+                                'Company': position['name'],
+                                'Entry Date': position['entry_date'],
+                                'Entry Price': position['entry_price'],
+                                'Entry Score': position['entry_score'],
+                                'Exit Date': last_score_date,
+                                'Exit Price': exit_price,
+                                'Exit Score': score_history[-1]['score'],
+                                'Hold Days': hold_days,
+                                'Return %': ret,
+                                'Return/Day %': ret / hold_days if hold_days > 0 else 0
+                            })
+                        else:
+                            outliers_filtered += 1
 
-                if combo_count % 20 == 0:
-                    print(f"  Processed {combo_count}/{total_combos} combinations...")
+            if trades:
+                all_trades_by_combo[combo_key] = trades
+                returns = [t['Return %'] for t in trades]
+                all_results.append({
+                    'Entry': entry,
+                    'Exit': exit,
+                    'Trades': len(trades),
+                    'Win Rate %': len([r for r in returns if r > 0]) / len(returns) * 100,
+                    'Avg Return %': sum(returns) / len(returns),
+                    'Total Return %': sum(returns),
+                    'Best Trade %': max(returns),
+                    'Worst Trade %': min(returns)
+                })
 
-        print(f"\nCreating Excel file: {output_file}")
+            if combo_count % 5 == 0:
+                print(f"  Processed {combo_count}/{total_combos} combinations...")
+
+        print(f"\nOutliers filtered: {outliers_filtered} trades (>{MAX_RETURN}% or <{MIN_RETURN}%)")
+        print(f"Creating Excel file: {output_file}")
 
         # Create workbook
         wb = Workbook()
@@ -699,7 +810,7 @@ async def export_all_trades_to_excel(output_file: str = "fat_pitch_threshold_tra
 
             # Headers
             trade_headers = ['Symbol', 'Company', 'Entry Date', 'Entry Price', 'Entry Score',
-                           'Exit Date', 'Exit Price', 'Exit Score', 'Hold Days', 'Return %']
+                           'Exit Date', 'Exit Price', 'Exit Score', 'Hold Days', 'Return %', 'Return/Day %']
 
             for col, header in enumerate(trade_headers, 1):
                 cell = ws.cell(row=1, column=col, value=header)
@@ -729,11 +840,17 @@ async def export_all_trades_to_excel(output_file: str = "fat_pitch_threshold_tra
                 else:
                     ret_cell.fill = red_fill
 
-                for col in range(1, 11):
+                ret_day_cell = ws.cell(row=row_idx, column=11, value=round(trade['Return/Day %'], 4))
+                if trade['Return/Day %'] > 0:
+                    ret_day_cell.fill = green_fill
+                else:
+                    ret_day_cell.fill = red_fill
+
+                for col in range(1, 12):
                     ws.cell(row=row_idx, column=col).border = thin_border
 
             # Adjust column widths
-            col_widths = [12, 25, 12, 12, 12, 12, 12, 12, 10, 12]
+            col_widths = [12, 25, 12, 12, 12, 12, 12, 12, 10, 12, 12]
             for col, width in enumerate(col_widths, 1):
                 ws.column_dimensions[chr(64 + col)].width = width
 
@@ -755,15 +872,18 @@ if __name__ == "__main__":
     parser.add_argument("--entry", type=float, default=70, help="Entry threshold (buy when score >= this)")
     parser.add_argument("--exit", type=float, default=60, help="Exit threshold (sell when score < this)")
     parser.add_argument("--min-hold", type=int, default=30, help="Minimum hold period in days")
+    parser.add_argument("--weights", type=str, default='garp', choices=['garp', 'optimal'],
+                        help="Weight profile to use (default: garp)")
     parser.add_argument("--sensitivity", action="store_true", help="Run threshold sensitivity analysis")
-    parser.add_argument("--export", action="store_true", help="Export all trades to Excel")
+    parser.add_argument("--export", action="store_true", help="Export trades to Excel")
+    parser.add_argument("--all-combos", action="store_true", help="Export ALL threshold combos (default: filtered best/worst)")
     parser.add_argument("--output", type=str, default="fat_pitch_threshold_trades.xlsx", help="Excel output filename")
 
     args = parser.parse_args()
 
     if args.export:
-        asyncio.run(export_all_trades_to_excel(args.output))
+        asyncio.run(export_all_trades_to_excel(args.output, filter_combos=not args.all_combos))
     elif args.sensitivity:
-        asyncio.run(test_thresholds())
+        asyncio.run(test_thresholds(args.weights))
     else:
-        asyncio.run(run_backtest(args.entry, args.exit, args.min_hold))
+        asyncio.run(run_backtest(args.entry, args.exit, args.min_hold, args.weights))

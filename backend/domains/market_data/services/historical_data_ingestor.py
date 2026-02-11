@@ -298,25 +298,35 @@ class HistoricalDataIngestor:
                 logger.error(f"❌ Error storing performance metrics for {symbol} {timeframe}: {e}")
     
     async def ingest_historical_data(
-        self, 
+        self,
         symbol: str,
         days_back: int = 730,  # 2 years default, but can be overridden
-        calculate_metrics: bool = True
+        calculate_metrics: bool = True,
+        yahoo_symbol: Optional[str] = None
     ) -> bool:
-        """Ingest historical data for a single symbol"""
-        
-        # Get symbol info
-        symbol_info = await self.conn.fetchrow("""
-            SELECT symbol, company_name, yahoo_symbol 
-            FROM market_data_symbols 
-            WHERE symbol = $1
-        """, symbol)
-        
-        if not symbol_info:
-            logger.error(f"❌ Symbol {symbol} not found in database")
-            return False
-        
-        yahoo_symbol = symbol_info['yahoo_symbol']
+        """Ingest historical data for a single symbol
+
+        Args:
+            symbol: The symbol to store data under (e.g., "AAK", "VOLV B")
+            days_back: Number of days of history to fetch
+            calculate_metrics: Whether to calculate performance metrics
+            yahoo_symbol: Optional Yahoo Finance symbol (e.g., "AAK.ST").
+                         If not provided, looks up in market_data_symbols table.
+        """
+
+        # If yahoo_symbol not provided, look it up in market_data_symbols
+        if not yahoo_symbol:
+            symbol_info = await self.conn.fetchrow("""
+                SELECT symbol, company_name, yahoo_symbol
+                FROM market_data_symbols
+                WHERE symbol = $1
+            """, symbol)
+
+            if not symbol_info:
+                logger.error(f"❌ Symbol {symbol} not found in database")
+                return False
+
+            yahoo_symbol = symbol_info['yahoo_symbol']
         
         # Define date range - exclude today to only get confirmed closing prices
         # Markets close at 17:30 CET, so today's data may be incomplete
