@@ -108,7 +108,6 @@ export function useUpdateHolding() {
   return useMutation({
     mutationFn: ({
       holdingId,
-      portfolioId,
       updates,
     }: {
       holdingId: string
@@ -129,7 +128,6 @@ export function useDeleteHolding() {
   return useMutation({
     mutationFn: ({
       holdingId,
-      portfolioId,
     }: {
       holdingId: string
       portfolioId: string

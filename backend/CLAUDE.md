@@ -781,6 +781,145 @@ async def was_applied(conn, migration_id: str) -> bool:
 | `domains/document_intelligence/migration_rename_filings_to_extracted_documents.py` | Table rename |
 | `domains/document_intelligence/migration_update_column_names.py` | Column standardization |
 
+## 📋 Watchlist System
+
+Save and track companies from screener results for future reference.
+
+### Architecture
+
+```
+domains/watchlist/
+├── router.py           # FastAPI REST endpoints
+└── __init__.py
+
+Database tables:
+├── screen_watchlists           # Watchlist metadata
+└── screen_watchlist_items      # Companies in watchlists
+```
+
+### Database Schema
+
+```sql
+-- Watchlists
+CREATE TABLE screen_watchlists (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Watchlist items (companies)
+CREATE TABLE screen_watchlist_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    watchlist_id UUID REFERENCES screen_watchlists(id) ON DELETE CASCADE,
+    company_id UUID REFERENCES company_master(id),
+    added_at DATE DEFAULT CURRENT_DATE,
+    source VARCHAR(500),          -- e.g., "Quality Screener | Tier 1,2 | Cash Cow"
+    notes TEXT,
+    UNIQUE(watchlist_id, company_id)
+);
+```
+
+### API Endpoints
+
+```
+GET    /api/v1/watchlists                           # List all watchlists
+POST   /api/v1/watchlists                           # Create watchlist
+GET    /api/v1/watchlists/{id}                      # Get watchlist with companies + prices
+PUT    /api/v1/watchlists/{id}                      # Update watchlist name/description
+DELETE /api/v1/watchlists/{id}                      # Delete watchlist
+
+POST   /api/v1/watchlists/{id}/companies            # Add companies by ticker
+DELETE /api/v1/watchlists/{id}/companies/{ticker}   # Remove company
+```
+
+### Price Tracking
+
+Prices are looked up on-demand from `daily_price_data`, not stored:
+
+```python
+# Get price when added (no look-ahead)
+price_when_added = await conn.fetchval("""
+    SELECT close_price FROM daily_price_data
+    WHERE symbol = $1 AND date <= $2
+    ORDER BY date DESC LIMIT 1
+""", ticker, added_at)
+
+# Get current price
+current_price = await conn.fetchval("""
+    SELECT close_price FROM daily_price_data
+    WHERE symbol = $1
+    ORDER BY date DESC LIMIT 1
+""", ticker)
+
+# Calculate return
+return_pct = ((current_price / price_when_added) - 1) * 100
+```
+
+### CLI Tool
+
+```bash
+cd backend/
+source venv/bin/activate
+
+# Create a watchlist
+python manage_screen_watchlist.py create "Q1 2025 Picks" --description "Quality screener tier 1-2"
+
+# List all watchlists
+python manage_screen_watchlist.py list
+
+# Add companies
+python manage_screen_watchlist.py add <watchlist_id> VOLV-B ERIC-B AAK
+python manage_screen_watchlist.py add-bulk <watchlist_id> tickers.txt --source "Quality Screener"
+
+# Show watchlist with prices and returns
+python manage_screen_watchlist.py show <watchlist_id>
+
+# Remove company
+python manage_screen_watchlist.py remove <watchlist_id> VOLV-B
+
+# Delete watchlist
+python manage_screen_watchlist.py delete <watchlist_id>
+```
+
+### Frontend Integration
+
+The Quality Screener has a "Save to Watchlist" button that:
+1. Opens a modal to select existing watchlist or create new
+2. Saves all displayed companies with source tracking
+3. Source format: `"Quality Screener | Tier 1,2 | Cash Cow | search: \"volvo\""`
+
+```typescript
+// Frontend feature location
+products/apps/hub/src/features/watchlist/
+├── types.ts              # Watchlist, WatchlistItem types
+├── api.ts                # API client functions
+├── hooks.ts              # React Query hooks
+├── index.ts              # Feature exports
+└── components/
+    └── SaveToWatchlistModal.tsx
+```
+
+### Usage Example
+
+```bash
+# Create watchlist from CLI
+python manage_screen_watchlist.py create "Feb 2025 Value" --description "Tier 2-3 cheap quality"
+
+# Or use the frontend:
+# 1. Go to Quality Screener
+# 2. Apply filters (e.g., Tier 1-2, Cash Cow)
+# 3. Click "Save to Watchlist"
+# 4. Create new or add to existing
+
+# Check performance later
+python manage_screen_watchlist.py show <watchlist_id>
+# Shows: ticker, company, added_at, price_when_added, current_price, return%
+```
+
+---
+
 ## Quick Database Commands
 
 ```bash

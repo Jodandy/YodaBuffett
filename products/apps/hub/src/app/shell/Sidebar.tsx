@@ -23,7 +23,7 @@ const navigation = [
   { name: 'Quality', href: '/quality', icon: SparklesIcon },
   { name: 'Calendar', href: '/calendar', icon: CalendarIcon },
   { name: 'Portfolios', href: '/portfolios', icon: BriefcaseIcon },
-  { name: 'Watchlist', href: '/watchlist', icon: EyeIcon, disabled: true },
+  { name: 'Watchlist', href: '/watchlist', icon: EyeIcon },
   { name: 'Alerts', href: '/alerts', icon: BellIcon, disabled: true },
 ]
 

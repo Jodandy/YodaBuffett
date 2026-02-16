@@ -7,7 +7,8 @@ import { useState, useMemo } from 'react';
 import { useCategories, useCompanies } from '../hooks/useQualityScreener';
 import { QualityFilters } from '../components/QualityFilters';
 import { CompanyCard, CompanyCardExpanded } from '../components/CompanyCard';
-import type { ScreenerFilters, QualityCandidate } from '../types';
+import { SaveToWatchlistModal } from '../../watchlist';
+import type { ScreenerFilters } from '../types';
 
 type SortField =
   | 'quality_score'
@@ -24,6 +25,7 @@ export default function QualityScreenerPage() {
   const [sortAsc, setSortAsc] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'expanded'>('grid');
+  const [showWatchlistModal, setShowWatchlistModal] = useState(false);
 
   const { data: categories, isLoading: categoriesLoading } = useCategories();
   const { data: response, isLoading: companiesLoading, error } = useCompanies(filters);
@@ -100,6 +102,16 @@ export default function QualityScreenerPage() {
       setSortAsc(field === 'tier'); // Ascending for tier, descending for others
     }
   };
+
+  // Generate a source description based on active filters
+  const getFilterSource = useMemo(() => {
+    const parts: string[] = ['Quality Screener'];
+    if (filters.tiers?.length) parts.push(`Tier ${filters.tiers.join(',')}`);
+    if (filters.business_models?.length) parts.push(filters.business_models.join(', '));
+    if (filters.cash_qualities?.length) parts.push(filters.cash_qualities.join(', '));
+    if (searchTerm) parts.push(`search: "${searchTerm}"`);
+    return parts.join(' | ');
+  }, [filters, searchTerm]);
 
   if (error) {
     return (
@@ -224,6 +236,15 @@ export default function QualityScreenerPage() {
                     Expanded
                   </button>
                 </div>
+
+                {/* Save to Watchlist */}
+                <button
+                  onClick={() => setShowWatchlistModal(true)}
+                  disabled={sortedCompanies.length === 0}
+                  className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Save to Watchlist
+                </button>
               </div>
             </div>
 
@@ -262,6 +283,14 @@ export default function QualityScreenerPage() {
           )}
         </div>
       </div>
+
+      {/* Watchlist Modal */}
+      <SaveToWatchlistModal
+        isOpen={showWatchlistModal}
+        onClose={() => setShowWatchlistModal(false)}
+        tickers={sortedCompanies.map((c) => c.ticker)}
+        source={getFilterSource}
+      />
     </div>
   );
 }

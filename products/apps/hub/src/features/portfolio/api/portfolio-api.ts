@@ -24,7 +24,7 @@ interface PortfolioListResponse {
   total_gain_loss_percent: number | null
 }
 
-interface StockSearchResult {
+export interface StockSearchResult {
   id: string
   symbol: string
   name: string

@@ -11,6 +11,8 @@ const CompanyDetailPage = lazy(() => import('@/features/company/pages/CompanyDet
 const PortfolioListPage = lazy(() => import('@/features/portfolio/pages/PortfolioListPage'))
 const PortfolioDetailPage = lazy(() => import('@/features/portfolio/pages/PortfolioDetailPage'))
 const CalendarPage = lazy(() => import('@/features/calendar/pages/CalendarPage'))
+const WatchlistListPage = lazy(() => import('@/features/watchlist/pages/WatchlistListPage'))
+const WatchlistDetailPage = lazy(() => import('@/features/watchlist/pages/WatchlistDetailPage'))
 
 function App() {
   return (
@@ -23,6 +25,8 @@ function App() {
           <Route path="/company/:symbol" element={<CompanyDetailPage />} />
           <Route path="/portfolios" element={<PortfolioListPage />} />
           <Route path="/portfolios/:portfolioId" element={<PortfolioDetailPage />} />
+          <Route path="/watchlist" element={<WatchlistListPage />} />
+          <Route path="/watchlist/:watchlistId" element={<WatchlistDetailPage />} />
           <Route path="/calendar" element={<CalendarPage />} />
         </Routes>
       </Suspense>

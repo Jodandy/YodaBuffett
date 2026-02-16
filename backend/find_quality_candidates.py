@@ -1140,6 +1140,9 @@ Examples:
     parser.add_argument('--categories', action='store_true',
                         help='Show all available filter categories')
 
+    parser.add_argument('--preset', type=str, choices=['sweet-spot', 'compounder-mega', 'avoid'],
+                        help='Use a backtested preset filter')
+
     parser.add_argument('-t', '--tier', nargs='+', type=int, choices=[1,2,3,4,5],
                         help='Filter by tier (1-5)')
 
@@ -1169,6 +1172,50 @@ Examples:
     if args.categories:
         print_available_categories()
         return
+
+    # Handle presets - backtested filter combinations
+    PRESETS = {
+        'sweet-spot': {
+            'description': 'Excellent Cash Cow + Tier 3 + >500M (14.7% median, 71% win). Note: Full backtest also excludes net-cash companies.',
+            'tier': [3],
+            'model': ['Cash Cow'],
+            'cash': ['Excellent'],
+            'min_cap': 500e6,
+            'max_cap': float('inf'),
+            'exclude_net_cash': True,  # Must have net debt (manual filter for now)
+        },
+        'compounder-mega': {
+            'description': 'Mega-cap Compounders with momentum (4.4% median, 56% win)',
+            'tier': [1, 2],
+            'model': ['Compounder'],
+            'cash': ['Excellent', 'Good'],
+            'min_cap': 10e9,
+            'max_cap': float('inf'),
+            'exclude_net_cash': False,
+        },
+        'avoid': {
+            'description': 'Red flags to avoid - poor cash conversion or Tier 4-5',
+            'tier': [4, 5],
+            'model': ['Red Flag', 'Caution'],
+            'cash': ['Weak', 'Poor'],
+            'min_cap': 0,
+            'max_cap': float('inf'),
+            'exclude_net_cash': False,
+        },
+    }
+
+    if args.preset:
+        preset = PRESETS[args.preset]
+        print("\n" + "="*70)
+        print(f"PRESET: {args.preset}")
+        print("="*70)
+        print(f"  {preset['description']}")
+        print()
+        args.tier = preset.get('tier')
+        args.model = preset.get('model')
+        args.cash = preset.get('cash')
+        args.min_cap = str(int(preset.get('min_cap', 0))) if preset.get('min_cap', 0) > 0 else None
+        args.max_cap = str(int(preset.get('max_cap'))) if preset.get('max_cap', float('inf')) != float('inf') else None
 
     # Parse market cap filters
     min_cap = parse_market_cap(args.min_cap) if args.min_cap else 0

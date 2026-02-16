@@ -178,6 +178,16 @@ See `backend/CLAUDE.md` for detailed code patterns.
 - **1,589 Companies**: Nordic companies with financial statement coverage
 - **Documentation**: [backend/domains/dimensions/CLAUDE.md](./backend/domains/dimensions/CLAUDE.md)
 
+📋 **Watchlist System** - PRODUCTION READY ⭐ RESEARCH WORKFLOW
+- **Save Screener Results**: Save companies from Quality Screener to named watchlists
+- **Source Tracking**: Automatically records which filters found each company (e.g., "Tier 1,2 | Cash Cow")
+- **Price Tracking**: Lookup price_when_added and current_price from daily_price_data (no look-ahead)
+- **Return Calculation**: Automatic return% since added
+- **REST API**: Full CRUD endpoints at `/api/v1/watchlists`
+- **Frontend Integration**: "Save to Watchlist" button in Quality Screener
+- **CLI Tool**: `python manage_screen_watchlist.py` for command-line management
+- **Documentation**: [backend/CLAUDE.md](./backend/CLAUDE.md)
+
 ## Documentation Structure
 
 | Need This? | Go Here |
@@ -211,6 +221,7 @@ See `backend/CLAUDE.md` for detailed code patterns.
 | **Human operator guide** | [docs/operations/human-operator-guide.md](./docs/operations/human-operator-guide.md) |
 | **Fat Pitch Machine (investment filter)** | [backend/CLAUDE.md](./backend/CLAUDE.md) |
 | **14 Dimension Scoring System** | [backend/domains/dimensions/CLAUDE.md](./backend/domains/dimensions/CLAUDE.md) |
+| **Watchlist System** | [backend/CLAUDE.md](./backend/CLAUDE.md) |
 | **Backend overview** | [backend/CLAUDE.md](./backend/CLAUDE.md) |
 
 ## 🚀 **Quick Commands - Daily Automation**
