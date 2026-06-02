@@ -74,6 +74,14 @@ mvp1-report-analysis/venv/
 mvp2-web-scraping/venv/
 backend/*/venv/
 
+# Data directories (PDFs, downloaded files, etc.)
+backend/data/
+data/
+downloads/
+output/
+exports/
+results/
+
 # Documents (to be stored properly later)
 *.pdf
 *.PDF
@@ -105,10 +113,42 @@ batch_*.py
 *_20*.json
 *_20*.log
 
-# Backtest exports and generated files
+# Data files and analysis results
 *.xlsx
+*.xls
+*.xlsm
+*.csv
+*.tsv
+*.dat
+*.pkl
+*.pickle
+*.joblib
+*.h5
+*.hdf5
+*.parquet
+*.feather
 *.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
 ~$*.xlsx
+~$*.xls
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# Backtest and analysis exports
+*_backtest*.xlsx
+*_analysis*.xlsx
+*_export*.xlsx
+*_results*.csv
+monte_carlo_*.xlsx
+fat_pitch_*.xlsx
+
 products/screener/frontend/node_modules/.vite/deps/chunk-2PMNUQTO.js
 
 # Node modules everywhere
