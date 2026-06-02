@@ -8,3 +8,6 @@ mvp1-report-analysis/.env
 */.env.example
 */*.env
 */*.env.example
+
+# CSV results and data files
+*.csv
