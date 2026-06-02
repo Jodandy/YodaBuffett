@@ -40,7 +40,20 @@
       "Bash(xargs:*)",
       "Bash(timeout 5 python:*)",
       "Bash(pnpm --filter yodabuffett-hub type-check:*)",
-      "Bash(launchctl unload:*)"
+      "Bash(launchctl unload:*)",
+      "Bash(for f in screen_01*.py screen_02*.py screen_06*.py screen_07*.py screen_08*.py screen_09*.py screen_10*.py screen_11*.py screen_12*.py screen_13*.py screen_15*.py)",
+      "Bash(do)",
+      "Bash(if grep -q \"financial_statements\" \"$f\")",
+      "Bash(then)",
+      "Bash(elif grep -q \"yahoo_financials\" \"$f\")",
+      "Bash(elif grep -q \"daily_fundamentals\" \"$f\":*)",
+      "Bash(else)",
+      "Bash(fi)",
+      "Bash(done)",
+      "Bash(PYTHONPATH=. python:*)",
+      "Bash(/dev/null launchctl load ~/Library/LaunchAgents/com.yodabuffett.daily-dimensions-worker.plist launchctl unload ~/Library/LaunchAgents/com.yodabuffett.daily-fundamentals-worker.plist 2)",
+      "Bash(/dev/null launchctl load ~/Library/LaunchAgents/com.yodabuffett.daily-fundamentals-worker.plist echo '✅ Both workers reloaded' launchctl list)",
+      "Bash(plutil:*)"
     ],
     "deny": []
   }

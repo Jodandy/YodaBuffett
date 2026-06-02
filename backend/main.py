@@ -17,6 +17,7 @@ from domains.fat_pitch.router import router as fat_pitch_router
 from domains.market_data.router import router as market_data_router
 from domains.quality_screener.router import router as quality_screener_router
 from domains.watchlist.router import router as watchlist_router
+from domains.business_screener.router import router as business_screener_router
 from shared.database import init_database
 from shared.monitoring import setup_monitoring
 from shared.config import settings
@@ -44,6 +45,7 @@ async def lifespan(app: FastAPI):
     logging.info("✅ Market Data Service: Ready")
     logging.info("✅ Quality Screener Service: Ready")
     logging.info("✅ Watchlist Service: Ready")
+    logging.info("✅ Business Screener Service: Ready")
 
     yield
     
@@ -92,7 +94,8 @@ async def health_check():
             "fat_pitch": "up",
             "market_data": "up",
             "quality_screener": "up",
-            "watchlist": "up"
+            "watchlist": "up",
+            "business_screener": "up"
         },
         "version": "1.0.0"
     }
@@ -145,6 +148,12 @@ app.include_router(
     tags=["Watchlist Service"]
 )
 
+app.include_router(
+    business_screener_router,
+    prefix="/api/v1/business-screener",
+    tags=["Business Screener Service"]
+)
+
 # Root endpoint
 @app.get("/")
 async def root():
@@ -158,7 +167,8 @@ async def root():
             "Fat Pitch Service - /api/v1/fat-pitch",
             "Market Data Service - /api/v1/market-data",
             "Quality Screener Service - /api/v1/quality-screener",
-            "Watchlist Service - /api/v1/watchlists"
+            "Watchlist Service - /api/v1/watchlists",
+            "Business Screener Service - /api/v1/business-screener"
         ],
         "docs": "/docs"
     }

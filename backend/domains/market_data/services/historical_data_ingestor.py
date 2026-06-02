@@ -328,9 +328,10 @@ class HistoricalDataIngestor:
 
             yahoo_symbol = symbol_info['yahoo_symbol']
         
-        # Define date range - exclude today to only get confirmed closing prices
-        # Markets close at 17:30 CET, so today's data may be incomplete
-        end_date = date.today() - timedelta(days=1)  # Yesterday = last confirmed close
+        # Define date range - yfinance history() is EXCLUSIVE of end_date
+        # So end_date=today will return data through yesterday (last confirmed close)
+        # Worker runs at 6 AM, well after market close (17:30 CET)
+        end_date = date.today()  # yfinance excludes this, so we get through yesterday
         start_date = end_date - timedelta(days=days_back)
         
         # Fetch data from Yahoo

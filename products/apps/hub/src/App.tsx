@@ -7,6 +7,7 @@ import { LoadingSpinner } from '@yodabuffett/ui'
 const DashboardPage = lazy(() => import('@/features/dashboard/pages/DashboardPage'))
 const ScreenerPage = lazy(() => import('@/features/screener/pages/ScreenerPage'))
 const QualityScreenerPage = lazy(() => import('@/features/quality-screener/pages/QualityScreenerPage'))
+const BusinessScreenerPage = lazy(() => import('@/features/business-screener/pages/BusinessScreenerPage'))
 const CompanyDetailPage = lazy(() => import('@/features/company/pages/CompanyDetailPage'))
 const PortfolioListPage = lazy(() => import('@/features/portfolio/pages/PortfolioListPage'))
 const PortfolioDetailPage = lazy(() => import('@/features/portfolio/pages/PortfolioDetailPage'))
@@ -22,6 +23,7 @@ function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/screener" element={<ScreenerPage />} />
           <Route path="/quality" element={<QualityScreenerPage />} />
+          <Route path="/business-screener" element={<BusinessScreenerPage />} />
           <Route path="/company/:symbol" element={<CompanyDetailPage />} />
           <Route path="/portfolios" element={<PortfolioListPage />} />
           <Route path="/portfolios/:portfolioId" element={<PortfolioDetailPage />} />
