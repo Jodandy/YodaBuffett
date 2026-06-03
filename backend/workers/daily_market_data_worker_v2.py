@@ -97,7 +97,7 @@ class SmartMarketDataWorker:
             success = await self.ingestor.ingest_historical_data(
                 symbol=symbol,
                 days_back=gap_days + 2,  # +2 buffer for weekends
-                calculate_metrics=False,  # Disabled - metrics table not used
+                calculate_metrics=True,
                 yahoo_symbol=company['yahoo_symbol']
             )
 

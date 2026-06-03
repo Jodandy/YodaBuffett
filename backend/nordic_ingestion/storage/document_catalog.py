@@ -80,16 +80,23 @@ class DocumentCatalogStorage:
                         continue
                     
                     print(f"✅ Found company: {company.name}")
-                    
-                    # Store each PDF URL as separate document
-                    for pdf_url in item.pdf_urls:
-                        print(f"  📄 Processing PDF: {pdf_url}")
-                        
-                        # OPTIMIZED: Use pre-loaded set instead of individual queries
-                        if pdf_url in existing_urls:
-                            print(f"  🔄 Skipping duplicate: {pdf_url}")
-                            stats["duplicates"] += 1
-                            continue
+
+                    # Handle items with or without PDFs
+                    # If no PDFs, create a single announcement record
+                    pdf_urls_to_process = item.pdf_urls if item.pdf_urls else [None]
+
+                    # Store each PDF URL as separate document (or single announcement if no PDFs)
+                    for pdf_url in pdf_urls_to_process:
+                        if pdf_url:
+                            print(f"  📄 Processing PDF: {pdf_url}")
+
+                            # OPTIMIZED: Use pre-loaded set instead of individual queries
+                            if pdf_url in existing_urls:
+                                print(f"  🔄 Skipping duplicate: {pdf_url}")
+                                stats["duplicates"] += 1
+                                continue
+                        else:
+                            print(f"  📢 Processing announcement (no PDF): {item.title[:60]}")
                         
                         # Prepare clean metadata (calendar info is stored separately)
                         raw_metadata = {

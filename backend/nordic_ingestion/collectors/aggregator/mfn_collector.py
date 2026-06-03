@@ -510,24 +510,24 @@ class MFNCollector:
                         print(f"📄 PDF links extracted: {pdf_links}")
                     else:
                         print(f"⚠️  No PDF links in article with {len(all_links)} total links")
-                
-                if pdf_links:
-                    # Try to extract title - ENHANCED for MFN.se structure
-                    title = "Financial Document"
+
+                # Process article regardless of whether it has PDFs (announcements can be valuable too)
+                # Try to extract title - ENHANCED for MFN.se structure
+                title = "Financial Document"
+
+                # Look for titles in various MFN.se patterns
+                title_sources = [
+                    # Standard HTML headings
+                    article.find(['h1', 'h2', 'h3', 'h4', '.title', '.headline']),
+                    # MFN.se anchor titles (like "AB Volvo: Volvokoncernen - det andra kvartalet 2025")
+                    article.find('a', title=True),
+                    # Any anchor with Swedish quarterly terms
+                    article.find('a', string=re.compile(r'(kvartal|kvartalet|delårsrapport|q[1-4])', re.I)),
+                    # Any element containing Swedish quarterly terms
+                    article.find(text=re.compile(r'(det \w+ kvartalet|kvartal|delårsrapport)', re.I))
+                ]
                     
-                    # Look for titles in various MFN.se patterns
-                    title_sources = [
-                        # Standard HTML headings
-                        article.find(['h1', 'h2', 'h3', 'h4', '.title', '.headline']),
-                        # MFN.se anchor titles (like "AB Volvo: Volvokoncernen - det andra kvartalet 2025")
-                        article.find('a', title=True),
-                        # Any anchor with Swedish quarterly terms
-                        article.find('a', string=re.compile(r'(kvartal|kvartalet|delårsrapport|q[1-4])', re.I)),
-                        # Any element containing Swedish quarterly terms
-                        article.find(text=re.compile(r'(det \w+ kvartalet|kvartal|delårsrapport)', re.I))
-                    ]
-                    
-                    for source in title_sources:
+                for source in title_sources:
                         if source:
                             if hasattr(source, 'get') and source.get('title'):
                                 # Extract from title attribute
@@ -543,21 +543,21 @@ class MFNCollector:
                                 # Direct string match
                                 title = source.strip()[:200]
                                 break
-                    
-                    # Try to extract date - ENHANCED for MFN.se structure
-                    date_published = None
-                    
-                    # First, try MFN.se specific date format
-                    date_span = article.find('span', class_='compressed-date')
-                    if date_span:
+                
+                # Try to extract date - ENHANCED for MFN.se structure
+                date_published = None
+                
+                # First, try MFN.se specific date format
+                date_span = article.find('span', class_='compressed-date')
+                if date_span:
                         date_text = date_span.get_text(strip=True)
                         try:
                             date_published = datetime.strptime(date_text, '%Y-%m-%d')
                         except:
                             pass
-                    
-                    # Check if this article is a table row or within one
-                    if not date_published and article.name == 'tr':
+                
+                # Check if this article is a table row or within one
+                if not date_published and article.name == 'tr':
                         # Article IS a table row, get first td
                         first_td = article.find('td')
                         if first_td:
@@ -571,7 +571,7 @@ class MFNCollector:
                                     break
                                 except:
                                     continue
-                    elif not date_published:
+                elif not date_published:
                         # Check if article is within a table row
                         parent_tr = article.find_parent('tr') if hasattr(article, 'find_parent') else None
                         if parent_tr:
@@ -588,9 +588,9 @@ class MFNCollector:
                                         break
                                     except:
                                         continue
-                    
-                    # Fallback to standard date finding
-                    if not date_published:
+                
+                # Fallback to standard date finding
+                if not date_published:
                         date_elem = article.find(['time', '.date', '.published'])
                         if date_elem:
                             date_text = date_elem.get('datetime') or date_elem.get_text(strip=True)
@@ -604,92 +604,88 @@ class MFNCollector:
                                         continue
                             except:
                                 pass
-                    
-                    # Final fallback - use current date if nothing found
-                    if not date_published:
+                
+                # Final fallback - use current date if nothing found
+                if not date_published:
                         date_published = datetime.now()
-                    
-                    # Extract content preview
-                    content = ""
-                    content_elem = article.find(['p', '.content', '.summary', '.excerpt'])
-                    if content_elem:
+                
+                # Extract content preview
+                content = ""
+                content_elem = article.find(['p', '.content', '.summary', '.excerpt'])
+                if content_elem:
                         content = content_elem.get_text(strip=True)[:500]
-                    
-                    # Extract calendar info specific to this article
-                    article_calendar_info = self._extract_article_calendar_info(article, title, content)
-                    
-                    # Merge page-level and article-level calendar info
-                    combined_calendar_info = {**page_calendar_info}
-                    if article_calendar_info:
+                
+                # Extract calendar info specific to this article
+                article_calendar_info = self._extract_article_calendar_info(article, title, content)
+                
+                # Merge page-level and article-level calendar info
+                combined_calendar_info = {**page_calendar_info}
+                if article_calendar_info:
                         combined_calendar_info.update(article_calendar_info)
-                    
-                    # Classify document type
-                    doc_type = self._classify_news_type(title, content)
-                    
-                    # Create news item with proper company name mapping
-                    proper_company_name = self._map_to_database_name(company)
-                    item = MFNNewsItem(
-                        company_name=proper_company_name,
-                        title=title,
-                        date_published=date_published,
-                        content=content,
-                        pdf_urls=pdf_links,
-                        source_url=source_url,
-                        document_type=doc_type,
-                        calendar_info=combined_calendar_info if combined_calendar_info else None
-                    )
-                    current_chunk.append(item)
-                    items_created += 1
-                    
-                    # Check if we need to save a chunk
-                    if len(current_chunk) >= chunk_size:
+                
+                # Classify document type
+                doc_type = self._classify_news_type(title, content)
+
+                # Filter out generic/category titles that aren't actual documents
+                generic_titles = [
+                    'pressmeddelanden',  # Press releases (category)
+                    'press releases',
+                    'financial reports',
+                    'reports',
+                    'nyheter',  # News (category)
+                    'news'
+                ]
+
+                is_generic_title = (
+                    title and
+                    title.lower().strip() in generic_titles
+                )
+
+                # Only create item if we have meaningful content (PDFs or a proper non-generic title)
+                has_meaningful_content = (
+                        pdf_links or  # Has attachments
+                        (title and
+                         title != "Financial Document" and
+                         len(title) > 10 and
+                         not is_generic_title)  # Not a generic category title
+                )
+
+                if has_meaningful_content:
+                        # Create news item with proper company name mapping
+                        proper_company_name = self._map_to_database_name(company)
+                        item = MFNNewsItem(
+                            company_name=proper_company_name,
+                            title=title,
+                            date_published=date_published,
+                            content=content,
+                            pdf_urls=pdf_links,  # Can be empty list for announcements
+                            source_url=source_url,
+                            document_type=doc_type,
+                            calendar_info=combined_calendar_info if combined_calendar_info else None
+                        )
+                        current_chunk.append(item)
+                        items_created += 1
+                else:
+                        print(f"⚠️  Skipping article - no PDFs and no meaningful title")
+                
+                # Check if we need to save a chunk
+                if len(current_chunk) >= chunk_size:
                         if save_callback:
                             print(f"   💾 Saving chunk of {len(current_chunk)} items...")
                             save_callback(current_chunk)
                         all_items.extend(current_chunk)
                         print(f"   📊 Progress: {items_created} items processed")
                         current_chunk = []
-                    
+                
             except Exception as e:
                 print(f"⚠️  Error parsing article {articles_processed} for {company}: {e}")
                 continue
-                
-        # If no structured parsing worked, use fallback method - FIXED to only get PDFs
-        if not items:
-            # Look for PDFs from all known hosting services
-            pdf_pattern_storage = r'https://storage\.mfn\.se/[^"\'>\s]+\.pdf'  # ⭐ NEW!
-            pdf_pattern_cision = r'https://mb\.cision\.com/[^"\'>\s]+\.pdf'
-            pdf_pattern_any = r'https?://[^"\'>\s]+\.pdf'
-            
-            pdf_urls = []
-            pdf_urls.extend(re.findall(pdf_pattern_storage, html))  # ⭐ NEW!
-            pdf_urls.extend(re.findall(pdf_pattern_cision, html))
-            pdf_urls.extend(re.findall(pdf_pattern_any, html))
-            
-            # Filter out image files that might have .pdf in the URL path but aren't actually PDFs
-            actual_pdf_urls = []
-            for url in pdf_urls:
-                if (url.endswith('.pdf') and 
-                    not any(img_ext in url.lower() for img_ext in ['.png', '.jpg', '.jpeg', '.gif', '.svg'])):
-                    actual_pdf_urls.append(url)
-            pdf_urls = actual_pdf_urls
-            
-            pdf_urls = list(set(pdf_urls))  # Remove duplicates
-            
-            if pdf_urls:
-                proper_company_name = self._map_to_database_name(company)
-                item = MFNNewsItem(
-                    company_name=proper_company_name,
-                    title=f"Financial Documents Found ({len(pdf_urls)} PDFs)",
-                    date_published=datetime.now(),
-                    content=f"Found {len(pdf_urls)} PDF documents from {company}",
-                    pdf_urls=pdf_urls,
-                    source_url=source_url,
-                    document_type="mixed",
-                    calendar_info=page_calendar_info if page_calendar_info else None
-                )
-                current_chunk.append(item)
-                items_created += 1
+
+        # FALLBACK DISABLED: Structured parsing is working well
+        # The fallback was creating duplicate/bad data even when structured parsing succeeded
+        # If truly needed in future, needs complete rewrite to avoid contaminating good data
+        # if not all_items and not current_chunk:
+        #     [fallback code disabled]
         
         # Save any remaining items in the final chunk
         if current_chunk:

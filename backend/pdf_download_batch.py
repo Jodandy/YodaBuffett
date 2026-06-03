@@ -625,14 +625,19 @@ class PDFDownloadBatch:
                 
                 # Clear in_progress
                 self.results['in_progress'] = None
-                
+
                 # Save progress after each download
                 self.save_results()
-                
-                # Wait between downloads (be respectful)
+
+                # Wait between downloads (be respectful) - ONLY if we actually downloaded
                 if i < len(documents_to_process):
-                    self.logger.info(f"⏱️  Waiting {self.download_delay} seconds before next download...")
-                    await asyncio.sleep(self.download_delay)
+                    if result.get('success') and not result.get('skipped'):
+                        # Only delay if we actually downloaded a new file
+                        self.logger.info(f"⏱️  Waiting {self.download_delay} seconds before next download...")
+                        await asyncio.sleep(self.download_delay)
+                    else:
+                        # No delay for skipped files - continue immediately
+                        pass
             
         # Final results
         self.print_final_summary()
