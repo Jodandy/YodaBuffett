@@ -1,0 +1,23 @@
+# NAV-Quality Evaluator Configuration
+# Two-layer asset evaluation: math layer (all) + judgment layer (survivors only)
+
+# Layer 1 - Math thresholds (RELAXED FOR TESTING - restore after Layer 2 validation)
+disc_min: 0.0                     # Minimum discount to hard NAV (0% = just need positive hard NAV)
+soft_max: 0.40                    # Maximum soft assets fraction (40% of total assets)
+runway_min: 4                     # Minimum runway in quarters (1 year - relaxed for testing)
+issue_max: 0.30                   # Maximum recent share issuance (30% - relaxed for testing)
+
+# NAV haircuts
+investment_property_haircut: 0.25  # 25% haircut on investment property
+
+# Data quality guards (carry over from funnel)
+pb_min: 0                         # Minimum P/B ratio
+pb_max: 50                        # Maximum P/B ratio (sanity check)
+
+# Layer 2 - LLM settings
+llm_model: "claude-sonnet-4-5-20250929"  # Model for judgment layer
+llm_max_tokens: 1000              # Max tokens per judgment
+llm_temperature: 0.0              # Deterministic output
+
+# Output
+output_csv: "nav_evaluator_results.csv"

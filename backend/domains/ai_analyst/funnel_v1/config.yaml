@@ -1,0 +1,46 @@
+# Focus-Narrowing Engine Configuration
+# All parameters flat across the universe for comparability
+
+# Required return (discount rate)
+required_return: 0.12
+
+# Time horizons (YEARS) - these go directly into the formula as N
+horizon_primary: 12      # The comparability yardstick (12 years)
+horizon_long: 24         # The compounder diagnostic (24 years)
+
+# Exit multiple assumption (conservative terminal PE)
+exit_multiple_ref: 13
+
+# Quality thresholds
+roic_quality_cutoff: 0.12        # 12% ROIC = quality business (above cost of capital)
+gap_material: 0.03                # 3pp growth difference = material
+gap_underpriced_min: 0.0          # Minimum gap for UNDERPRICED_DURABILITY (positive = cheap)
+
+# Reinvestment rate assumption (for sustainable growth ceiling)
+# Serial acquirers and growth companies typically retain 60-80%, not 30%
+reinvestment_rate: 0.70          # 70% of ROIC reinvested
+
+# Data sanity clamps (prevent artifacts from dominating rankings)
+roic_cap: 0.50                    # Cap ROIC at 50% (filters tiny-denominator inflation)
+growth_clamp: 0.50                # Clamp growth_hist/ceiling to ±50%
+gap_clamp: 1.00                   # Clamp gap to ±100%
+pe_min: 0                         # Minimum sane P/E
+pe_max: 150                       # Maximum sane P/E
+
+# Durable compounder gate (anti-Nordrest guard)
+min_track_years: 4                # Minimum years of financial history for durable status
+abs_growth_cap: 0.22              # Absolute growth cap for durable compounders (22%)
+organic_roic_cap: 0.40            # Cap for goodwill-adjusted ROIC
+growth_consistency_threshold: 0.6 # Minimum fraction of positive growth years
+
+# Column mapping (override to match your CSV headers)
+column_mapping:
+  ticker: "ticker"
+  name: "name"
+  price: "price"
+  eps_norm: "eps_norm"
+  growth_hist: "growth_hist"
+  roic: "roic"
+  nav_ps: "nav_ps"
+  div_ps: "div_ps"              # Optional
+  sector: "sector"              # Optional
